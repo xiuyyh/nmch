@@ -26,7 +26,8 @@ import {
   ChevronDown,
   ShoppingCart,
   XCircle,
-  RotateCcw
+  RotateCcw,
+  MinusCircle
 } from "lucide-react";
 import { useCollection, useFirestore, useUser } from "@/firebase";
 import { collection, query, orderBy, doc, updateDoc, increment, serverTimestamp, getDoc } from "firebase/firestore";
@@ -90,31 +91,33 @@ export default function SalesHistoryPage() {
     };
   }, [sales]);
 
+  const checkSettlement = async (timestamp: any) => {
+    if (!firestore || !timestamp) return true;
+    const dateStr = format(timestamp.toDate(), "yyyy-MM-dd");
+    const closingRef = doc(firestore, "dailyClosings", dateStr);
+    const closingSnap = await getDoc(closingRef);
+    return closingSnap.exists();
+  };
+
   const handleCancelSale = async (sale: any) => {
     if (!firestore) return;
 
-    // 1. Check if the day is settled
-    const dateStr = format(sale.timestamp.toDate(), "yyyy-MM-dd");
-    const closingRef = doc(firestore, "dailyClosings", dateStr);
-    const closingSnap = await getDoc(closingRef);
-
-    if (closingSnap.exists()) {
+    const isSettled = await checkSettlement(sale.timestamp);
+    if (isSettled) {
       toast({
         variant: "destructive",
         title: "Cancellation Denied",
-        description: `The sales for ${dateStr} have been settled and locked.`,
+        description: `The sales for this day have been settled and locked.`,
       });
       return;
     }
 
     try {
-      // 2. Update sale status
       await updateDoc(doc(firestore, "sales", sale.id), {
         status: "Canceled",
         canceledAt: serverTimestamp()
       });
 
-      // 3. Restore inventory
       for (const item of sale.items) {
         const stockRef = doc(firestore, "inventory", item.itemId);
         await updateDoc(stockRef, {
@@ -132,6 +135,57 @@ export default function SalesHistoryPage() {
         variant: "destructive",
         title: "Error",
         description: "Could not cancel sale. Check permissions.",
+      });
+    }
+  };
+
+  const handleVoidItem = async (sale: any, itemIndex: number) => {
+    if (!firestore) return;
+
+    const isSettled = await checkSettlement(sale.timestamp);
+    if (isSettled) {
+      toast({
+        variant: "destructive",
+        title: "Action Denied",
+        description: `The sales for this day are already settled.`,
+      });
+      return;
+    }
+
+    const itemToVoid = sale.items[itemIndex];
+    const updatedItems = sale.items.filter((_: any, i: number) => i !== itemIndex);
+    const updatedTotal = updatedItems.reduce((sum: number, i: any) => sum + (i.price * i.quantity), 0);
+
+    try {
+      if (updatedItems.length === 0) {
+        await updateDoc(doc(firestore, "sales", sale.id), {
+          status: "Canceled",
+          canceledAt: serverTimestamp(),
+          items: [],
+          total: 0
+        });
+      } else {
+        await updateDoc(doc(firestore, "sales", sale.id), {
+          items: updatedItems,
+          total: updatedTotal
+        });
+      }
+
+      const stockRef = doc(firestore, "inventory", itemToVoid.itemId);
+      await updateDoc(stockRef, {
+        stock: increment(itemToVoid.quantity),
+        lastUpdated: serverTimestamp()
+      });
+
+      toast({
+        title: "Item Voided",
+        description: `${itemToVoid.name} removed and stock restored.`,
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Could not void item.",
       });
     }
   };
@@ -322,8 +376,19 @@ export default function SalesHistoryPage() {
                             <span>Subtotal</span>
                           </div>
                           {sale.items?.map((item: any, idx: number) => (
-                            <div key={idx} className="flex justify-between items-center text-sm">
-                              <span className="text-white/80">{item.name} <span className="text-muted-foreground">x{item.quantity}</span></span>
+                            <div key={idx} className="flex justify-between items-center text-sm group/item">
+                              <span className="text-white/80">
+                                {item.name} <span className="text-muted-foreground">x{item.quantity}</span>
+                                {sale.status !== "Canceled" && (
+                                  <button 
+                                    onClick={() => handleVoidItem(sale, idx)}
+                                    className="ml-2 text-destructive opacity-0 group-hover/item:opacity-100 transition-opacity"
+                                    title="Void this item"
+                                  >
+                                    <MinusCircle className="w-3.5 h-3.5 inline" />
+                                  </button>
+                                )}
+                              </span>
                               <span className="font-headline font-bold">₦{(item.price * item.quantity).toLocaleString()}</span>
                             </div>
                           ))}
@@ -338,14 +403,14 @@ export default function SalesHistoryPage() {
                               <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                   <Button variant="ghost" size="sm" className="h-8 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive">
-                                    <XCircle className="w-3.5 h-3.5 mr-1.5" /> Cancel Sale
+                                    <XCircle className="w-3.5 h-3.5 mr-1.5" /> Cancel Entire Sale
                                   </Button>
                                 </AlertDialogTrigger>
                                 <AlertDialogContent className="glass-card border-white/10">
                                   <AlertDialogHeader>
                                     <AlertDialogTitle>Cancel Transaction?</AlertDialogTitle>
                                     <AlertDialogDescription>
-                                      This will mark the sale as canceled and restore <strong>{sale.items.reduce((sum: number, i: any) => sum + i.quantity, 0)} items</strong> back to the inventory. This action is only allowed if the day hasn't been settled.
+                                      This will mark the entire sale as canceled and restore <strong>all items</strong> back to the inventory. This action is only allowed if the day hasn't been settled.
                                     </AlertDialogDescription>
                                   </AlertDialogHeader>
                                   <AlertDialogFooter>
