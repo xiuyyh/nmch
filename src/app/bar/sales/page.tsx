@@ -32,7 +32,9 @@ import {
   ChevronRight,
   Package,
   ArrowLeftRight,
-  Printer
+  Printer,
+  CookingPot,
+  CheckCircle2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCollection, useDoc, useFirestore, useUser } from "@/firebase";
@@ -56,6 +58,15 @@ import Link from "next/link";
 const ITEMS_PER_PAGE = 5;
 const TABLES = Array.from({ length: 20 }, (_, i) => `Table ${i + 1}`);
 
+interface CartItem {
+  itemId: string;
+  name: string;
+  price: number;
+  quantity: number;
+  category?: string;
+  isSent?: boolean;
+}
+
 export default function SalesPage() {
   const firestore = useFirestore();
   const { user } = useUser();
@@ -63,7 +74,7 @@ export default function SalesPage() {
   
   const [activeTab, setActiveTab] = useState<"quick" | "tables" | "history">("quick");
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
-  const [cart, setCart] = useState<{ itemId: string; name: string; price: number; quantity: number; category?: string }[]>([]);
+  const [cart, setCart] = useState<CartItem[]>([]);
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
@@ -97,14 +108,15 @@ export default function SalesPage() {
       const existing = prev.find(i => i.itemId === item.id);
       let newCart;
       if (existing) {
-        newCart = prev.map(i => i.itemId === item.id ? { ...i, quantity: i.quantity + 1 } : i);
+        newCart = prev.map(i => i.itemId === item.id ? { ...i, quantity: i.quantity + 1, isSent: false } : i);
       } else {
         newCart = [...prev, { 
           itemId: item.id, 
           name: item.name, 
           price: item.price || 0, 
           quantity: 1,
-          category: item.category 
+          category: item.category,
+          isSent: false
         }];
       }
 
@@ -121,7 +133,7 @@ export default function SalesPage() {
       const newCart = prev.map(i => {
         if (i.itemId === itemId) {
           const newQty = Math.max(1, i.quantity + delta);
-          return { ...i, quantity: newQty };
+          return { ...i, quantity: newQty, isSent: false }; // Reset isSent if quantity changes
         }
         return i;
       });
@@ -136,6 +148,41 @@ export default function SalesPage() {
       if (selectedTable && firestore) saveToTable(newCart);
       return newCart;
     });
+  };
+
+  const sendItemToKitchen = (itemId: string) => {
+    if (!firestore) return;
+    const item = cart.find(i => i.itemId === itemId);
+    if (!item || item.category !== "FOOD") return;
+
+    const kitchenOrderData = {
+      tableNumber: selectedTable || "Counter",
+      items: [{ name: item.name, quantity: item.quantity }],
+      timestamp: serverTimestamp(),
+      staffName: user?.displayName || user?.email || "Bar Staff"
+    };
+
+    addDoc(collection(firestore, "kitchenOrders"), kitchenOrderData)
+      .then(() => {
+        toast({
+          title: "Order Sent to Kitchen",
+          description: `${item.name} x${item.quantity} sent.`,
+        });
+        
+        // Update local state and firestore session
+        setCart(prev => {
+          const newCart = prev.map(i => i.itemId === itemId ? { ...i, isSent: true } : i);
+          if (selectedTable) saveToTable(newCart);
+          return newCart;
+        });
+      })
+      .catch(error => {
+        errorEmitter.emit("permission-error", new FirestorePermissionError({
+          path: "kitchenOrders",
+          operation: "create",
+          requestResourceData: kitchenOrderData
+        }));
+      });
   };
 
   const saveToTable = async (items: any[]) => {
@@ -190,12 +237,12 @@ export default function SalesPage() {
         }));
       });
 
-    // Handle Kitchen Routing for FOOD items
-    const foodItems = cart.filter(item => item.category === "FOOD");
-    if (foodItems.length > 0) {
+    // Handle remaining unsent FOOD items (in case they haven't fired them yet)
+    const unsentFoodItems = cart.filter(item => item.category === "FOOD" && !item.isSent);
+    if (unsentFoodItems.length > 0) {
       const kitchenOrderData = {
         tableNumber: selectedTable || "Counter",
-        items: foodItems.map(i => ({ name: i.name, quantity: i.quantity })),
+        items: unsentFoodItems.map(i => ({ name: i.name, quantity: i.quantity })),
         timestamp: serverTimestamp(),
         staffName: user?.displayName || user?.email || "Bar Staff"
       };
@@ -364,6 +411,26 @@ export default function SalesPage() {
                     <Plus className="w-2.5 h-2.5" />
                   </Button>
                 </div>
+                
+                {item.category === "FOOD" && (
+                  <div className="flex-1 px-3">
+                    {item.isSent ? (
+                      <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 text-[10px] font-bold py-1 gap-1">
+                        <CheckCircle2 className="w-3 h-3" /> Fired to Kitchen
+                      </Badge>
+                    ) : (
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        onClick={() => sendItemToKitchen(item.itemId)}
+                        className="h-8 text-[10px] font-bold uppercase tracking-widest bg-primary/10 text-primary hover:bg-primary/20 rounded-lg"
+                      >
+                        <CookingPot className="w-3 h-3 mr-1" /> Fire to Kitchen
+                      </Button>
+                    )}
+                  </div>
+                )}
+
                 <span className="font-headline font-bold text-primary text-sm">₦{(item.price * item.quantity).toLocaleString()}</span>
               </div>
             </div>
