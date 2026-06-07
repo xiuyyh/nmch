@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,32 +9,33 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Search, Plus, Minus, Trash2, CreditCard, Banknote, ShoppingCart } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useCollection, useFirestore } from "@/firebase";
+import { collection, addDoc, serverTimestamp, query, where } from "firebase/firestore";
+import { errorEmitter } from "@/firebase/error-emitter";
+import { FirestorePermissionError } from "@/firebase/errors";
 
 const categories = ["All", "Cocktails", "Beer", "Wine", "Food", "Spirits"];
 
-const menuItems = [
-  { id: "1", name: "Old Fashioned", price: 14.00, category: "Cocktails" },
-  { id: "2", name: "Margarita", price: 12.00, category: "Cocktails" },
-  { id: "3", name: "IPA (Pint)", price: 8.50, category: "Beer" },
-  { id: "4", name: "Lager (Pint)", price: 7.00, category: "Beer" },
-  { id: "5", name: "Chardonnay", price: 11.00, category: "Wine" },
-  { id: "6", name: "Cabernet", price: 12.00, category: "Wine" },
-  { id: "7", name: "Truffle Fries", price: 12.00, category: "Food" },
-  { id: "8", name: "Sliders", price: 15.00, category: "Food" },
-];
-
 export default function POSPage() {
+  const firestore = useFirestore();
   const [cart, setCart] = useState<{ id: string; name: string; price: number; quantity: number }[]>([]);
   const [search, setSearch] = useState("");
   const { toast } = useToast();
 
-  const addToCart = (item: typeof menuItems[0]) => {
+  const menuQuery = useMemo(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, "menu"), where("status", "==", "Active"));
+  }, [firestore]);
+
+  const { data: menuItems, loading } = useCollection(menuQuery);
+
+  const addToCart = (item: any) => {
     setCart(prev => {
       const existing = prev.find(i => i.id === item.id);
       if (existing) {
         return prev.map(i => i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i);
       }
-      return [...prev, { ...item, quantity: 1 }];
+      return [...prev, { id: item.id, name: item.name, price: item.price, quantity: 1 }];
     });
   };
 
@@ -55,12 +56,39 @@ export default function POSPage() {
   const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
   const handleCheckout = (method: string) => {
-    toast({
-      title: "Sale Recorded",
-      description: `Successfully processed ${method} payment of $${total.toFixed(2)}`,
-    });
-    setCart([]);
+    if (!firestore) return;
+
+    const saleData = {
+      items: cart.map(i => ({ menuItemId: i.id, name: i.name, quantity: i.quantity, price: i.price })),
+      total,
+      method,
+      timestamp: serverTimestamp()
+    };
+
+    addDoc(collection(firestore, "sales"), saleData)
+      .then(() => {
+        toast({
+          title: "Sale Recorded",
+          description: `Successfully processed ${method} payment of $${total.toFixed(2)}`,
+        });
+        setCart([]);
+      })
+      .catch(async (error) => {
+        const permissionError = new FirestorePermissionError({
+          path: "sales",
+          operation: "create",
+          requestResourceData: saleData,
+        });
+        errorEmitter.emit("permission-error", permissionError);
+      });
   };
+
+  const filteredItems = useMemo(() => {
+    if (!menuItems) return [];
+    return menuItems.filter(item => 
+      item.name?.toLowerCase().includes(search.toLowerCase())
+    );
+  }, [menuItems, search]);
 
   return (
     <AppShell>
@@ -86,29 +114,33 @@ export default function POSPage() {
               ))}
             </TabsList>
 
-            {categories.map(cat => (
-              <TabsContent key={cat} value={cat} className="mt-4">
-                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {menuItems
-                    .filter(item => (cat === "All" || item.category === cat) && item.name.toLowerCase().includes(search.toLowerCase()))
-                    .map(item => (
-                      <Card 
-                        key={item.id} 
-                        className="glass-card hover:border-primary transition-colors cursor-pointer group"
-                        onClick={() => addToCart(item)}
-                      >
-                        <CardContent className="p-4 flex flex-col gap-2">
-                          <span className="font-medium">{item.name}</span>
-                          <span className="text-primary font-headline font-bold">${item.price.toFixed(2)}</span>
-                          <Button size="sm" variant="ghost" className="mt-2 group-hover:bg-primary group-hover:text-primary-foreground">
-                            <Plus className="w-4 h-4" />
-                          </Button>
-                        </CardContent>
-                      </Card>
-                    ))}
-                </div>
-              </TabsContent>
-            ))}
+            {loading ? (
+              <div className="py-10 text-center text-muted-foreground">Loading menu...</div>
+            ) : (
+              categories.map(cat => (
+                <TabsContent key={cat} value={cat} className="mt-4">
+                  <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {filteredItems
+                      .filter(item => (cat === "All" || item.category === cat))
+                      .map(item => (
+                        <Card 
+                          key={item.id} 
+                          className="glass-card hover:border-primary transition-colors cursor-pointer group"
+                          onClick={() => addToCart(item)}
+                        >
+                          <CardContent className="p-4 flex flex-col gap-2">
+                            <span className="font-medium">{item.name}</span>
+                            <span className="text-primary font-headline font-bold">${item.price.toFixed(2)}</span>
+                            <Button size="sm" variant="ghost" className="mt-2 group-hover:bg-primary group-hover:text-primary-foreground">
+                              <Plus className="w-4 h-4" />
+                            </Button>
+                          </CardContent>
+                        </Card>
+                      ))}
+                  </div>
+                </TabsContent>
+              ))
+            )}
           </Tabs>
         </div>
 

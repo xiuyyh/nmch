@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { 
   Table, 
@@ -16,24 +16,34 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Search, Plus, Edit2, AlertTriangle, RefreshCw } from "lucide-react";
-
-const initialStock = [
-  { id: "1", name: "Buffalo Trace Bourbon", category: "Whiskey", stock: 12, unit: "Bottles", min: 3, lastUpdated: "2 hours ago" },
-  { id: "2", name: "Tito's Vodka", category: "Vodka", stock: 2, unit: "Bottles", min: 4, lastUpdated: "1 day ago" },
-  { id: "3", name: "Draft IPA Keg", category: "Beer", stock: 4, unit: "Kegs", min: 2, lastUpdated: "3 hours ago" },
-  { id: "4", name: "Prosecco", category: "Wine", stock: 18, unit: "Bottles", min: 6, lastUpdated: "5 hours ago" },
-  { id: "5", name: "Angostura Bitters", category: "Mixers", stock: 1, unit: "Bottles", min: 2, lastUpdated: "2 days ago" },
-  { id: "6", name: "Lemon Juice", category: "Fresh", stock: 5000, unit: "ml", min: 1000, lastUpdated: "1 hour ago" },
-];
+import { useCollection, useFirestore } from "@/firebase";
+import { collection, query, orderBy } from "firebase/firestore";
 
 export default function InventoryPage() {
-  const [stockItems, setStockItems] = useState(initialStock);
+  const firestore = useFirestore();
   const [search, setSearch] = useState("");
 
-  const filteredItems = stockItems.filter(item => 
-    item.name.toLowerCase().includes(search.toLowerCase()) || 
-    item.category.toLowerCase().includes(search.toLowerCase())
-  );
+  const inventoryQuery = useMemo(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, "inventory"), orderBy("name"));
+  }, [firestore]);
+
+  const { data: stockItems, loading } = useCollection(inventoryQuery);
+
+  const filteredItems = useMemo(() => {
+    if (!stockItems) return [];
+    return stockItems.filter(item => 
+      item.name?.toLowerCase().includes(search.toLowerCase()) || 
+      item.category?.toLowerCase().includes(search.toLowerCase())
+    );
+  }, [stockItems, search]);
+
+  const stats = useMemo(() => {
+    if (!stockItems) return { lowStock: 0 };
+    return {
+      lowStock: stockItems.filter(item => item.stock <= item.min).length
+    };
+  }, [stockItems]);
 
   return (
     <AppShell>
@@ -58,10 +68,10 @@ export default function InventoryPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card className="glass-card">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Value</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Inventory Items</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold font-headline">$8,420.00</div>
+              <div className="text-2xl font-bold font-headline">{stockItems?.length || 0} Total</div>
             </CardContent>
           </Card>
           <Card className="glass-card">
@@ -69,15 +79,15 @@ export default function InventoryPage() {
               <CardTitle className="text-sm font-medium text-muted-foreground">Low Stock Alerts</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-destructive font-headline">3 Items</div>
+              <div className="text-2xl font-bold text-destructive font-headline">{stats.lowStock} Items</div>
             </CardContent>
           </Card>
           <Card className="glass-card">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Recently Restocked</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Status</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-primary font-headline">12 Items</div>
+              <div className="text-2xl font-bold text-primary font-headline">Live</div>
             </CardContent>
           </Card>
         </div>
@@ -98,50 +108,54 @@ export default function InventoryPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent border-border">
-                  <TableHead className="font-bold">Item Name</TableHead>
-                  <TableHead className="font-bold">Category</TableHead>
-                  <TableHead className="font-bold">Current Stock</TableHead>
-                  <TableHead className="font-bold">Minimum Threshold</TableHead>
-                  <TableHead className="font-bold">Status</TableHead>
-                  <TableHead className="font-bold text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredItems.map((item) => {
-                  const isLow = item.stock <= item.min;
-                  return (
-                    <TableRow key={item.id} className="border-border hover:bg-white/5">
-                      <TableCell className="font-medium">{item.name}</TableCell>
-                      <TableCell className="text-muted-foreground">{item.category}</TableCell>
-                      <TableCell>
-                        <span className="font-headline font-bold">{item.stock}</span> {item.unit}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">{item.min} {item.unit}</TableCell>
-                      <TableCell>
-                        {isLow ? (
-                          <Badge variant="destructive" className="gap-1">
-                            <AlertTriangle className="w-3 h-3" />
-                            Low Stock
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
-                            Healthy
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="icon">
-                          <Edit2 className="w-4 h-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+            {loading ? (
+              <div className="py-10 text-center text-muted-foreground">Loading stock data...</div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent border-border">
+                    <TableHead className="font-bold">Item Name</TableHead>
+                    <TableHead className="font-bold">Category</TableHead>
+                    <TableHead className="font-bold">Current Stock</TableHead>
+                    <TableHead className="font-bold">Minimum Threshold</TableHead>
+                    <TableHead className="font-bold">Status</TableHead>
+                    <TableHead className="font-bold text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredItems.map((item) => {
+                    const isLow = item.stock <= item.min;
+                    return (
+                      <TableRow key={item.id} className="border-border hover:bg-white/5">
+                        <TableCell className="font-medium">{item.name}</TableCell>
+                        <TableCell className="text-muted-foreground">{item.category}</TableCell>
+                        <TableCell>
+                          <span className="font-headline font-bold">{item.stock}</span> {item.unit}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">{item.min} {item.unit}</TableCell>
+                        <TableCell>
+                          {isLow ? (
+                            <Badge variant="destructive" className="gap-1">
+                              <AlertTriangle className="w-3 h-3" />
+                              Low Stock
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
+                              Healthy
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="icon">
+                            <Edit2 className="w-4 h-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       </div>

@@ -1,0 +1,72 @@
+
+{
+  "entities": {
+    "StockItem": {
+      "title": "Stock Item",
+      "description": "An item in the bar's inventory",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "stock": { "type": "number" },
+        "unit": { "type": "string" },
+        "min": { "type": "number" },
+        "lastUpdated": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "stock", "min"]
+    },
+    "MenuItem": {
+      "title": "Menu Item",
+      "description": "An item available for sale on the menu",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "price": { "type": "number" },
+        "category": { "type": "string" },
+        "ingredients": { "type": "number" },
+        "status": { "type": "string", "enum": ["Active", "Seasonal", "Archived"] }
+      },
+      "required": ["name", "price", "status"]
+    },
+    "Sale": {
+      "title": "Sale Record",
+      "description": "A recorded transaction",
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "menuItemId": { "type": "string" },
+              "name": { "type": "string" },
+              "quantity": { "type": "number" },
+              "price": { "type": "number" }
+            }
+          }
+        },
+        "total": { "type": "number" },
+        "method": { "type": "string", "enum": ["Card", "Cash"] },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["items", "total", "method", "timestamp"]
+    }
+  },
+  "auth": {
+    "providers": ["google.com", "password"]
+  },
+  "firestore": {
+    "/inventory/{itemId}": {
+      "schema": "StockItem",
+      "description": "Collection of inventory items"
+    },
+    "/menu/{itemId}": {
+      "schema": "MenuItem",
+      "description": "Collection of menu items"
+    },
+    "/sales/{saleId}": {
+      "schema": "Sale",
+      "description": "History of sales"
+    }
+  }
+}
