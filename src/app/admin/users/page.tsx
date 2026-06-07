@@ -3,7 +3,7 @@
 
 import React, { useMemo, useState } from "react";
 import { AppShell } from "@/components/layout/AppShell";
-import { RoleGuard, UserRole } from "@/components/auth/RoleGuard";
+import { UserRole } from "@/components/auth/RoleGuard";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,12 +24,13 @@ import {
 } from "@/components/ui/table";
 import { 
   Users, 
-  ShieldCheck, 
   UserCog, 
   Trash2, 
   AlertCircle,
   CheckCircle2,
-  Lock
+  Lock,
+  ShieldAlert,
+  Loader2
 } from "lucide-react";
 import { useCollection, useFirestore, useUser, useDoc } from "@/firebase";
 import { collection, query, orderBy, doc, updateDoc, deleteDoc, setDoc, serverTimestamp } from "firebase/firestore";
@@ -74,11 +75,13 @@ export default function UserManagementPage() {
     return doc(firestore, 'users', currentUser.uid);
   }, [firestore, currentUser]);
 
-  const { data: currentUserRecord } = useDoc(currentUserRef);
+  const { data: currentUserRecord, loading: recordLoading } = useDoc(currentUserRef);
 
   const adminsExist = useMemo(() => {
     return users?.some(u => u.role === 'admin');
   }, [users]);
+
+  const isUserAdmin = currentUserRecord?.role === 'admin';
 
   const handleUpdateRole = async (userId: string, newRole: UserRole) => {
     if (!firestore || !currentUser) return;
@@ -126,8 +129,39 @@ export default function UserManagementPage() {
 
   const isSelf = (userId: string) => currentUser?.uid === userId;
 
+  if (loading || recordLoading) {
+    return (
+      <AppShell>
+        <div className="flex h-[60vh] w-full items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </AppShell>
+    );
+  }
+
+  // ALLOW ACCESS IF: User is Admin OR No Admins exist in the entire system
+  const canAccess = isUserAdmin || !adminsExist;
+
+  if (!canAccess) {
+    return (
+      <AppShell>
+        <div className="flex flex-col h-[60vh] w-full items-center justify-center text-center space-y-4">
+          <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center">
+            <ShieldAlert className="w-8 h-8 text-destructive" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-2xl font-headline font-bold uppercase tracking-tight">Access Restricted</h2>
+            <p className="text-muted-foreground max-w-md mx-auto">
+              Only authorized Administrators can manage staff roles.
+            </p>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+
   return (
-    <RoleGuard allowedRoles={["admin"]}>
+    <AppShell>
       <div className="space-y-8 max-w-6xl mx-auto">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
@@ -137,10 +171,13 @@ export default function UserManagementPage() {
             <p className="text-muted-foreground mt-1">Control staff access levels and department assignments.</p>
           </div>
           
-          {!adminsExist && !loading && (
-            <Button onClick={handleBootstrapAdmin} className="bg-amber-600 hover:bg-amber-700 gap-2">
-              <Lock className="w-4 h-4" /> Bootstrap First Admin
-            </Button>
+          {!adminsExist && (
+            <div className="flex flex-col items-end gap-2">
+              <Badge variant="outline" className="text-amber-500 border-amber-500/30 bg-amber-500/10">NO ADMIN DETECTED</Badge>
+              <Button onClick={handleBootstrapAdmin} className="bg-amber-600 hover:bg-amber-700 gap-2">
+                <Lock className="w-4 h-4" /> Bootstrap First Admin
+              </Button>
+            </div>
           )}
         </div>
 
@@ -163,7 +200,8 @@ export default function UserManagementPage() {
             <CardHeader className="pb-2">
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">System Status</span>
               <CardTitle className="text-sm font-headline flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-500" /> SECURE & ACTIVE
+                <CheckCircle2 className={`w-4 h-4 ${adminsExist ? 'text-emerald-500' : 'text-amber-500'}`} /> 
+                {adminsExist ? 'SECURE & ACTIVE' : 'SECURITY UNCONFIGURED'}
               </CardTitle>
             </CardHeader>
           </Card>
@@ -176,85 +214,81 @@ export default function UserManagementPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            {loading ? (
-              <div className="py-20 text-center animate-pulse text-muted-foreground font-bold">LOADING STAFF DATA...</div>
-            ) : (
-              <Table>
-                <TableHeader className="bg-white/[0.02]">
-                  <TableRow className="border-white/5 hover:bg-transparent">
-                    <TableHead className="text-[10px] font-bold uppercase tracking-widest">Name / Email</TableHead>
-                    <TableHead className="text-[10px] font-bold uppercase tracking-widest">Departmental Role</TableHead>
-                    <TableHead className="text-[10px] font-bold uppercase tracking-widest">Joined</TableHead>
-                    <TableHead className="text-[10px] font-bold uppercase tracking-widest text-right">Actions</TableHead>
+            <Table>
+              <TableHeader className="bg-white/[0.02]">
+                <TableRow className="border-white/5 hover:bg-transparent">
+                  <TableHead className="text-[10px] font-bold uppercase tracking-widest">Name / Email</TableHead>
+                  <TableHead className="text-[10px] font-bold uppercase tracking-widest">Departmental Role</TableHead>
+                  <TableHead className="text-[10px] font-bold uppercase tracking-widest">Joined</TableHead>
+                  <TableHead className="text-[10px] font-bold uppercase tracking-widest text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {users?.map((u) => (
+                  <TableRow key={u.id} className="border-white/5 hover:bg-white/[0.02] transition-colors">
+                    <TableCell>
+                      <div className="flex flex-col">
+                        <span className="font-bold text-white">{u.displayName || "Unknown Staff"}</span>
+                        <span className="text-xs text-muted-foreground">{u.email}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Select 
+                        value={u.role} 
+                        onValueChange={(val: UserRole) => handleUpdateRole(u.id, val)}
+                        disabled={processingId === u.id || (u.role === 'admin' && isSelf(u.id) && users.filter(a => a.role === 'admin').length === 1)}
+                      >
+                        <SelectTrigger className="w-40 bg-white/5 border-white/10 h-10 text-xs font-bold uppercase">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="glass-card border-white/10">
+                          {ROLES.map(role => (
+                            <SelectItem key={role.value} value={role.value} className="text-xs font-bold uppercase">
+                              {role.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-xs text-muted-foreground uppercase font-bold">
+                        {u.createdAt?.toDate ? format(u.createdAt.toDate(), "MMM dd, yyyy") : "N/A"}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {!isSelf(u.id) && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="hover:text-destructive">
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent className="glass-card border-white/10">
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete User Access?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will remove {u.displayName}'s departmental role from the NMCH system. They will no longer be able to access restricted sections.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel className="bg-white/5 border-white/10">Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDeleteUser(u.id)} className="bg-destructive text-destructive-foreground">
+                                Revoke Access
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
+                      {isSelf(u.id) && (
+                        <Badge variant="outline" className="border-primary/20 text-primary uppercase text-[8px] font-bold">
+                          You
+                        </Badge>
+                      )}
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {users?.map((u) => (
-                    <TableRow key={u.id} className="border-white/5 hover:bg-white/[0.02] transition-colors">
-                      <TableCell>
-                        <div className="flex flex-col">
-                          <span className="font-bold text-white">{u.displayName || "Unknown Staff"}</span>
-                          <span className="text-xs text-muted-foreground">{u.email}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Select 
-                          value={u.role} 
-                          onValueChange={(val: UserRole) => handleUpdateRole(u.id, val)}
-                          disabled={processingId === u.id || (u.role === 'admin' && isSelf(u.id) && users.filter(a => a.role === 'admin').length === 1)}
-                        >
-                          <SelectTrigger className="w-40 bg-white/5 border-white/10 h-10 text-xs font-bold uppercase">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="glass-card border-white/10">
-                            {ROLES.map(role => (
-                              <SelectItem key={role.value} value={role.value} className="text-xs font-bold uppercase">
-                                {role.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-xs text-muted-foreground uppercase font-bold">
-                          {u.createdAt?.toDate ? format(u.createdAt.toDate(), "MMM dd, yyyy") : "N/A"}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {!isSelf(u.id) && (
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon" className="hover:text-destructive">
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent className="glass-card border-white/10">
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete User Access?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  This will remove {u.displayName}'s departmental role from the NMCH system. They will no longer be able to access restricted sections.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel className="bg-white/5 border-white/10">Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDeleteUser(u.id)} className="bg-destructive text-destructive-foreground">
-                                  Revoke Access
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        )}
-                        {isSelf(u.id) && (
-                          <Badge variant="outline" className="border-primary/20 text-primary uppercase text-[8px] font-bold">
-                            You
-                          </Badge>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
+                ))}
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
 
@@ -268,6 +302,6 @@ export default function UserManagementPage() {
           </div>
         </div>
       </div>
-    </RoleGuard>
+    </AppShell>
   );
 }
