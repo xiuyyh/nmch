@@ -1,4 +1,3 @@
-
 "use client";
 
 import React from "react";
@@ -8,9 +7,7 @@ import {
   LayoutDashboard, 
   ShoppingCart, 
   Package, 
-  Menu as MenuIcon, 
   ClipboardList, 
-  BarChart3,
   LogOut,
   ChevronRight,
   Wine,
@@ -129,7 +126,6 @@ function AppSidebar() {
       
       <SidebarContent className="px-4 py-6">
         <SidebarMenu className="gap-2">
-          {/* Dashboard Link (Flat) */}
           <SidebarMenuItem>
             <SidebarMenuButton 
               asChild 
@@ -144,13 +140,10 @@ function AppSidebar() {
             >
               <Link href="/">
                 <LayoutDashboard className={cn(
-                  "w-5 h-5 transition-transform duration-300 group-hover/btn:scale-110",
+                  "w-5 h-5 shrink-0 transition-transform duration-300 group-hover/btn:scale-110",
                   pathname === "/" ? "text-primary-foreground" : "text-primary/70"
                 )} />
-                <span className="font-medium">Overview</span>
-                {pathname === "/" && (
-                  <div className="absolute right-0 top-0 bottom-0 w-1 bg-white/20" />
-                )}
+                {!isCollapsed && <span className="font-medium">Overview</span>}
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -164,7 +157,6 @@ function AppSidebar() {
             <div className="h-px bg-white/5 mt-2" />
           </div>
 
-          {/* Department Sections (Collapsible) */}
           {departments.map((dept) => {
             const isActive = dept.items.some(i => i.href === pathname);
             return (
@@ -178,17 +170,19 @@ function AppSidebar() {
                         isActive && "text-primary bg-primary/5"
                       )}
                     >
-                      <div className={cn(
-                        "p-1.5 rounded-lg transition-colors duration-300",
-                        isActive ? "bg-primary/20 text-primary" : "bg-white/5 group-hover:bg-white/10"
-                      )}>
-                        <dept.icon className="w-4 h-4" />
-                      </div>
-                      <span className="font-medium ml-1">{dept.title}</span>
-                      <ChevronRight className={cn(
-                        "ml-auto w-4 h-4 transition-transform duration-500 ease-in-out opacity-40 group-hover:opacity-100",
-                        "group-data-[state=open]/collapsible:rotate-90 group-data-[state=open]/collapsible:opacity-100"
+                      <dept.icon className={cn(
+                        "w-5 h-5 shrink-0 transition-colors duration-300",
+                        isActive ? "text-primary" : "text-muted-foreground group-hover:text-white"
                       )} />
+                      {!isCollapsed && (
+                        <>
+                          <span className="font-medium ml-2">{dept.title}</span>
+                          <ChevronRight className={cn(
+                            "ml-auto w-4 h-4 transition-transform duration-500 ease-in-out opacity-40 group-hover:opacity-100",
+                            "group-data-[state=open]/collapsible:rotate-90 group-data-[state=open]/collapsible:opacity-100"
+                          )} />
+                        </>
+                      )}
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
                   <CollapsibleContent className="animate-in fade-in-0 slide-in-from-top-1 duration-300">
@@ -233,8 +227,8 @@ function AppSidebar() {
               className="text-muted-foreground hover:text-white hover:bg-destructive/10 hover:text-destructive h-11 rounded-xl transition-all duration-300 group/logout"
               onClick={() => signOut(auth)}
             >
-              <LogOut className="w-5 h-5 transition-transform duration-300 group-hover/logout:-translate-x-1" />
-              <span className="font-medium">Sign Out</span>
+              <LogOut className="w-5 h-5 shrink-0 transition-transform duration-300 group-hover/logout:-translate-x-1" />
+              {!isCollapsed && <span className="font-medium">Sign Out</span>}
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem className="mt-2">
