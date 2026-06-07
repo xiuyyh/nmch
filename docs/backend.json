@@ -75,6 +75,30 @@
         "totalRevenue": { "type": "number" }
       },
       "required": ["date", "settledAt"]
+    },
+    "RestockRequest": {
+      "title": "Restock Request",
+      "description": "A request for more stock from the bar to the store",
+      "type": "object",
+      "properties": {
+        "requestDate": { "type": "string", "format": "date-time" },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "itemId": { "type": "string" },
+              "name": { "type": "string" },
+              "requestedQuantity": { "type": "number" }
+            }
+          }
+        },
+        "status": { "type": "string", "enum": ["Pending", "Approved", "Rejected"] },
+        "requestedBy": { "type": "string" },
+        "processedBy": { "type": "string" },
+        "processedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["requestDate", "items", "status", "requestedBy"]
     }
   },
   "auth": {
@@ -96,6 +120,10 @@
     "/dailyClosings/{dateString}": {
       "schema": "DailyClosing",
       "description": "Settlement records per day (format YYYY-MM-DD)"
+    },
+    "/restockRequests/{requestId}": {
+      "schema": "RestockRequest",
+      "description": "Collection of restock requests"
     }
   }
 }

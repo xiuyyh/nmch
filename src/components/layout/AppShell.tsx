@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState } from "react";
@@ -18,7 +19,8 @@ import {
   Menu,
   X,
   History as HistoryIcon,
-  Lock
+  Lock,
+  RefreshCw
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -56,6 +58,7 @@ const departments = [
     items: [
       { name: "Bar Sales", href: "/bar/sales", icon: ShoppingCart },
       { name: "Sales History", href: "/bar/sales/history", icon: HistoryIcon },
+      { name: "Restock", href: "/bar/restock", icon: RefreshCw },
       { name: "End of Day", href: "/bar/end-of-day", icon: Lock },
     ],
   },
