@@ -23,6 +23,13 @@ import {
   DialogTrigger,
   DialogFooter
 } from "@/components/ui/dialog";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Search, Plus, Edit2, ChevronLeft, ChevronRight, Package } from "lucide-react";
 import { useCollection, useFirestore } from "@/firebase";
@@ -30,7 +37,23 @@ import { collection, query, orderBy, addDoc, serverTimestamp, doc, updateDoc } f
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
-const ITEMS_PER_PAGE = 5;
+const ITEMS_PER_PAGE = 10;
+
+const CATEGORIES = [
+  "YOGHURT",
+  "BEER",
+  "WINE",
+  "RED WINE",
+  "WHISKEY/SPIRIT",
+  "FRUIT JUICE",
+  "WATER",
+  "CREAM",
+  "SOFT DRINKS",
+  "MINERALS",
+  "ENERGY DRINK",
+  "MALT DRINKS",
+  "FOOD"
+];
 
 export default function InventoryPage() {
   const firestore = useFirestore();
@@ -40,6 +63,10 @@ export default function InventoryPage() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  
+  // States for dynamic form fields
+  const [addCategory, setAddCategory] = useState<string>("");
+  const [editCategory, setEditCategory] = useState<string>("");
 
   const inventoryQuery = useMemo(() => {
     if (!firestore) return null;
@@ -69,7 +96,7 @@ export default function InventoryPage() {
   const stats = useMemo(() => {
     if (!stockItems) return { lowStock: 0 };
     return {
-      lowStock: stockItems.filter(item => item.stock <= item.min).length
+      lowStock: stockItems.filter(item => item.category !== "FOOD" && item.stock <= item.min).length
     };
   }, [stockItems]);
 
@@ -78,19 +105,23 @@ export default function InventoryPage() {
     if (!firestore) return;
 
     const formData = new FormData(e.currentTarget);
+    const category = addCategory;
+    const isFood = category === "FOOD";
+
     const newItem = {
       name: formData.get("name") as string,
-      category: formData.get("category") as string,
-      stock: Number(formData.get("stock")),
-      min: Number(formData.get("min")),
+      category: category,
+      stock: isFood ? 0 : Number(formData.get("stock")),
+      min: isFood ? 0 : Number(formData.get("min")),
       price: Number(formData.get("price")),
-      unit: formData.get("unit") as string,
+      unit: isFood ? "N/A" : (formData.get("unit") as string),
       lastUpdated: serverTimestamp()
     };
 
     try {
       await addDoc(collection(firestore, "inventory"), newItem);
       setIsAddOpen(false);
+      setAddCategory("");
       toast({
         title: "Item Added",
         description: `${newItem.name} added successfully.`,
@@ -109,13 +140,16 @@ export default function InventoryPage() {
     if (!firestore || !editingItem) return;
 
     const formData = new FormData(e.currentTarget);
+    const category = editCategory;
+    const isFood = category === "FOOD";
+
     const updatedData = {
       name: formData.get("name") as string,
-      category: formData.get("category") as string,
-      stock: Number(formData.get("stock")),
-      min: Number(formData.get("min")),
+      category: category,
+      stock: isFood ? 0 : Number(formData.get("stock")),
+      min: isFood ? 0 : Number(formData.get("min")),
       price: Number(formData.get("price")),
-      unit: formData.get("unit") as string,
+      unit: isFood ? "N/A" : (formData.get("unit") as string),
       lastUpdated: serverTimestamp()
     };
 
@@ -139,6 +173,7 @@ export default function InventoryPage() {
 
   const openEditDialog = (item: any) => {
     setEditingItem(item);
+    setEditCategory(item.category);
     setIsEditOpen(true);
   };
 
@@ -147,49 +182,65 @@ export default function InventoryPage() {
       <div className="flex flex-col gap-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-headline font-bold">Bar Inventory</h1>
+            <h1 className="text-3xl font-headline font-bold uppercase tracking-tight">Bar Inventory</h1>
             <p className="text-muted-foreground">Manage stock levels and sales pricing.</p>
           </div>
           <div className="flex gap-2">
             <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-primary text-primary-foreground gap-2">
-                  <Plus className="w-4 h-4" /> Add Item
+                <Button className="bg-primary text-primary-foreground gap-2 h-12 px-6 rounded-xl shadow-lg">
+                  <Plus className="w-4 h-4" /> Add New Item
                 </Button>
               </DialogTrigger>
-              <DialogContent className="glass-card border-white/10">
+              <DialogContent className="glass-card border-white/10 max-w-lg">
                 <DialogHeader>
-                  <DialogTitle>Add New Bar Item</DialogTitle>
+                  <DialogTitle className="text-xl font-headline">Add New Bar Item</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleAddItem} className="space-y-4 py-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2 col-span-2">
-                      <Label htmlFor="name">Item Name</Label>
-                      <Input id="name" name="name" placeholder="e.g. Heineken" required className="bg-white/5" />
+                      <Label htmlFor="name" className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Item Name</Label>
+                      <Input id="name" name="name" placeholder="e.g. Heineken" required className="bg-white/5 border-white/10 h-12" />
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="category">Category</Label>
-                      <Input id="category" name="category" placeholder="Beer" required className="bg-white/5" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="price">Price (₦)</Label>
-                      <Input id="price" name="price" type="number" step="1" required className="bg-white/5" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="unit">Unit</Label>
-                      <Input id="unit" name="unit" placeholder="Bottle" required className="bg-white/5" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="stock">Initial Stock</Label>
-                      <Input id="stock" name="stock" type="number" step="1" required className="bg-white/5" />
-                    </div>
+                    
                     <div className="space-y-2 col-span-2">
-                      <Label htmlFor="min">Min Threshold (Alert)</Label>
-                      <Input id="min" name="min" type="number" step="1" required className="bg-white/5" />
+                      <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Category</Label>
+                      <Select value={addCategory} onValueChange={setAddCategory} required>
+                        <SelectTrigger className="bg-white/5 border-white/10 h-12">
+                          <SelectValue placeholder="Select Category" />
+                        </SelectTrigger>
+                        <SelectContent className="glass-card border-white/10">
+                          {CATEGORIES.map(cat => (
+                            <SelectItem key={cat} value={cat} className="focus:bg-primary focus:text-primary-foreground">{cat}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
+
+                    <div className="space-y-2 col-span-2">
+                      <Label htmlFor="price" className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Price (₦)</Label>
+                      <Input id="price" name="price" type="number" step="1" required className="bg-white/5 border-white/10 h-12" />
+                    </div>
+
+                    {addCategory !== "FOOD" && addCategory !== "" && (
+                      <>
+                        <div className="space-y-2">
+                          <Label htmlFor="unit" className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Unit</Label>
+                          <Input id="unit" name="unit" placeholder="Bottle" required className="bg-white/5 border-white/10 h-12" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="stock" className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Initial Stock</Label>
+                          <Input id="stock" name="stock" type="number" step="1" required className="bg-white/5 border-white/10 h-12" />
+                        </div>
+                        <div className="space-y-2 col-span-2">
+                          <Label htmlFor="min" className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Min Threshold (Alert)</Label>
+                          <Input id="min" name="min" type="number" step="1" required className="bg-white/5 border-white/10 h-12" />
+                        </div>
+                      </>
+                    )}
                   </div>
                   <DialogFooter className="pt-4">
-                    <Button type="submit" className="w-full">Save Item</Button>
+                    <Button type="submit" className="w-full h-12 bg-primary text-primary-foreground font-bold shadow-xl">Create Item</Button>
                   </DialogFooter>
                 </form>
               </DialogContent>
@@ -200,71 +251,89 @@ export default function InventoryPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Card className="glass-card">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Items</CardTitle>
+              <CardTitle className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Total Inventory Items</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold font-headline">{stockItems?.length || 0}</div>
+              <div className="text-3xl font-bold font-headline">{stockItems?.length || 0}</div>
             </CardContent>
           </Card>
           <Card className="glass-card">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Low Stock Alerts</CardTitle>
+              <CardTitle className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Critical Low Stock</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-destructive font-headline">{stats.lowStock} Critical</div>
+              <div className="text-3xl font-bold text-destructive font-headline">{stats.lowStock} Alerts</div>
             </CardContent>
           </Card>
         </div>
 
-        <Card className="glass-card">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Inventory & Pricing</CardTitle>
-              <div className="relative w-64">
+        <Card className="glass-card overflow-hidden">
+          <CardHeader className="border-b border-white/5 pb-4">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <CardTitle className="text-xl font-headline flex items-center gap-2">
+                <Package className="w-5 h-5 text-primary" /> Stock & Pricing
+              </CardTitle>
+              <div className="relative w-full sm:w-80">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input 
                   placeholder="Filter inventory..." 
-                  className="pl-10 h-9 bg-background/50 border-white/5" 
+                  className="pl-10 h-10 bg-white/5 border-white/10 rounded-xl" 
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             {loading ? (
-              <div className="py-10 text-center text-muted-foreground animate-pulse">Loading...</div>
+              <div className="py-20 text-center text-muted-foreground animate-pulse font-headline font-bold uppercase tracking-widest">Gathering stock data...</div>
             ) : filteredItems?.length === 0 ? (
-              <div className="py-20 text-center text-muted-foreground italic">No items found.</div>
+              <div className="py-20 text-center text-muted-foreground italic">No items matching your search.</div>
             ) : (
               <div className="space-y-4">
                 <Table>
                   <TableHeader>
-                    <TableRow className="hover:bg-transparent border-white/5">
-                      <TableHead className="font-bold">Name</TableHead>
-                      <TableHead className="font-bold">Category</TableHead>
-                      <TableHead className="font-bold text-right">Price</TableHead>
-                      <TableHead className="font-bold text-right">Stock</TableHead>
-                      <TableHead className="font-bold text-right">Min</TableHead>
-                      <TableHead className="font-bold text-right">Actions</TableHead>
+                    <TableRow className="hover:bg-transparent border-white/5 h-12">
+                      <TableHead className="font-bold text-[10px] uppercase tracking-widest">Name</TableHead>
+                      <TableHead className="font-bold text-[10px] uppercase tracking-widest">Category</TableHead>
+                      <TableHead className="font-bold text-[10px] uppercase tracking-widest text-right">Price</TableHead>
+                      <TableHead className="font-bold text-[10px] uppercase tracking-widest text-right">Current Stock</TableHead>
+                      <TableHead className="font-bold text-[10px] uppercase tracking-widest text-right">Threshold</TableHead>
+                      <TableHead className="font-bold text-[10px] uppercase tracking-widest text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {paginatedItems.map((item) => {
-                      const isLow = item.stock <= item.min;
+                      const isFood = item.category === "FOOD";
+                      const isLow = !isFood && item.stock <= item.min;
                       return (
-                        <TableRow key={item.id} className="border-white/5 hover:bg-white/5">
-                          <TableCell className="font-medium">{item.name}</TableCell>
-                          <TableCell className="text-muted-foreground">{item.category}</TableCell>
-                          <TableCell className="text-right font-headline font-bold text-primary">
+                        <TableRow key={item.id} className="border-white/5 hover:bg-white/5 transition-colors">
+                          <TableCell className="font-bold text-sm">{item.name}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="bg-white/5 text-[10px] border-white/10">
+                              {item.category}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-headline font-bold text-primary text-lg">
                             ₦{(item.price || 0).toLocaleString()}
                           </TableCell>
                           <TableCell className="text-right">
-                            <span className={cn("font-headline font-bold", isLow && "text-destructive")}>{item.stock.toFixed(0)}</span> <span className="text-[10px] text-muted-foreground">{item.unit}</span>
+                            {isFood ? (
+                              <span className="text-xs text-muted-foreground italic font-medium">N/A</span>
+                            ) : (
+                              <>
+                                <span className={cn("font-headline font-bold text-lg", isLow && "text-destructive")}>
+                                  {item.stock.toFixed(0)}
+                                </span> 
+                                <span className="text-[10px] text-muted-foreground ml-1 uppercase font-bold">{item.unit}</span>
+                              </>
+                            )}
                           </TableCell>
-                          <TableCell className="text-right text-muted-foreground text-xs">{item.min}</TableCell>
+                          <TableCell className="text-right text-muted-foreground font-bold">
+                            {isFood ? "-" : item.min}
+                          </TableCell>
                           <TableCell className="text-right">
-                            <Button variant="ghost" size="icon" onClick={() => openEditDialog(item)}>
+                            <Button variant="ghost" size="icon" onClick={() => openEditDialog(item)} className="hover:bg-primary/10 hover:text-primary">
                               <Edit2 className="w-4 h-4" />
                             </Button>
                           </TableCell>
@@ -275,9 +344,9 @@ export default function InventoryPage() {
                 </Table>
 
                 {totalPages > 1 && (
-                  <div className="flex items-center justify-between pt-4 border-t border-white/5">
-                    <p className="text-xs text-muted-foreground">
-                      {filteredItems.length} items
+                  <div className="flex items-center justify-between p-4 border-t border-white/5">
+                    <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest">
+                      {filteredItems.length} Records
                     </p>
                     <div className="flex gap-2">
                       <Button
@@ -285,11 +354,11 @@ export default function InventoryPage() {
                         size="sm"
                         onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                         disabled={currentPage === 1}
-                        className="h-8 px-2"
+                        className="h-10 px-4 rounded-xl border-white/10"
                       >
                         <ChevronLeft className="w-4 h-4" />
                       </Button>
-                      <div className="flex items-center gap-1 text-sm font-medium px-2">
+                      <div className="flex items-center gap-1 text-sm font-bold px-4 bg-primary/10 rounded-xl text-primary">
                         {currentPage} / {totalPages}
                       </div>
                       <Button
@@ -297,7 +366,7 @@ export default function InventoryPage() {
                         size="sm"
                         onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                         disabled={currentPage === totalPages}
-                        className="h-8 px-2"
+                        className="h-10 px-4 rounded-xl border-white/10"
                       >
                         <ChevronRight className="w-4 h-4" />
                       </Button>
@@ -311,40 +380,56 @@ export default function InventoryPage() {
       </div>
 
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent className="glass-card border-white/10">
+        <DialogContent className="glass-card border-white/10 max-w-lg">
           <DialogHeader>
-            <DialogTitle>Edit Item</DialogTitle>
+            <DialogTitle className="text-xl font-headline">Update Item</DialogTitle>
           </DialogHeader>
           {editingItem && (
             <form onSubmit={handleUpdateItem} className="space-y-4 py-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2 col-span-2">
-                  <Label htmlFor="edit-name">Item Name</Label>
-                  <Input id="edit-name" name="name" defaultValue={editingItem.name} required className="bg-white/5" />
+                  <Label htmlFor="edit-name" className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Item Name</Label>
+                  <Input id="edit-name" name="name" defaultValue={editingItem.name} required className="bg-white/5 border-white/10 h-12" />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-category">Category</Label>
-                  <Input id="edit-category" name="category" defaultValue={editingItem.category} required className="bg-white/5" />
+                
+                <div className="space-y-2 col-span-2">
+                  <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Category</Label>
+                  <Select value={editCategory} onValueChange={setEditCategory} required>
+                    <SelectTrigger className="bg-white/5 border-white/10 h-12">
+                      <SelectValue placeholder="Select Category" />
+                    </SelectTrigger>
+                    <SelectContent className="glass-card border-white/10">
+                      {CATEGORIES.map(cat => (
+                        <SelectItem key={cat} value={cat} className="focus:bg-primary focus:text-primary-foreground">{cat}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-price">Price (₦)</Label>
-                  <Input id="edit-price" name="price" type="number" step="1" defaultValue={editingItem.price} required className="bg-white/5" />
+
+                <div className="space-y-2 col-span-2">
+                  <Label htmlFor="edit-price" className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Price (₦)</Label>
+                  <Input id="edit-price" name="price" type="number" step="1" defaultValue={editingItem.price} required className="bg-white/5 border-white/10 h-12" />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-unit">Unit</Label>
-                  <Input id="edit-unit" name="unit" defaultValue={editingItem.unit} required className="bg-white/5" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-stock">Stock</Label>
-                  <Input id="edit-stock" name="stock" type="number" step="1" defaultValue={editingItem.stock} required className="bg-white/5" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-min">Threshold</Label>
-                  <Input id="edit-min" name="min" type="number" step="1" defaultValue={editingItem.min} required className="bg-white/5" />
-                </div>
+
+                {editCategory !== "FOOD" && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-unit" className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Unit</Label>
+                      <Input id="edit-unit" name="unit" defaultValue={editingItem.unit} required className="bg-white/5 border-white/10 h-12" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-stock" className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Stock</Label>
+                      <Input id="edit-stock" name="stock" type="number" step="1" defaultValue={editingItem.stock} required className="bg-white/5 border-white/10 h-12" />
+                    </div>
+                    <div className="space-y-2 col-span-2">
+                      <Label htmlFor="edit-min" className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Threshold</Label>
+                      <Input id="edit-min" name="min" type="number" step="1" defaultValue={editingItem.min} required className="bg-white/5 border-white/10 h-12" />
+                    </div>
+                  </>
+                )}
               </div>
               <DialogFooter className="pt-4">
-                <Button type="submit" className="w-full">Update</Button>
+                <Button type="submit" className="w-full h-12 bg-primary text-primary-foreground font-bold shadow-xl">Apply Updates</Button>
               </DialogFooter>
             </form>
           )}

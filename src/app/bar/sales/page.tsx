@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
@@ -61,7 +62,7 @@ export default function SalesPage() {
   
   const [activeTab, setActiveTab] = useState<"quick" | "tables" | "history">("quick");
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
-  const [cart, setCart] = useState<{ itemId: string; name: string; price: number; quantity: number }[]>([]);
+  const [cart, setCart] = useState<{ itemId: string; name: string; price: number; quantity: number; category?: string }[]>([]);
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
@@ -97,7 +98,13 @@ export default function SalesPage() {
       if (existing) {
         newCart = prev.map(i => i.itemId === item.id ? { ...i, quantity: i.quantity + 1 } : i);
       } else {
-        newCart = [...prev, { itemId: item.id, name: item.name, price: item.price || 0, quantity: 1 }];
+        newCart = [...prev, { 
+          itemId: item.id, 
+          name: item.name, 
+          price: item.price || 0, 
+          quantity: 1,
+          category: item.category 
+        }];
       }
 
       if (selectedTable && firestore) {
@@ -136,7 +143,7 @@ export default function SalesPage() {
     
     if (items.length === 0) {
       deleteDoc(ref).catch(err => {
-        // Silently fail or handle specifically if needed
+        // Silently fail
       });
     } else {
       setDoc(ref, {
@@ -182,8 +189,10 @@ export default function SalesPage() {
         }));
       });
 
-    // Decrement inventory stock
+    // Decrement inventory stock (excluding FOOD)
     for (const cartItem of cart) {
+      if (cartItem.category === "FOOD") continue; // Food has no inventory tracking
+      
       const stockRef = doc(firestore, "inventory", cartItem.itemId);
       const stockUpdate = {
         stock: increment(-cartItem.quantity),
@@ -317,7 +326,10 @@ export default function SalesPage() {
           cart.map(item => (
             <div key={item.itemId} className="flex flex-col gap-2 p-3 bg-white/5 rounded-xl border border-white/5">
               <div className="flex justify-between items-start gap-2">
-                <span className="font-headline font-bold text-sm leading-tight text-white line-clamp-2">{item.name}</span>
+                <div className="flex flex-col">
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground/60">{item.category}</span>
+                  <span className="font-headline font-bold text-sm leading-tight text-white line-clamp-2">{item.name}</span>
+                </div>
                 <button onClick={() => removeFromCart(item.itemId)} className="text-muted-foreground hover:text-destructive transition-colors">
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
