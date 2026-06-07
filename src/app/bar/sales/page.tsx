@@ -1,13 +1,15 @@
 
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { 
   Sheet,
   SheetContent,
@@ -29,7 +31,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Package,
-  ArrowLeftRight
+  ArrowLeftRight,
+  Printer
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCollection, useDoc, useFirestore } from "@/firebase";
@@ -63,6 +66,7 @@ export default function SalesPage() {
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
+  const [shouldPrintDucket, setShouldPrintDucket] = useState(true);
 
   // Fetch Inventory items directly for selling
   const inventoryQuery = useMemo(() => {
@@ -79,7 +83,7 @@ export default function SalesPage() {
   const { data: tableSession } = useDoc(tableRef);
 
   // Sync cart with table session when table changes
-  React.useEffect(() => {
+  useEffect(() => {
     if (selectedTable && tableSession) {
       setCart(tableSession.items || []);
     } else if (selectedTable && !tableSession) {
@@ -132,7 +136,6 @@ export default function SalesPage() {
     const ref = doc(firestore, "tableSessions", selectedTable);
     
     if (items.length === 0) {
-      // If the cart is empty, remove the active session document entirely
       await deleteDoc(ref).catch(err => console.error("Error clearing table session", err));
     } else {
       await setDoc(ref, {
@@ -159,7 +162,7 @@ export default function SalesPage() {
     };
 
     try {
-      await addDoc(collection(firestore, "sales"), saleData);
+      const docRef = await addDoc(collection(firestore, "sales"), saleData);
 
       // Decrement inventory stock directly for each item sold
       for (const cartItem of cart) {
@@ -168,6 +171,10 @@ export default function SalesPage() {
           stock: increment(-cartItem.quantity),
           lastUpdated: serverTimestamp()
         });
+      }
+
+      if (shouldPrintDucket) {
+        printDucket({ ...saleData, id: docRef.id });
       }
 
       toast({
@@ -192,6 +199,67 @@ export default function SalesPage() {
     }
   };
 
+  const printDucket = (sale: any) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const itemsHtml = sale.items.map((item: any) => `
+      <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+        <span>${item.name} x ${item.quantity}</span>
+        <span>₦${(item.price * item.quantity).toLocaleString()}</span>
+      </div>
+    `).join('');
+
+    const html = `
+      <html>
+        <head>
+          <title>Ducket #${sale.id.slice(-6)}</title>
+          <style>
+            @page { size: 80mm auto; margin: 0; }
+            body { 
+              font-family: 'Courier New', Courier, monospace; 
+              width: 80mm; 
+              padding: 10mm; 
+              font-size: 12px; 
+              color: #000;
+            }
+            .center { text-align: center; }
+            .bold { font-weight: bold; }
+            .divider { border-bottom: 1px dashed #000; margin: 8px 0; }
+            .header { font-size: 16px; margin-bottom: 4px; }
+            .total { font-size: 14px; margin-top: 8px; }
+          </style>
+        </head>
+        <body>
+          <div class="center bold header">NMCH BAR</div>
+          <div class="center">Sales Ducket</div>
+          <div class="divider"></div>
+          <div>Date: ${new Date().toLocaleString()}</div>
+          <div>Receipt: #${sale.id.slice(-8).toUpperCase()}</div>
+          <div>Service: ${sale.tableNumber}</div>
+          <div class="divider"></div>
+          ${itemsHtml}
+          <div class="divider"></div>
+          <div class="bold total" style="display: flex; justify-content: space-between;">
+            <span>TOTAL:</span>
+            <span>₦${sale.total.toLocaleString()}</span>
+          </div>
+          <div style="margin-top: 4px;">Payment: ${sale.method}</div>
+          <div class="divider"></div>
+          <div class="center" style="margin-top: 10px;">*** THANK YOU ***</div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 250);
+  };
+
   const filteredItems = useMemo(() => {
     if (!inventoryItems) return [];
     return inventoryItems.filter(item => 
@@ -199,8 +267,7 @@ export default function SalesPage() {
     );
   }, [inventoryItems, search]);
 
-  // Pagination Logic
-  React.useEffect(() => {
+  useEffect(() => {
     setCurrentPage(1);
   }, [search]);
 
@@ -256,36 +323,48 @@ export default function SalesPage() {
         )}
       </div>
 
-      <div className="p-3 bg-black/60 border-t border-white/10 space-y-3 shrink-0">
-        <div className="flex justify-between items-center px-1">
-          <span className="text-xs font-headline font-bold text-muted-foreground uppercase tracking-widest">Total</span>
-          <span className="text-xl font-headline font-bold text-primary">₦{total.toLocaleString()}</span>
+      <div className="p-4 bg-black/60 border-t border-white/10 space-y-4 shrink-0">
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-2">
+            <Switch 
+              id="print-ducket" 
+              checked={shouldPrintDucket} 
+              onCheckedChange={setShouldPrintDucket}
+            />
+            <Label htmlFor="print-ducket" className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground flex items-center gap-1">
+              <Printer className="w-3 h-3" /> Print Ducket
+            </Label>
+          </div>
+          <div className="text-right">
+            <span className="block text-[10px] font-headline font-bold text-muted-foreground uppercase tracking-widest leading-none">Total</span>
+            <span className="text-2xl font-headline font-bold text-primary leading-tight">₦{total.toLocaleString()}</span>
+          </div>
         </div>
         
-        <div className="grid grid-cols-3 gap-1.5">
+        <div className="grid grid-cols-3 gap-2">
           <Button 
-            className="bg-primary text-primary-foreground font-bold h-10 rounded-xl px-2 text-[10px] sm:text-xs"
+            className="bg-primary text-primary-foreground font-bold h-12 rounded-xl px-2 text-[10px] sm:text-xs shadow-lg"
             disabled={cart.length === 0}
             onClick={() => handleCheckout('Card')}
           >
-            <CreditCard className="w-3.5 h-3.5 mr-1" />
+            <CreditCard className="w-4 h-4 mr-1.5" />
             Card
           </Button>
           <Button 
             variant="outline"
-            className="border-primary/30 text-primary font-bold h-10 rounded-xl px-2 text-[10px] sm:text-xs hover:bg-primary/10"
+            className="border-primary/30 text-primary font-bold h-12 rounded-xl px-2 text-[10px] sm:text-xs hover:bg-primary/10 shadow-lg"
             disabled={cart.length === 0}
             onClick={() => handleCheckout('Transfer')}
           >
-            <ArrowLeftRight className="w-3.5 h-3.5 mr-1" />
-            Transfer
+            <ArrowLeftRight className="w-4 h-4 mr-1.5" />
+            Trans
           </Button>
           <Button 
-            className="bg-secondary text-secondary-foreground font-bold h-10 rounded-xl px-2 text-[10px] sm:text-xs"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-12 rounded-xl px-2 text-[10px] sm:text-xs shadow-lg"
             disabled={cart.length === 0}
             onClick={() => handleCheckout('Cash')}
           >
-            <Banknote className="w-3.5 h-3.5 mr-1" />
+            <Banknote className="w-4 h-4 mr-1.5" />
             Cash
           </Button>
         </div>
@@ -298,16 +377,23 @@ export default function SalesPage() {
       <div className="flex flex-col gap-6 h-full max-w-[1600px] mx-auto pb-24 lg:pb-0">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <h1 className="text-3xl font-headline font-bold uppercase tracking-tight">BAR SALES</h1>
-          <Tabs value={activeTab} onValueChange={(v: any) => setActiveTab(v)} className="w-full md:w-auto">
-            <TabsList className="bg-white/5 border border-white/10 p-1">
-              <TabsTrigger value="quick" className="gap-2 px-6 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                <ShoppingCart className="w-4 h-4" /> Quick Sale
-              </TabsTrigger>
-              <TabsTrigger value="tables" className="gap-2 px-6 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                <LayoutGrid className="w-4 h-4" /> Tables
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
+            <Button asChild variant="outline" className="gap-2 border-white/10 rounded-xl h-12">
+              <Link href="/bar/sales/history">
+                <History className="w-4 h-4" /> Sales History
+              </Link>
+            </Button>
+            <Tabs value={activeTab} onValueChange={(v: any) => setActiveTab(v)} className="w-full md:w-auto">
+              <TabsList className="bg-white/5 border border-white/10 p-1 w-full sm:w-auto h-12">
+                <TabsTrigger value="quick" className="flex-1 sm:flex-none gap-2 px-6 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                  <ShoppingCart className="w-4 h-4" /> Quick Sale
+                </TabsTrigger>
+                <TabsTrigger value="tables" className="flex-1 sm:flex-none gap-2 px-6 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                  <LayoutGrid className="w-4 h-4" /> Tables
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
         </div>
 
         <div className="flex flex-col lg:flex-row gap-6">
@@ -329,7 +415,7 @@ export default function SalesPage() {
                           variant="outline"
                           className={cn(
                             "h-24 flex flex-col gap-2 rounded-2xl border-white/5 transition-all",
-                            active ? "bg-primary/10 border-primary/30 text-primary" : "hover:bg-white/5 hover:border-white/10"
+                            active ? "bg-primary/10 border-primary/30 text-primary shadow-[0_0_15px_rgba(var(--primary),0.1)]" : "hover:bg-white/5 hover:border-white/10"
                           )}
                           onClick={() => {
                             setSelectedTable(table);
@@ -459,7 +545,7 @@ export default function SalesPage() {
                 <CardTitle className="font-headline font-bold text-lg text-white">
                   {selectedTable ? `Bill: ${selectedTable}` : "Cart"}
                 </CardTitle>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => {
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => {
                   setCart([]);
                   if(selectedTable) saveToTable([]);
                 }} disabled={cart.length === 0}>
@@ -489,10 +575,10 @@ export default function SalesPage() {
           <SheetContent side="bottom" className="h-[80vh] bg-background border-white/10 p-0 rounded-t-[2.5rem] overflow-hidden">
             <div className="flex flex-col h-full">
               <SheetHeader className="p-6 border-b border-white/5 flex flex-row items-center justify-between space-y-0">
-                <SheetTitle className="font-headline font-bold text-xl">
+                <SheetTitle className="font-headline font-bold text-xl text-white">
                   {selectedTable ? `Bill: ${selectedTable}` : "Order"}
                 </SheetTitle>
-                <Button variant="ghost" size="icon" className="h-10 w-10 text-muted-foreground" onClick={() => {
+                <Button variant="ghost" size="icon" className="h-10 w-10 text-muted-foreground hover:text-destructive" onClick={() => {
                   setCart([]);
                   if(selectedTable) saveToTable([]);
                 }} disabled={cart.length === 0}>

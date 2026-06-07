@@ -18,7 +18,8 @@ import {
   Contact,
   Sparkles,
   Menu,
-  X
+  X,
+  History
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -55,6 +56,7 @@ const departments = [
     icon: Wine,
     items: [
       { name: "Bar Sales", href: "/bar/sales", icon: ShoppingCart },
+      { name: "Sales History", href: "/bar/sales/history", icon: History },
       { name: "Bar Inventory", href: "/inventory", icon: Package },
     ],
   },
@@ -277,7 +279,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div className="w-8 h-8 rounded-lg overflow-hidden border border-primary/30 shadow-[0_0_15px_rgba(var(--primary),0.2)]">
               <img src={LOGO_URL} alt="NMCH Logo" className="w-full h-full object-cover" />
             </div>
-            <span className="font-headline font-bold text-xl tracking-tighter">NMCH</span>
+            <span className="font-headline font-bold text-xl tracking-tighter text-white">NMCH</span>
           </div>
           <Button variant="ghost" size="icon" className="text-white" onClick={toggleMobileMenu}>
             {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -310,7 +312,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       {dept.items.map((item) => (
                         <Link
                           key={item.name}
-                          href={item.href}
+                          href={item.href || "#"}
                           className={cn(
                             "flex items-center gap-2 p-3 rounded-lg text-sm transition-all",
                             pathname === item.href ? "text-primary bg-primary/10 font-bold" : "text-white/60 hover:text-white"
@@ -354,9 +356,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </header>
 
           <div className="flex-1 overflow-y-auto p-6 md:p-10 space-y-10 scroll-smooth">
-            <div className="max-w-7xl mx-auto w-full">
+            <div className="max-w-7xl mx-auto w-full no-print">
               {children}
             </div>
+            {/* Print area placeholder for Duckets */}
+            <div id="print-area" className="print-only" />
           </div>
         </main>
       </div>
