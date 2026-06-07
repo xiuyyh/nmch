@@ -28,6 +28,7 @@ import { Search, Plus, Edit2, AlertTriangle, RefreshCw } from "lucide-react";
 import { useCollection, useFirestore } from "@/firebase";
 import { collection, query, orderBy, addDoc, serverTimestamp } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 export default function InventoryPage() {
   const firestore = useFirestore();
