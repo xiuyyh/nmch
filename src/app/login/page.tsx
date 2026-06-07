@@ -11,7 +11,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import Image from 'next/image';
 
 const LOGO_URL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQw8oatrplLFy0o-ghLuTFtu1gKQqYtgfXw0A&s";
 
@@ -35,12 +34,16 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-zinc-900 via-background to-black p-4">
       <div className="w-full max-w-md space-y-8">
-        <div className="text-center space-y-2">
-          <div className="mx-auto w-20 h-20 bg-primary/20 rounded-2xl flex items-center justify-center shadow-[0_0_50px_rgba(var(--primary),0.2)] neon-glow-primary transform rotate-6 overflow-hidden border border-primary/30">
-            <img src={LOGO_URL} alt="NMCH Logo" className="w-full h-full object-cover" />
+        <div className="flex flex-col items-center gap-4">
+          <div className="flex items-center gap-5">
+            <div className="w-14 h-14 bg-primary/20 rounded-xl flex items-center justify-center shadow-[0_0_30px_rgba(var(--primary),0.2)] neon-glow-primary transform rotate-3 overflow-hidden border border-primary/30">
+              <img src={LOGO_URL} alt="NMCH Logo" className="w-full h-full object-cover" />
+            </div>
+            <h1 className="text-6xl font-headline font-bold tracking-tighter text-white">NMCH</h1>
           </div>
-          <h1 className="text-4xl font-headline font-bold tracking-tighter mt-6">NMCH</h1>
-          <p className="text-muted-foreground tracking-wide">Elevated Bar Operations Management</p>
+          <p className="text-[10px] text-primary/70 tracking-[0.4em] uppercase font-bold opacity-80">
+            Elevated Bar Operations Management
+          </p>
         </div>
 
         <Card className="glass-card border-white/5">
@@ -65,7 +68,7 @@ export default function LoginPage() {
                   type="email" 
                   placeholder="manager@nmch.com" 
                   required 
-                  className="bg-background/50 border-white/10" 
+                  className="bg-background/50 border-white/10 h-12" 
                 />
               </div>
               <div className="space-y-2">
@@ -75,16 +78,16 @@ export default function LoginPage() {
                   name="password" 
                   type="password" 
                   required 
-                  className="bg-background/50 border-white/10" 
+                  className="bg-background/50 border-white/10 h-12" 
                 />
               </div>
-              <Button type="submit" className="w-full bg-primary text-primary-foreground neon-glow-primary font-semibold">
+              <Button type="submit" className="w-full h-12 bg-primary text-primary-foreground neon-glow-primary font-bold text-lg">
                 Sign In
               </Button>
             </form>
           </CardContent>
-          <CardFooter className="flex justify-center">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
+          <CardFooter className="flex justify-center border-t border-white/5 pt-6 mt-4">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">
               Secure Terminal Access Only
             </p>
           </CardFooter>
