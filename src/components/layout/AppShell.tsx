@@ -48,17 +48,11 @@ const LOGO_URL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQw8oatrp
 
 const departments = [
   {
-    title: "Bar",
+    title: "Bar Operations",
     icon: Wine,
     items: [
-      { name: "Sales & Tables", href: "/bar/sales", icon: ShoppingCart },
-    ],
-  },
-  {
-    title: "Bar Inventory",
-    icon: Layers,
-    items: [
-      { name: "Inventory", href: "/inventory", icon: Package },
+      { name: "Bar Sales", href: "/bar/sales", icon: ShoppingCart },
+      { name: "Bar Inventory", href: "/inventory", icon: Package },
     ],
   },
   {
