@@ -28,7 +28,8 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  Package
+  Package,
+  ArrowLeftRight
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCollection, useDoc, useFirestore } from "@/firebase";
@@ -255,21 +256,30 @@ export default function SalesPage() {
           <span className="text-xl font-headline font-bold text-primary">₦{total.toLocaleString()}</span>
         </div>
         
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-3 gap-1.5">
           <Button 
-            className="bg-primary text-primary-foreground font-bold h-10 rounded-xl"
+            className="bg-primary text-primary-foreground font-bold h-10 rounded-xl px-2 text-[10px] sm:text-xs"
             disabled={cart.length === 0}
             onClick={() => handleCheckout('Card')}
           >
-            <CreditCard className="w-4 h-4 mr-2" />
+            <CreditCard className="w-3.5 h-3.5 mr-1" />
             Card
           </Button>
           <Button 
-            className="bg-secondary text-secondary-foreground font-bold h-10 rounded-xl"
+            variant="outline"
+            className="border-primary/30 text-primary font-bold h-10 rounded-xl px-2 text-[10px] sm:text-xs hover:bg-primary/10"
+            disabled={cart.length === 0}
+            onClick={() => handleCheckout('Transfer')}
+          >
+            <ArrowLeftRight className="w-3.5 h-3.5 mr-1" />
+            Transfer
+          </Button>
+          <Button 
+            className="bg-secondary text-secondary-foreground font-bold h-10 rounded-xl px-2 text-[10px] sm:text-xs"
             disabled={cart.length === 0}
             onClick={() => handleCheckout('Cash')}
           >
-            <Banknote className="w-4 h-4 mr-2" />
+            <Banknote className="w-3.5 h-3.5 mr-1" />
             Cash
           </Button>
         </div>

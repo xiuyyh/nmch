@@ -34,7 +34,7 @@
           }
         },
         "total": { "type": "number" },
-        "method": { "type": "string", "enum": ["Card", "Cash"] },
+        "method": { "type": "string", "enum": ["Card", "Cash", "Transfer"] },
         "tableNumber": { "type": "string" },
         "timestamp": { "type": "string", "format": "date-time" }
       },
