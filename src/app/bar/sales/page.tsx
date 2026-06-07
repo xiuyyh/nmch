@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo } from "react";
@@ -6,6 +7,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { 
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { 
   Search, 
   Plus, 
@@ -53,6 +62,7 @@ export default function SalesPage() {
   const [cart, setCart] = useState<{ itemId: string; name: string; price: number; quantity: number }[]>([]);
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
 
   // Fetch Inventory items directly for selling
   const inventoryQuery = useMemo(() => {
@@ -132,7 +142,7 @@ export default function SalesPage() {
   const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
   const handleCheckout = async (method: string) => {
-    if (!firestore) return;
+    if (!firestore || cart.length === 0) return;
 
     const saleData = {
       items: cart,
@@ -156,7 +166,7 @@ export default function SalesPage() {
 
       toast({
         title: "Sale Recorded",
-        description: `Processed ₦${total.toLocaleString()} via ${method}. Stock updated.`,
+        description: `Processed ₦${total.toLocaleString()} via ${method}.`,
       });
       
       if (selectedTable) {
@@ -165,6 +175,7 @@ export default function SalesPage() {
       }
       
       setCart([]);
+      setIsMobileCartOpen(false);
     } catch (error: any) {
       const permissionError = new FirestorePermissionError({
         path: "sales",
@@ -203,9 +214,74 @@ export default function SalesPage() {
     return allActiveSessions?.some(s => s.tableNumber === table);
   };
 
+  // Shared Cart Component to avoid duplication
+  const CartUI = () => (
+    <div className="flex flex-col h-full">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {cart.length === 0 ? (
+          <div className="h-full flex flex-col items-center justify-center text-muted-foreground opacity-30 text-center p-4">
+            <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center mb-4">
+              <ShoppingCart className="w-6 h-6" />
+            </div>
+            <p className="text-sm font-medium italic">Your cart is empty.</p>
+          </div>
+        ) : (
+          cart.map(item => (
+            <div key={item.itemId} className="flex flex-col gap-2 p-3 bg-white/5 rounded-xl border border-white/5">
+              <div className="flex justify-between items-start gap-2">
+                <span className="font-headline font-bold text-sm leading-tight text-white line-clamp-2">{item.name}</span>
+                <button onClick={() => removeFromCart(item.itemId)} className="text-muted-foreground hover:text-destructive transition-colors">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-1 bg-black/20 rounded-lg p-0.5">
+                  <Button size="icon" variant="ghost" className="w-6 h-6 rounded-md" onClick={() => updateQuantity(item.itemId, -1)}>
+                    <Minus className="w-2.5 h-2.5" />
+                  </Button>
+                  <span className="w-6 text-center text-xs font-headline font-bold text-white">{item.quantity}</span>
+                  <Button size="icon" variant="ghost" className="w-6 h-6 rounded-md" onClick={() => updateQuantity(item.itemId, 1)}>
+                    <Plus className="w-2.5 h-2.5" />
+                  </Button>
+                </div>
+                <span className="font-headline font-bold text-primary text-sm">₦{(item.price * item.quantity).toLocaleString()}</span>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="p-3 bg-black/60 border-t border-white/10 space-y-3 shrink-0">
+        <div className="flex justify-between items-center px-1">
+          <span className="text-sm font-headline font-bold text-white uppercase tracking-wider">Total Amount</span>
+          <span className="text-xl font-headline font-bold text-primary">₦{total.toLocaleString()}</span>
+        </div>
+        
+        <div className="grid grid-cols-2 gap-2">
+          <Button 
+            className="bg-primary text-primary-foreground font-bold h-10 rounded-xl flex-1"
+            disabled={cart.length === 0}
+            onClick={() => handleCheckout('Card')}
+          >
+            <CreditCard className="w-4 h-4 mr-2" />
+            Card
+          </Button>
+          <Button 
+            className="bg-secondary text-secondary-foreground font-bold h-10 rounded-xl flex-1"
+            disabled={cart.length === 0}
+            onClick={() => handleCheckout('Cash')}
+          >
+            <Banknote className="w-4 h-4 mr-2" />
+            Cash
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <AppShell>
-      <div className="flex flex-col gap-6 h-full max-w-[1600px] mx-auto">
+      <div className="flex flex-col gap-6 h-full max-w-[1600px] mx-auto pb-24 lg:pb-0">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h1 className="text-3xl font-headline font-bold uppercase tracking-tight">BAR SALES</h1>
@@ -379,7 +455,8 @@ export default function SalesPage() {
             )}
           </div>
 
-          <div className="w-full lg:w-[400px]">
+          {/* Desktop Sidebar Cart */}
+          <div className="hidden lg:block w-[400px]">
             <Card className="glass-card flex flex-col h-[calc(100vh-220px)] sticky top-28 border-white/5">
               <CardHeader className="p-4 border-b border-white/5 flex flex-row items-center justify-between shrink-0">
                 <div>
@@ -398,76 +475,46 @@ export default function SalesPage() {
                 </Button>
               </CardHeader>
               
-              <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                {cart.length === 0 ? (
-                  <div className="h-full flex flex-col items-center justify-center text-muted-foreground opacity-30 text-center p-4">
-                    <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center mb-4">
-                      <ShoppingCart className="w-6 h-6" />
-                    </div>
-                    <p className="text-sm font-medium italic">Empty cart.</p>
-                  </div>
-                ) : (
-                  cart.map(item => (
-                    <div key={item.itemId} className="flex flex-col gap-2 p-3 bg-white/5 rounded-xl border border-white/5">
-                      <div className="flex justify-between items-start gap-2">
-                        <span className="font-headline font-bold text-sm leading-tight text-white line-clamp-2">{item.name}</span>
-                        <button onClick={() => removeFromCart(item.itemId)} className="text-muted-foreground hover:text-destructive transition-colors">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-1 bg-black/20 rounded-lg p-0.5">
-                          <Button size="icon" variant="ghost" className="w-6 h-6 rounded-md" onClick={() => updateQuantity(item.itemId, -1)}>
-                            <Minus className="w-2.5 h-2.5" />
-                          </Button>
-                          <span className="w-6 text-center text-xs font-headline font-bold text-white">{item.quantity}</span>
-                          <Button size="icon" variant="ghost" className="w-6 h-6 rounded-md" onClick={() => updateQuantity(item.itemId, 1)}>
-                            <Plus className="w-2.5 h-2.5" />
-                          </Button>
-                        </div>
-                        <span className="font-headline font-bold text-primary text-sm">₦{(item.price * item.quantity).toLocaleString()}</span>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-
-              <div className="p-4 bg-black/40 border-t border-white/5 space-y-4 shrink-0">
-                <div className="space-y-1">
-                  <div className="flex justify-between items-center text-xs text-muted-foreground font-medium">
-                    <span>Subtotal</span>
-                    <span>₦{total.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-lg font-bold">
-                    <span className="font-headline text-white">Total</span>
-                    <span className="text-primary font-headline">₦{total.toLocaleString()}</span>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-3">
-                  <Button 
-                    size="sm"
-                    className="bg-primary text-primary-foreground font-bold h-11 rounded-xl"
-                    disabled={cart.length === 0}
-                    onClick={() => handleCheckout('Card')}
-                  >
-                    <CreditCard className="w-4 h-4 mr-2" />
-                    Card
-                  </Button>
-                  <Button 
-                    size="sm"
-                    className="bg-secondary text-secondary-foreground font-bold h-11 rounded-xl"
-                    disabled={cart.length === 0}
-                    onClick={() => handleCheckout('Cash')}
-                  >
-                    <Banknote className="w-4 h-4 mr-2" />
-                    Cash
-                  </Button>
-                </div>
-              </div>
+              <CartUI />
             </Card>
           </div>
         </div>
+      </div>
+
+      {/* Mobile Floating Cart Button */}
+      <div className="lg:hidden fixed bottom-6 left-6 right-6 z-50">
+        <Sheet open={isMobileCartOpen} onOpenChange={setIsMobileCartOpen}>
+          <SheetTrigger asChild>
+            <Button 
+              className="w-full h-14 bg-primary text-primary-foreground font-bold text-lg shadow-2xl neon-glow-primary rounded-2xl flex justify-between px-6"
+            >
+              <div className="flex items-center gap-2">
+                <ShoppingCart className="w-5 h-5" />
+                <span>View Cart</span>
+                <Badge variant="secondary" className="ml-2 bg-primary-foreground/20 text-primary-foreground border-none">
+                  {cart.length}
+                </Badge>
+              </div>
+              <span className="font-headline">₦{total.toLocaleString()}</span>
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="bottom" className="h-[80vh] bg-background border-white/10 p-0 rounded-t-[2.5rem] overflow-hidden">
+            <div className="flex flex-col h-full">
+              <SheetHeader className="p-6 border-b border-white/5 flex flex-row items-center justify-between space-y-0">
+                <SheetTitle className="font-headline font-bold text-xl">
+                  {selectedTable ? `Table: ${selectedTable}` : "Current Order"}
+                </SheetTitle>
+                <Button variant="ghost" size="icon" className="h-10 w-10 hover:bg-destructive/10 hover:text-destructive" onClick={() => {
+                  setCart([]);
+                  if(selectedTable) saveToTable([]);
+                }} disabled={cart.length === 0}>
+                  <Trash2 className="w-5 h-5" />
+                </Button>
+              </SheetHeader>
+              <CartUI />
+            </div>
+          </SheetContent>
+        </Sheet>
       </div>
     </AppShell>
   );
