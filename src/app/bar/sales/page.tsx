@@ -98,10 +98,8 @@ export default function SalesPage() {
   // Sync cart with table session
   useEffect(() => {
     if (selectedTable) {
-      if (!sessionLoading && tableSession) {
-        setCart(tableSession.items || []);
-      } else if (!sessionLoading && !tableSession) {
-        setCart([]);
+      if (!sessionLoading) {
+        setCart(tableSession?.items || []);
       }
     }
   }, [selectedTable, tableSession, sessionLoading]);
@@ -203,7 +201,10 @@ export default function SalesPage() {
   const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
   const handleCheckout = async (method: string) => {
-    if (!firestore || cart.length === 0) return;
+    if (!firestore || cart.length === 0) {
+      toast({ variant: "destructive", title: "Empty Cart", description: "Please add items before checking out." });
+      return;
+    }
 
     const saleData = {
       items: cart,
@@ -403,13 +404,13 @@ export default function SalesPage() {
           </div>
         </div>
         <div className="grid grid-cols-3 gap-2">
-          <Button className="bg-primary text-primary-foreground font-bold h-12 rounded-xl text-[10px] sm:text-xs" disabled={cart.length === 0} onClick={() => handleCheckout('Card')}>
+          <Button className="bg-primary text-primary-foreground font-bold h-12 rounded-xl text-[10px] sm:text-xs" onClick={() => handleCheckout('Card')}>
             <CreditCard className="w-4 h-4 mr-1.5" /> Card
           </Button>
-          <Button variant="outline" className="border-primary/30 text-primary font-bold h-12 rounded-xl text-[10px] sm:text-xs" disabled={cart.length === 0} onClick={() => handleCheckout('Transfer')}>
+          <Button variant="outline" className="border-primary/30 text-primary font-bold h-12 rounded-xl text-[10px] sm:text-xs" onClick={() => handleCheckout('Transfer')}>
             <ArrowLeftRight className="w-4 h-4 mr-1.5" /> Trans
           </Button>
-          <Button className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-12 rounded-xl text-[10px] sm:text-xs" disabled={cart.length === 0} onClick={() => handleCheckout('Cash')}>
+          <Button className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-12 rounded-xl text-[10px] sm:text-xs" onClick={() => handleCheckout('Cash')}>
             <Banknote className="w-4 h-4 mr-1.5" /> Cash
           </Button>
         </div>
@@ -462,6 +463,7 @@ export default function SalesPage() {
                             onClick={() => {
                               setSelectedTable(table);
                               setActiveTab("quick");
+                              setIsMobileCartOpen(true);
                             }}
                           >
                             <span className="font-headline font-bold text-lg">{table.split(' ')[1]}</span>
@@ -562,6 +564,7 @@ export default function SalesPage() {
                 onClick={() => {
                   setSelectedTable(session.tableNumber);
                   setActiveTab("quick");
+                  setIsMobileCartOpen(true);
                 }}
               >
                 <div className={cn(
@@ -603,4 +606,3 @@ export default function SalesPage() {
     </AppShell>
   );
 }
-
