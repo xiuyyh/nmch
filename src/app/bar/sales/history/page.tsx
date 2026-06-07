@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo } from "react";
@@ -74,7 +73,7 @@ export default function SalesHistoryPage() {
 
     const dateStr = sale.timestamp?.toDate ? format(sale.timestamp.toDate(), 'PPP p') : 'N/A';
     const itemsHtml = sale.items.map((item: any) => `
-      <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+      <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-weight: 800; font-size: 16px;">
         <span>${item.name} x ${item.quantity}</span>
         <span>₦${(item.price * item.quantity).toLocaleString()}</span>
       </div>
@@ -87,36 +86,38 @@ export default function SalesHistoryPage() {
           <style>
             @page { size: 80mm auto; margin: 0; }
             body { 
-              font-family: 'Courier New', Courier, monospace; 
+              font-family: 'Arial', sans-serif; 
               width: 80mm; 
               padding: 10mm; 
-              font-size: 12px; 
+              font-size: 14px; 
               color: #000;
+              line-height: 1.4;
             }
             .center { text-align: center; }
-            .bold { font-weight: bold; }
-            .divider { border-bottom: 1px dashed #000; margin: 8px 0; }
-            .header { font-size: 16px; margin-bottom: 4px; }
-            .total { font-size: 14px; margin-top: 8px; }
+            .bold { font-weight: 900; }
+            .divider { border-bottom: 2px solid #000; margin: 10px 0; }
+            .header { font-size: 24px; font-weight: 900; margin-bottom: 6px; text-transform: uppercase; }
+            .subheader { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+            .total { font-size: 22px; font-weight: 900; margin-top: 12px; border-top: 2px solid #000; padding-top: 8px; }
+            .meta { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
           </style>
         </head>
         <body>
-          <div class="center bold header">NMCH BAR</div>
-          <div class="center">Duplicate Ducket</div>
+          <div class="center header">NMCH BAR</div>
+          <div class="center subheader">Duplicate Ducket</div>
           <div class="divider"></div>
-          <div>Date: ${dateStr}</div>
-          <div>Receipt: #${sale.id.slice(-8).toUpperCase()}</div>
-          <div>Service: ${sale.tableNumber}</div>
+          <div class="meta">DATE: ${dateStr}</div>
+          <div class="meta">REC#: ${sale.id.slice(-8).toUpperCase()}</div>
+          <div class="meta">SERV: ${sale.tableNumber}</div>
           <div class="divider"></div>
           ${itemsHtml}
-          <div class="divider"></div>
-          <div class="bold total" style="display: flex; justify-content: space-between;">
+          <div class="total" style="display: flex; justify-content: space-between;">
             <span>TOTAL:</span>
             <span>₦${sale.total.toLocaleString()}</span>
           </div>
-          <div style="margin-top: 4px;">Payment: ${sale.method}</div>
+          <div class="meta" style="margin-top: 8px; font-size: 16px;">PAYMENT: ${sale.method}</div>
           <div class="divider"></div>
-          <div class="center" style="margin-top: 10px;">*** DUPLICATE ***</div>
+          <div class="center bold" style="margin-top: 15px; font-size: 16px;">*** DUPLICATE ***</div>
         </body>
       </html>
     `;
