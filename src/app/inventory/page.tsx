@@ -24,7 +24,7 @@ import {
   DialogFooter
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Search, Plus, Edit2, RefreshCw, ChevronLeft, ChevronRight, Package } from "lucide-react";
+import { Search, Plus, Edit2, ChevronLeft, ChevronRight, Package } from "lucide-react";
 import { useCollection, useFirestore } from "@/firebase";
 import { collection, query, orderBy, addDoc, serverTimestamp, doc, updateDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";

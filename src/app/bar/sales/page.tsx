@@ -28,8 +28,7 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  Package,
-  ArrowRight
+  Package
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCollection, useDoc, useFirestore } from "@/firebase";
@@ -296,7 +295,7 @@ export default function SalesPage() {
         </div>
 
         <div className="flex flex-col lg:flex-row gap-6">
-          <div className="flex-1 space-y-6">
+          <div className="flex-1 space-y-4">
             {activeTab === "tables" && !selectedTable ? (
               <Card className="glass-card border-white/5">
                 <CardHeader>
