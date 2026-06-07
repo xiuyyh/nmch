@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo } from "react";
@@ -173,7 +172,7 @@ export default function SalesHistoryPage() {
           </style>
         </head>
         <body>
-          <div class="center header">NMCH BAR</div>
+          <div class="center header">NIGHTINGALE HOTEL</div>
           <div class="center subheader">${sale.status === 'Canceled' ? 'CANCELED DUCKET' : 'Duplicate Ducket'}</div>
           <div class="divider"></div>
           <div class="meta">DATE: ${dateStr}</div>

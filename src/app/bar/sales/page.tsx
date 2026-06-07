@@ -59,7 +59,7 @@ export default function SalesPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
   
-  const [activeTab, setActiveTab] = useState<"quick" | "tables">("quick");
+  const [activeTab, setActiveTab] = useState<"quick" | "tables" | "history">("quick");
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [cart, setCart] = useState<{ itemId: string; name: string; price: number; quantity: number }[]>([]);
   const [search, setSearch] = useState("");
@@ -157,7 +157,8 @@ export default function SalesPage() {
       total,
       method,
       tableNumber: selectedTable || "Counter",
-      timestamp: serverTimestamp()
+      timestamp: serverTimestamp(),
+      status: "Completed"
     };
 
     try {
@@ -233,7 +234,7 @@ export default function SalesPage() {
           </style>
         </head>
         <body>
-          <div class="center header">NMCH BAR</div>
+          <div class="center header">NIGHTINGALE HOTEL</div>
           <div class="center subheader">Sales Ducket</div>
           <div class="divider"></div>
           <div class="meta">DATE: ${new Date().toLocaleString()}</div>
