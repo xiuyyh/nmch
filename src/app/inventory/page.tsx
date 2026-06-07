@@ -24,17 +24,20 @@ import {
   DialogFooter
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Search, Plus, Edit2, AlertTriangle, RefreshCw } from "lucide-react";
+import { Search, Plus, Edit2, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
 import { useCollection, useFirestore } from "@/firebase";
 import { collection, query, orderBy, addDoc, serverTimestamp } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+
+const ITEMS_PER_PAGE = 5;
 
 export default function InventoryPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const inventoryQuery = useMemo(() => {
     if (!firestore) return null;
@@ -50,6 +53,17 @@ export default function InventoryPage() {
       item.category?.toLowerCase().includes(search.toLowerCase())
     );
   }, [stockItems, search]);
+
+  // Reset to first page when searching
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
+
+  const totalPages = Math.ceil(filteredItems.length / ITEMS_PER_PAGE);
+  const paginatedItems = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredItems.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredItems, currentPage]);
 
   const stats = useMemo(() => {
     if (!stockItems) return { lowStock: 0 };
@@ -188,53 +202,86 @@ export default function InventoryPage() {
           <CardContent>
             {loading ? (
               <div className="py-10 text-center text-muted-foreground">Loading stock data...</div>
-            ) : stockItems?.length === 0 ? (
+            ) : filteredItems?.length === 0 ? (
               <div className="py-20 text-center text-muted-foreground italic">No inventory items found. Add your first item to begin tracking.</div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent border-white/5">
-                    <TableHead className="font-bold">Item Name</TableHead>
-                    <TableHead className="font-bold">Category</TableHead>
-                    <TableHead className="font-bold">Current Stock</TableHead>
-                    <TableHead className="font-bold">Threshold</TableHead>
-                    <TableHead className="font-bold">Status</TableHead>
-                    <TableHead className="font-bold text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredItems.map((item) => {
-                    const isLow = item.stock <= item.min;
-                    return (
-                      <TableRow key={item.id} className="border-white/5 hover:bg-white/5">
-                        <TableCell className="font-medium">{item.name}</TableCell>
-                        <TableCell className="text-muted-foreground">{item.category}</TableCell>
-                        <TableCell>
-                          <span className={cn("font-headline font-bold", isLow && "text-destructive")}>{item.stock.toFixed(2)}</span> {item.unit}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">{item.min} {item.unit}</TableCell>
-                        <TableCell>
-                          {isLow ? (
-                            <Badge variant="destructive" className="gap-1 animate-pulse">
-                              <AlertTriangle className="w-3 h-3" />
-                              Low Stock
-                            </Badge>
-                          ) : (
-                            <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
-                              Healthy
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="ghost" size="icon">
-                            <Edit2 className="w-4 h-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+              <div className="space-y-4">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent border-white/5">
+                      <TableHead className="font-bold">Item Name</TableHead>
+                      <TableHead className="font-bold">Category</TableHead>
+                      <TableHead className="font-bold">Current Stock</TableHead>
+                      <TableHead className="font-bold">Threshold</TableHead>
+                      <TableHead className="font-bold">Status</TableHead>
+                      <TableHead className="font-bold text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedItems.map((item) => {
+                      const isLow = item.stock <= item.min;
+                      return (
+                        <TableRow key={item.id} className="border-white/5 hover:bg-white/5">
+                          <TableCell className="font-medium">{item.name}</TableCell>
+                          <TableCell className="text-muted-foreground">{item.category}</TableCell>
+                          <TableCell>
+                            <span className={cn("font-headline font-bold", isLow && "text-destructive")}>{item.stock.toFixed(2)}</span> {item.unit}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">{item.min} {item.unit}</TableCell>
+                          <TableCell>
+                            {isLow ? (
+                              <Badge variant="destructive" className="gap-1 animate-pulse">
+                                <AlertTriangle className="w-3 h-3" />
+                                Low Stock
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
+                                Healthy
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button variant="ghost" size="icon">
+                              <Edit2 className="w-4 h-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between pt-4 border-t border-white/5">
+                    <p className="text-xs text-muted-foreground">
+                      Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1} to {Math.min(currentPage * ITEMS_PER_PAGE, filteredItems.length)} of {filteredItems.length} items
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className="h-8 px-2"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </Button>
+                      <div className="flex items-center gap-1 text-sm font-medium px-2">
+                        {currentPage} / {totalPages}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                        className="h-8 px-2"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
           </CardContent>
         </Card>

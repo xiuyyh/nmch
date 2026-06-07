@@ -6,7 +6,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Search, 
   Plus, 
@@ -17,7 +17,9 @@ import {
   ShoppingCart,
   LayoutGrid,
   Clock,
-  X
+  X,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCollection, useDoc, useFirestore } from "@/firebase";
@@ -37,7 +39,7 @@ import { errorEmitter } from "@/firebase/error-emitter";
 import { FirestorePermissionError } from "@/firebase/errors";
 import { cn } from "@/lib/utils";
 
-const categories = ["All", "Cocktails", "Beer", "Wine", "Food", "Spirits"];
+const ITEMS_PER_PAGE = 5;
 const TABLES = Array.from({ length: 20 }, (_, i) => `Table ${i + 1}`);
 
 export default function SalesPage() {
@@ -48,6 +50,7 @@ export default function SalesPage() {
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [cart, setCart] = useState<{ menuItemId: string; name: string; price: number; quantity: number }[]>([]);
   const [search, setSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Fetch Menu
   const menuQuery = useMemo(() => {
@@ -138,16 +141,13 @@ export default function SalesPage() {
     };
 
     try {
-      // 1. Record the Sale
       await addDoc(collection(firestore, "sales"), saleData);
 
-      // 2. Decrement Inventory based on menu item ingredients
       for (const cartItem of cart) {
         const fullMenuItem = menuItems?.find(m => m.id === cartItem.menuItemId);
         if (fullMenuItem?.ingredients && Array.isArray(fullMenuItem.ingredients)) {
           for (const ingredient of fullMenuItem.ingredients) {
             const stockRef = doc(firestore, "inventory", ingredient.stockItemId);
-            // Decrement stock: quantity in cart * amount per item
             updateDoc(stockRef, {
               stock: increment(-(ingredient.amount * cartItem.quantity)),
               lastUpdated: serverTimestamp()
@@ -183,6 +183,17 @@ export default function SalesPage() {
       item.name?.toLowerCase().includes(search.toLowerCase())
     );
   }, [menuItems, search]);
+
+  // Pagination Logic
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
+
+  const totalPages = Math.ceil(filteredItems.length / ITEMS_PER_PAGE);
+  const paginatedItems = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredItems.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredItems, currentPage]);
 
   const activeTablesQuery = useMemo(() => {
     if (!firestore) return null;
@@ -286,53 +297,68 @@ export default function SalesPage() {
                   />
                 </div>
 
-                <Tabs defaultValue="All" className="w-full">
-                  <TabsList className="bg-transparent gap-2 flex-wrap h-auto">
-                    {categories.map(cat => (
-                      <TabsTrigger 
-                        key={cat} 
-                        value={cat} 
-                        className="rounded-full px-5 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground border border-white/5"
-                      >
-                        {cat}
-                      </TabsTrigger>
-                    ))}
-                  </TabsList>
+                <div className="mt-6 space-y-6">
+                  {menuLoading ? (
+                    <div className="py-20 text-center text-muted-foreground animate-pulse">Gathering menu data...</div>
+                  ) : filteredItems.length === 0 ? (
+                    <div className="py-20 text-center text-muted-foreground italic">No matching items found.</div>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+                        {paginatedItems.map(item => (
+                          <Card 
+                            key={item.id} 
+                            className="glass-card hover:border-primary/40 transition-all cursor-pointer group overflow-hidden"
+                            onClick={() => addToCart(item)}
+                          >
+                            <div className="h-1.5 w-full bg-primary/0 group-hover:bg-primary/40 transition-all" />
+                            <CardContent className="p-5 flex flex-col gap-2">
+                              <span className="text-xs uppercase tracking-widest text-muted-foreground font-bold">{item.category}</span>
+                              <span className="font-headline font-bold text-lg leading-tight">{item.name}</span>
+                              <div className="flex justify-between items-center mt-2">
+                                <span className="text-primary font-headline font-bold text-xl">${item.price.toFixed(2)}</span>
+                                <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-all">
+                                  <Plus className="w-4 h-4" />
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
 
-                  <div className="mt-6">
-                    {menuLoading ? (
-                      <div className="py-20 text-center text-muted-foreground animate-pulse">Gathering menu data...</div>
-                    ) : (
-                      categories.map(cat => (
-                        <TabsContent key={cat} value={cat}>
-                          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-                            {filteredItems
-                              .filter(item => (cat === "All" || item.category === cat))
-                              .map(item => (
-                                <Card 
-                                  key={item.id} 
-                                  className="glass-card hover:border-primary/40 transition-all cursor-pointer group overflow-hidden"
-                                  onClick={() => addToCart(item)}
-                                >
-                                  <div className="h-1.5 w-full bg-primary/0 group-hover:bg-primary/40 transition-all" />
-                                  <CardContent className="p-5 flex flex-col gap-2">
-                                    <span className="text-xs uppercase tracking-widest text-muted-foreground font-bold">{item.category}</span>
-                                    <span className="font-headline font-bold text-lg leading-tight">{item.name}</span>
-                                    <div className="flex justify-between items-center mt-2">
-                                      <span className="text-primary font-headline font-bold text-xl">${item.price.toFixed(2)}</span>
-                                      <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-all">
-                                        <Plus className="w-4 h-4" />
-                                      </div>
-                                    </div>
-                                  </CardContent>
-                                </Card>
-                              ))}
+                      {totalPages > 1 && (
+                        <div className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-2xl">
+                          <p className="text-xs text-muted-foreground">
+                            Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1} to {Math.min(currentPage * ITEMS_PER_PAGE, filteredItems.length)} of {filteredItems.length} items
+                          </p>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                              disabled={currentPage === 1}
+                              className="h-10 px-4 rounded-xl"
+                            >
+                              <ChevronLeft className="w-4 h-4 mr-1" /> Previous
+                            </Button>
+                            <div className="flex items-center gap-1 text-sm font-bold px-4 bg-primary/10 rounded-xl text-primary">
+                              {currentPage} / {totalPages}
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                              disabled={currentPage === totalPages}
+                              className="h-10 px-4 rounded-xl"
+                            >
+                              Next <ChevronRight className="w-4 h-4 ml-1" />
+                            </Button>
                           </div>
-                        </TabsContent>
-                      ))
-                    )}
-                  </div>
-                </Tabs>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
             )}
           </div>
