@@ -33,7 +33,6 @@ import {
   Package,
   ArrowLeftRight,
   Printer,
-  CookingPot,
   CheckCircle2,
   Receipt
 } from "lucide-react";
@@ -54,7 +53,6 @@ import {
 import { errorEmitter } from "@/firebase/error-emitter";
 import { FirestorePermissionError } from "@/firebase/errors";
 import { cn } from "@/lib/utils";
-import Link from "next/link";
 
 const ITEMS_PER_PAGE = 8;
 const TABLES = Array.from({ length: 20 }, (_, i) => `Table ${i + 1}`);
@@ -66,6 +64,7 @@ interface CartItem {
   quantity: number;
   category?: string;
   isSent?: boolean;
+  lastSentQuantity?: number;
 }
 
 export default function SalesPage() {
@@ -130,7 +129,7 @@ export default function SalesPage() {
       const existing = prev.find(i => i.itemId === item.id);
       let newCart;
       if (existing) {
-        newCart = prev.map(i => i.itemId === item.id ? { ...i, quantity: i.quantity + 1, isSent: false } : i);
+        newCart = prev.map(i => i.itemId === item.id ? { ...i, quantity: i.quantity + 1 } : i);
       } else {
         newCart = [...prev, { 
           itemId: item.id, 
@@ -138,7 +137,8 @@ export default function SalesPage() {
           price: item.price || 0, 
           quantity: 1,
           category: item.category,
-          isSent: false
+          isSent: false,
+          lastSentQuantity: 0
         }];
       }
       if (selectedTable) saveToTable(newCart);
@@ -151,7 +151,13 @@ export default function SalesPage() {
       const newCart = prev.map(i => {
         if (i.itemId === itemId) {
           const newQty = Math.max(1, i.quantity + delta);
-          return { ...i, quantity: newQty, isSent: false };
+          const lastSent = i.lastSentQuantity || 0;
+          return { 
+            ...i, 
+            quantity: newQty, 
+            isSent: newQty <= lastSent,
+            lastSentQuantity: Math.min(lastSent, newQty)
+          };
         }
         return i;
       });
@@ -173,18 +179,25 @@ export default function SalesPage() {
     const item = cart.find(i => i.itemId === itemId);
     if (!item || item.category !== "FOOD") return;
 
+    const quantityToFire = item.quantity - (item.lastSentQuantity || 0);
+    if (quantityToFire <= 0) return;
+
     const kitchenOrderData = {
       tableNumber: selectedTable || "Counter",
-      items: [{ name: item.name, quantity: item.quantity }],
+      items: [{ name: item.name, quantity: quantityToFire }],
       timestamp: serverTimestamp(),
       staffName: user?.displayName || user?.email || "Bar Staff"
     };
 
     addDoc(collection(firestore, "kitchenOrders"), kitchenOrderData)
       .then(() => {
-        toast({ title: "Order Sent to Kitchen", description: `${item.name} x${item.quantity} sent.` });
+        toast({ title: "Order Sent to Kitchen", description: `${item.name} x${quantityToFire} sent.` });
         setCart(prev => {
-          const newCart = prev.map(i => i.itemId === itemId ? { ...i, isSent: true } : i);
+          const newCart = prev.map(i => i.itemId === itemId ? { 
+            ...i, 
+            isSent: true, 
+            lastSentQuantity: i.quantity 
+          } : i);
           if (selectedTable) saveToTable(newCart);
           return newCart;
         });
@@ -227,12 +240,18 @@ export default function SalesPage() {
         }));
       });
 
-    // Handle remaining unsent FOOD items
-    const unsentFoodItems = cart.filter(item => item.category === "FOOD" && !item.isSent);
-    if (unsentFoodItems.length > 0) {
+    // Handle remaining unsent FOOD items based on lastSentQuantity
+    const foodItemsToFire = cart
+      .filter(item => item.category === "FOOD" && item.quantity > (item.lastSentQuantity || 0))
+      .map(item => ({
+        name: item.name,
+        quantity: item.quantity - (item.lastSentQuantity || 0)
+      }));
+
+    if (foodItemsToFire.length > 0) {
       const kitchenOrderData = {
         tableNumber: selectedTable || "Counter",
-        items: unsentFoodItems.map(i => ({ name: i.name, quantity: i.quantity })),
+        items: foodItemsToFire,
         timestamp: serverTimestamp(),
         staffName: user?.displayName || user?.email || "Bar Staff"
       };
@@ -335,7 +354,6 @@ export default function SalesPage() {
 
   const CartUI = () => (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Scrollable Cart Content */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
         {sessionLoading ? (
           <div className="h-full flex flex-col items-center justify-center text-muted-foreground animate-pulse">
@@ -373,13 +391,13 @@ export default function SalesPage() {
                 </div>
                 {item.category === "FOOD" && (
                   <div className="flex-1 px-3">
-                    {item.isSent ? (
+                    {(item.lastSentQuantity || 0) >= item.quantity ? (
                       <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 text-[10px] font-bold py-1 gap-1">
                         <CheckCircle2 className="w-3 h-3" /> Fired
                       </Badge>
                     ) : (
                       <Button size="sm" variant="ghost" onClick={() => sendItemToKitchen(item.itemId)} className="h-8 text-[10px] font-bold uppercase tracking-widest bg-primary/10 text-primary hover:bg-primary/20 rounded-lg">
-                        Fire Kitchen
+                        Fire {item.quantity - (item.lastSentQuantity || 0)} More
                       </Button>
                     )}
                   </div>
@@ -391,7 +409,6 @@ export default function SalesPage() {
         )}
       </div>
 
-      {/* Fixed Checkout Footer - forced to stay at bottom */}
       <div className="p-4 bg-black/60 border-t border-white/10 space-y-4 shrink-0 mt-auto">
         <div className="flex items-center justify-between px-1">
           <div className="flex items-center gap-2">
@@ -543,7 +560,6 @@ export default function SalesPage() {
         </div>
       </div>
 
-      {/* Active Tables Bar - Bottom persistent navigation */}
       <div className="fixed bottom-24 lg:bottom-6 left-6 right-6 lg:left-80 lg:right-[432px] z-40">
         <div className="glass-card bg-black/80 backdrop-blur-3xl border-white/10 p-2 rounded-2xl shadow-2xl overflow-x-auto scrollbar-none flex items-center gap-3">
           <div className="flex items-center gap-2 px-3 border-r border-white/10 mr-1">
@@ -583,7 +599,6 @@ export default function SalesPage() {
         </div>
       </div>
 
-      {/* Mobile Cart Trigger */}
       <div className="lg:hidden fixed bottom-6 left-6 right-6 z-50">
         <Sheet open={isMobileCartOpen} onOpenChange={setIsMobileCartOpen}>
           <SheetTrigger asChild>

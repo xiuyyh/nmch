@@ -113,7 +113,8 @@
               "itemId": { "type": "string" },
               "name": { "type": "string" },
               "quantity": { "type": "number" },
-              "price": { "type": "number" }
+              "price": { "type": "number" },
+              "lastSentQuantity": { "type": "number" }
             }
           }
         },
