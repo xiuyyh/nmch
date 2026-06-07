@@ -59,7 +59,7 @@ export default function InventoryPage() {
     setCurrentPage(1);
   }, [search]);
 
-  const totalPages = Math.ceil(filteredItems.length / ITEMS_PER_PAGE);
+  const totalPages = Math.max(1, Math.ceil(filteredItems.length / ITEMS_PER_PAGE));
   const paginatedItems = useMemo(() => {
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
     return filteredItems.slice(start, start + ITEMS_PER_PAGE);
@@ -162,7 +162,7 @@ export default function InventoryPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Card className="glass-card">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Total Items</CardTitle>
@@ -177,14 +177,6 @@ export default function InventoryPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-destructive font-headline">{stats.lowStock} Critical</div>
-            </CardContent>
-          </Card>
-          <Card className="glass-card">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Inventory Value</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary font-headline">Live Pricing</div>
             </CardContent>
           </Card>
         </div>
