@@ -20,7 +20,8 @@ import {
   X,
   History as HistoryIcon,
   Lock,
-  RefreshCw
+  RefreshCw,
+  PackagePlus
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -68,8 +69,8 @@ const departments = [
     items: [
       { name: "Bar Inventory", href: "/inventory", icon: Package },
       { name: "Stock Requests", href: "/requests", icon: ClipboardList },
-      { name: "Warehouse Stock", href: "/store/warehouse" },
-      { name: "Suppliers", href: "/store/suppliers" },
+      { name: "Warehouse Stock", href: "/store/warehouse", icon: Warehouse },
+      { name: "New Supply", href: "/store/suppliers", icon: PackagePlus },
     ],
   },
   {
