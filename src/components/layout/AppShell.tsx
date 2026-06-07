@@ -142,19 +142,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Beer className="w-6 h-6 text-primary" />
               <span className="font-headline font-bold text-xl tracking-tighter">TapTrack</span>
             </div>
-            
-            <div className="ml-auto flex items-center gap-6">
-              <div className="hidden sm:flex flex-col items-end">
-                <span className="text-[9px] text-muted-foreground uppercase tracking-[0.3em] font-black">Shift Velocity</span>
-                <span className="text-xs text-primary flex items-center gap-2 font-medium">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
-                  </span>
-                  Active • 04:12:00
-                </span>
-              </div>
-            </div>
           </header>
 
           <div className="flex-1 overflow-y-auto p-6 md:p-10 space-y-10 scroll-smooth">
