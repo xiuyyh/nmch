@@ -73,7 +73,7 @@ export default function SalesPage() {
   const { user } = useUser();
   const { toast } = useToast();
   
-  const [activeTab, setActiveTab] = useState<"quick" | "tables">("quick");
+  const [activeTab, setActiveTab] = useState<"quick" | "tables" | "menu">("quick");
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [search, setSearch] = useState("");
@@ -334,8 +334,9 @@ export default function SalesPage() {
   };
 
   const CartUI = () => (
-    <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Scrollable Cart Content */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
         {sessionLoading ? (
           <div className="h-full flex flex-col items-center justify-center text-muted-foreground animate-pulse">
             <Receipt className="w-8 h-8 mb-2 opacity-20" />
@@ -390,7 +391,8 @@ export default function SalesPage() {
         )}
       </div>
 
-      <div className="p-4 bg-black/60 border-t border-white/10 space-y-4 shrink-0">
+      {/* Fixed Checkout Footer - forced to stay at bottom */}
+      <div className="p-4 bg-black/60 border-t border-white/10 space-y-4 shrink-0 mt-auto">
         <div className="flex items-center justify-between px-1">
           <div className="flex items-center gap-2">
             <Switch id="print-ducket" checked={shouldPrintDucket} onCheckedChange={setShouldPrintDucket} />
@@ -527,14 +529,16 @@ export default function SalesPage() {
           </div>
 
           <div className="hidden lg:block w-[400px]">
-            <Card className="glass-card flex flex-col h-[calc(100vh-280px)] sticky top-28 border-white/5 overflow-hidden">
+            <Card className="glass-card flex flex-col h-[calc(100vh-220px)] sticky top-28 border-white/5 overflow-hidden">
               <CardHeader className="p-4 border-b border-white/5 flex flex-row items-center justify-between shrink-0">
                 <CardTitle className="font-headline font-bold text-lg text-white">{selectedTable ? `Bill: ${selectedTable}` : "Quick Sale"}</CardTitle>
                 <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => { setCart([]); if(selectedTable) saveToTable([]); }} disabled={cart.length === 0}>
                   <Trash2 className="w-4 h-4" />
                 </Button>
               </CardHeader>
-              <CartUI />
+              <div className="flex-1 overflow-hidden">
+                <CartUI />
+              </div>
             </Card>
           </div>
         </div>
@@ -591,14 +595,16 @@ export default function SalesPage() {
             </Button>
           </SheetTrigger>
           <SheetContent side="bottom" className="h-[85vh] bg-background border-white/10 p-0 rounded-t-[2.5rem] overflow-hidden">
-            <div className="flex flex-col h-full">
-              <SheetHeader className="p-6 border-b border-white/5 flex flex-row items-center justify-between space-y-0">
+            <div className="flex flex-col h-full overflow-hidden">
+              <SheetHeader className="p-6 border-b border-white/5 flex flex-row items-center justify-between space-y-0 shrink-0">
                 <SheetTitle className="font-headline font-bold text-xl text-white">{selectedTable ? `Bill: ${selectedTable}` : "Quick Sale"}</SheetTitle>
                 <Button variant="ghost" size="icon" className="h-10 w-10 text-muted-foreground hover:text-destructive" onClick={() => { setCart([]); if(selectedTable) saveToTable([]); }} disabled={cart.length === 0}>
                   <Trash2 className="w-5 h-5" />
                 </Button>
               </SheetHeader>
-              <CartUI />
+              <div className="flex-1 overflow-hidden">
+                <CartUI />
+              </div>
             </div>
           </SheetContent>
         </Sheet>
