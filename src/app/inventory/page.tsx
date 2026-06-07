@@ -55,6 +55,7 @@ import {
 } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -62,15 +63,12 @@ export default function InventoryPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
   const [search, setSearch] = useState("");
-  const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isManageCategoriesOpen, setIsManageCategoriesOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [newCategoryName, setNewCategoryName] = useState("");
   
-  // States for dynamic form fields
-  const [addCategory, setAddCategory] = useState<string>("");
   const [editCategory, setEditCategory] = useState<string>("");
 
   // Fetch Categories dynamically from Firestore
@@ -110,41 +108,6 @@ export default function InventoryPage() {
       lowStock: stockItems.filter(item => item.category !== "FOOD" && item.stock <= item.min).length
     };
   }, [stockItems]);
-
-  const handleAddItem = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!firestore) return;
-
-    const formData = new FormData(e.currentTarget);
-    const category = addCategory;
-    const isFood = category === "FOOD";
-
-    const newItem = {
-      name: formData.get("name") as string,
-      category: category,
-      stock: isFood ? 0 : Number(formData.get("stock")),
-      min: isFood ? 0 : Number(formData.get("min")),
-      price: Number(formData.get("price")),
-      unit: isFood ? "N/A" : (formData.get("unit") as string),
-      lastUpdated: serverTimestamp()
-    };
-
-    try {
-      await addDoc(collection(firestore, "inventory"), newItem);
-      setIsAddOpen(false);
-      setAddCategory("");
-      toast({
-        title: "Item Added",
-        description: `${newItem.name} added successfully.`,
-      });
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to add inventory item.",
-      });
-    }
-  };
 
   const handleUpdateItem = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -269,65 +232,11 @@ export default function InventoryPage() {
               </DialogContent>
             </Dialog>
 
-            <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-              <DialogTrigger asChild>
-                <Button className="bg-primary text-primary-foreground gap-2 h-12 px-6 rounded-xl shadow-lg font-bold">
-                  <Plus className="w-4 h-4" /> Add New Item
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="glass-card border-white/10 max-w-lg">
-                <DialogHeader>
-                  <DialogTitle className="text-xl font-headline">Add New Bar Item</DialogTitle>
-                </DialogHeader>
-                <form onSubmit={handleAddItem} className="space-y-4 py-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2 col-span-2">
-                      <Label htmlFor="name" className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Item Name</Label>
-                      <Input id="name" name="name" placeholder="e.g. Heineken" required className="bg-white/5 border-white/10 h-12" />
-                    </div>
-                    
-                    <div className="space-y-2 col-span-2">
-                      <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Category</Label>
-                      <Select value={addCategory} onValueChange={setAddCategory} required>
-                        <SelectTrigger className="bg-white/5 border-white/10 h-12">
-                          <SelectValue placeholder="Select Category" />
-                        </SelectTrigger>
-                        <SelectContent className="glass-card border-white/10 max-h-[300px]">
-                          {categories?.map(cat => (
-                            <SelectItem key={cat.id} value={cat.name} className="focus:bg-primary focus:text-primary-foreground">{cat.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2 col-span-2">
-                      <Label htmlFor="price" className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Price (₦)</Label>
-                      <Input id="price" name="price" type="number" step="1" required className="bg-white/5 border-white/10 h-12" />
-                    </div>
-
-                    {addCategory !== "FOOD" && addCategory !== "" && (
-                      <>
-                        <div className="space-y-2">
-                          <Label htmlFor="unit" className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Unit</Label>
-                          <Input id="unit" name="unit" placeholder="Bottle" required className="bg-white/5 border-white/10 h-12" />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="stock" className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Initial Stock</Label>
-                          <Input id="stock" name="stock" type="number" step="1" required className="bg-white/5 border-white/10 h-12" />
-                        </div>
-                        <div className="space-y-2 col-span-2">
-                          <Label htmlFor="min" className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Min Threshold (Alert)</Label>
-                          <Input id="min" name="min" type="number" step="1" required className="bg-white/5 border-white/10 h-12" />
-                        </div>
-                      </>
-                    )}
-                  </div>
-                  <DialogFooter className="pt-4">
-                    <Button type="submit" className="w-full h-12 bg-primary text-primary-foreground font-bold shadow-xl">Create Item</Button>
-                  </DialogFooter>
-                </form>
-              </DialogContent>
-            </Dialog>
+            <Button asChild className="bg-primary text-primary-foreground gap-2 h-12 px-6 rounded-xl shadow-lg font-bold">
+              <Link href="/inventory/add">
+                <Plus className="w-4 h-4" /> Add New Item
+              </Link>
+            </Button>
           </div>
         </div>
 
