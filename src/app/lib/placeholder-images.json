@@ -1,0 +1,23 @@
+
+{
+  "placeholderImages": [
+    {
+      "id": "bar-interior",
+      "description": "Modern bar interior with ambient lighting",
+      "imageUrl": "https://picsum.photos/seed/bar1/1200/800",
+      "imageHint": "modern bar"
+    },
+    {
+      "id": "cocktail-hero",
+      "description": "Premium cocktail on a bar counter",
+      "imageUrl": "https://picsum.photos/seed/cocktail/800/600",
+      "imageHint": "cocktail drink"
+    },
+    {
+      "id": "beer-taps",
+      "description": "Draft beer taps in a row",
+      "imageUrl": "https://picsum.photos/seed/beer/800/600",
+      "imageHint": "beer taps"
+    }
+  ]
+}
