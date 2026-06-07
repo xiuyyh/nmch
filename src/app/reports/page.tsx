@@ -14,6 +14,25 @@ import {
   ChevronRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Area, AreaChart, CartesianGrid, XAxis, ResponsiveContainer } from "recharts";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+
+const trendData = [
+  { day: "Mon", revenue: 4200 },
+  { day: "Tue", revenue: 3800 },
+  { day: "Wed", revenue: 5100 },
+  { day: "Thu", revenue: 4800 },
+  { day: "Fri", revenue: 7200 },
+  { day: "Sat", revenue: 8900 },
+  { day: "Sun", revenue: 6400 },
+];
+
+const trendConfig = {
+  revenue: {
+    label: "Daily Revenue ($)",
+    color: "hsl(var(--secondary))",
+  },
+};
 
 export default function ReportsPage() {
   return (
@@ -116,8 +135,34 @@ export default function ReportsPage() {
               <CardHeader>
                 <CardTitle>Revenue Trends</CardTitle>
               </CardHeader>
-              <CardContent className="h-[400px] flex items-center justify-center">
-                <div className="text-muted-foreground italic">Hourly sales trend line chart visualization</div>
+              <CardContent className="h-[400px] pt-4">
+                <ChartContainer config={trendConfig} className="h-full w-full">
+                  <AreaChart data={trendData}>
+                    <defs>
+                      <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(var(--secondary))" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="hsl(var(--secondary))" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--muted))" opacity={0.3} />
+                    <XAxis 
+                      dataKey="day" 
+                      tickLine={false} 
+                      axisLine={false} 
+                      tickMargin={8}
+                      tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                    />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Area 
+                      type="monotone" 
+                      dataKey="revenue" 
+                      stroke="var(--color-revenue)" 
+                      fillOpacity={1} 
+                      fill="url(#colorRev)" 
+                      strokeWidth={2}
+                    />
+                  </AreaChart>
+                </ChartContainer>
               </CardContent>
             </Card>
 

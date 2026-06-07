@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Search, Plus, Minus, Trash2, CreditCard, Banknote } from "lucide-react";
+import { Search, Plus, Minus, Trash2, CreditCard, Banknote, ShoppingCart } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const categories = ["All", "Cocktails", "Beer", "Wine", "Food", "Spirits"];

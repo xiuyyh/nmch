@@ -1,4 +1,6 @@
 
+"use client";
+
 import { AppShell } from "@/components/layout/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
@@ -9,6 +11,25 @@ import {
   ArrowUpRight,
   ArrowDownRight
 } from "lucide-react";
+import { Bar, BarChart, CartesianGrid, XAxis, ResponsiveContainer } from "recharts";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+
+const chartData = [
+  { time: "4pm", sales: 120 },
+  { time: "5pm", sales: 240 },
+  { time: "6pm", sales: 180 },
+  { time: "7pm", sales: 350 },
+  { time: "8pm", sales: 420 },
+  { time: "9pm", sales: 380 },
+  { time: "10pm", sales: 510 },
+];
+
+const chartConfig = {
+  sales: {
+    label: "Sales ($)",
+    color: "hsl(var(--primary))",
+  },
+};
 
 export default function Dashboard() {
   const stats = [
@@ -59,13 +80,31 @@ export default function Dashboard() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Chart Placeholder */}
+          {/* Main Chart */}
           <Card className="lg:col-span-2 glass-card">
             <CardHeader>
               <CardTitle>Sales Velocity</CardTitle>
             </CardHeader>
-            <CardContent className="h-[300px] flex items-center justify-center border-t border-border mt-2">
-              <div className="text-muted-foreground italic text-sm">Interactive Revenue Chart will be displayed here</div>
+            <CardContent className="h-[300px] w-full pt-4">
+              <ChartContainer config={chartConfig} className="h-full w-full">
+                <BarChart data={chartData}>
+                  <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--muted))" opacity={0.3} />
+                  <XAxis 
+                    dataKey="time" 
+                    tickLine={false} 
+                    axisLine={false} 
+                    tickMargin={8}
+                    tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                  />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Bar 
+                    dataKey="sales" 
+                    fill="var(--color-sales)" 
+                    radius={[4, 4, 0, 0]} 
+                    className="neon-glow-primary"
+                  />
+                </BarChart>
+              </ChartContainer>
             </CardContent>
           </Card>
 
