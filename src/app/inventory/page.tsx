@@ -31,29 +31,32 @@ import {
   SelectValue 
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Search, Plus, Edit2, ChevronLeft, ChevronRight, Package } from "lucide-react";
+import { 
+  Search, 
+  Plus, 
+  Edit2, 
+  ChevronLeft, 
+  ChevronRight, 
+  Package, 
+  Settings2, 
+  Trash2,
+  Tags
+} from "lucide-react";
 import { useCollection, useFirestore } from "@/firebase";
-import { collection, query, orderBy, addDoc, serverTimestamp, doc, updateDoc } from "firebase/firestore";
+import { 
+  collection, 
+  query, 
+  orderBy, 
+  addDoc, 
+  serverTimestamp, 
+  doc, 
+  updateDoc, 
+  deleteDoc 
+} from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
 const ITEMS_PER_PAGE = 10;
-
-const CATEGORIES = [
-  "YOGHURT",
-  "BEER",
-  "WINE",
-  "RED WINE",
-  "WHISKEY/SPIRIT",
-  "FRUIT JUICE",
-  "WATER",
-  "CREAM",
-  "SOFT DRINKS",
-  "MINERALS",
-  "ENERGY DRINK",
-  "MALT DRINKS",
-  "FOOD"
-];
 
 export default function InventoryPage() {
   const firestore = useFirestore();
@@ -61,18 +64,26 @@ export default function InventoryPage() {
   const [search, setSearch] = useState("");
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isManageCategoriesOpen, setIsManageCategoriesOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [newCategoryName, setNewCategoryName] = useState("");
   
   // States for dynamic form fields
   const [addCategory, setAddCategory] = useState<string>("");
   const [editCategory, setEditCategory] = useState<string>("");
 
+  // Fetch Categories dynamically from Firestore
+  const categoriesQuery = useMemo(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, "inventoryCategories"), orderBy("name"));
+  }, [firestore]);
+  const { data: categories, loading: categoriesLoading } = useCollection(categoriesQuery);
+
   const inventoryQuery = useMemo(() => {
     if (!firestore) return null;
     return query(collection(firestore, "inventory"), orderBy("name"));
   }, [firestore]);
-
   const { data: stockItems, loading } = useCollection(inventoryQuery);
 
   const filteredItems = useMemo(() => {
@@ -171,6 +182,29 @@ export default function InventoryPage() {
     }
   };
 
+  const handleAddCategory = async () => {
+    if (!firestore || !newCategoryName.trim()) return;
+    try {
+      await addDoc(collection(firestore, "inventoryCategories"), {
+        name: newCategoryName.trim().toUpperCase()
+      });
+      setNewCategoryName("");
+      toast({ title: "Category Added", description: "Successfully added new category." });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Error", description: "Failed to add category." });
+    }
+  };
+
+  const handleDeleteCategory = async (id: string, name: string) => {
+    if (!firestore) return;
+    try {
+      await deleteDoc(doc(firestore, "inventoryCategories", id));
+      toast({ title: "Category Deleted", description: `Category ${name} removed.` });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Error", description: "Failed to delete category." });
+    }
+  };
+
   const openEditDialog = (item: any) => {
     setEditingItem(item);
     setEditCategory(item.category);
@@ -186,9 +220,58 @@ export default function InventoryPage() {
             <p className="text-muted-foreground">Manage stock levels and sales pricing.</p>
           </div>
           <div className="flex gap-2">
+            <Dialog open={isManageCategoriesOpen} onOpenChange={setIsManageCategoriesOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="gap-2 h-12 px-6 rounded-xl border-white/10">
+                  <Settings2 className="w-4 h-4" /> Manage Categories
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="glass-card border-white/10 max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="text-xl font-headline flex items-center gap-2">
+                    <Tags className="w-5 h-5 text-primary" /> Category Manager
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-6 py-4">
+                  <div className="flex gap-2">
+                    <Input 
+                      placeholder="NEW CATEGORY..." 
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      className="bg-white/5 border-white/10 uppercase"
+                    />
+                    <Button onClick={handleAddCategory} className="bg-primary text-primary-foreground font-bold">
+                      Add
+                    </Button>
+                  </div>
+                  <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                    {categoriesLoading ? (
+                      <p className="text-xs text-muted-foreground animate-pulse">Loading categories...</p>
+                    ) : categories?.length === 0 ? (
+                      <p className="text-xs text-muted-foreground italic">No categories created yet.</p>
+                    ) : (
+                      categories?.map(cat => (
+                        <div key={cat.id} className="flex justify-between items-center p-3 bg-white/5 rounded-lg border border-white/5">
+                          <span className="font-bold text-sm">{cat.name}</span>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={() => handleDeleteCategory(cat.id, cat.name)}
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+
             <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-primary text-primary-foreground gap-2 h-12 px-6 rounded-xl shadow-lg">
+                <Button className="bg-primary text-primary-foreground gap-2 h-12 px-6 rounded-xl shadow-lg font-bold">
                   <Plus className="w-4 h-4" /> Add New Item
                 </Button>
               </DialogTrigger>
@@ -209,9 +292,9 @@ export default function InventoryPage() {
                         <SelectTrigger className="bg-white/5 border-white/10 h-12">
                           <SelectValue placeholder="Select Category" />
                         </SelectTrigger>
-                        <SelectContent className="glass-card border-white/10">
-                          {CATEGORIES.map(cat => (
-                            <SelectItem key={cat} value={cat} className="focus:bg-primary focus:text-primary-foreground">{cat}</SelectItem>
+                        <SelectContent className="glass-card border-white/10 max-h-[300px]">
+                          {categories?.map(cat => (
+                            <SelectItem key={cat.id} value={cat.name} className="focus:bg-primary focus:text-primary-foreground">{cat.name}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -398,9 +481,9 @@ export default function InventoryPage() {
                     <SelectTrigger className="bg-white/5 border-white/10 h-12">
                       <SelectValue placeholder="Select Category" />
                     </SelectTrigger>
-                    <SelectContent className="glass-card border-white/10">
-                      {CATEGORIES.map(cat => (
-                        <SelectItem key={cat} value={cat} className="focus:bg-primary focus:text-primary-foreground">{cat}</SelectItem>
+                    <SelectContent className="glass-card border-white/10 max-h-[300px]">
+                      {categories?.map(cat => (
+                        <SelectItem key={cat.id} value={cat.name} className="focus:bg-primary focus:text-primary-foreground">{cat.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
