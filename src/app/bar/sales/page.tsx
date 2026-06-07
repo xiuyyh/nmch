@@ -20,7 +20,7 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  BookOpen,
+  Package,
   ArrowRight
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -51,16 +51,16 @@ export default function SalesPage() {
   
   const [activeTab, setActiveTab] = useState<"quick" | "tables">("quick");
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
-  const [cart, setCart] = useState<{ menuItemId: string; name: string; price: number; quantity: number }[]>([]);
+  const [cart, setCart] = useState<{ itemId: string; name: string; price: number; quantity: number }[]>([]);
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Fetch Menu - Querying all menu items to ensure visibility
-  const menuQuery = useMemo(() => {
+  // Fetch Inventory items directly for selling
+  const inventoryQuery = useMemo(() => {
     if (!firestore) return null;
-    return query(collection(firestore, "menu"), orderBy("name"));
+    return query(collection(firestore, "inventory"), orderBy("name"));
   }, [firestore]);
-  const { data: menuItems, loading: menuLoading } = useCollection(menuQuery);
+  const { data: inventoryItems, loading: inventoryLoading } = useCollection(inventoryQuery);
 
   // Fetch Active Table Order if any
   const tableRef = useMemo(() => {
@@ -80,12 +80,12 @@ export default function SalesPage() {
 
   const addToCart = (item: any) => {
     setCart(prev => {
-      const existing = prev.find(i => i.menuItemId === item.id);
+      const existing = prev.find(i => i.itemId === item.id);
       let newCart;
       if (existing) {
-        newCart = prev.map(i => i.menuItemId === item.id ? { ...i, quantity: i.quantity + 1 } : i);
+        newCart = prev.map(i => i.itemId === item.id ? { ...i, quantity: i.quantity + 1 } : i);
       } else {
-        newCart = [...prev, { menuItemId: item.id, name: item.name, price: item.price, quantity: 1 }];
+        newCart = [...prev, { itemId: item.id, name: item.name, price: item.price || 0, quantity: 1 }];
       }
 
       if (selectedTable && firestore) {
@@ -96,10 +96,10 @@ export default function SalesPage() {
     });
   };
 
-  const updateQuantity = (menuItemId: string, delta: number) => {
+  const updateQuantity = (itemId: string, delta: number) => {
     setCart(prev => {
       const newCart = prev.map(i => {
-        if (i.menuItemId === menuItemId) {
+        if (i.itemId === itemId) {
           const newQty = Math.max(1, i.quantity + delta);
           return { ...i, quantity: newQty };
         }
@@ -110,9 +110,9 @@ export default function SalesPage() {
     });
   };
 
-  const removeFromCart = (menuItemId: string) => {
+  const removeFromCart = (itemId: string) => {
     setCart(prev => {
-      const newCart = prev.filter(i => i.menuItemId !== menuItemId);
+      const newCart = prev.filter(i => i.itemId !== itemId);
       if (selectedTable && firestore) saveToTable(newCart);
       return newCart;
     });
@@ -146,22 +146,18 @@ export default function SalesPage() {
     try {
       await addDoc(collection(firestore, "sales"), saleData);
 
+      // Decrement inventory stock directly for each item sold
       for (const cartItem of cart) {
-        const fullMenuItem = menuItems?.find(m => m.id === cartItem.menuItemId);
-        if (fullMenuItem?.ingredients && Array.isArray(fullMenuItem.ingredients)) {
-          for (const ingredient of fullMenuItem.ingredients) {
-            const stockRef = doc(firestore, "inventory", ingredient.stockItemId);
-            updateDoc(stockRef, {
-              stock: increment(-(ingredient.amount * cartItem.quantity)),
-              lastUpdated: serverTimestamp()
-            });
-          }
-        }
+        const stockRef = doc(firestore, "inventory", cartItem.itemId);
+        updateDoc(stockRef, {
+          stock: increment(-cartItem.quantity),
+          lastUpdated: serverTimestamp()
+        });
       }
 
       toast({
         title: "Sale Recorded",
-        description: `Successfully processed ${method} payment. Inventory updated.`,
+        description: `Processed $${total.toFixed(2)} via ${method}. Stock updated.`,
       });
       
       if (selectedTable) {
@@ -181,11 +177,11 @@ export default function SalesPage() {
   };
 
   const filteredItems = useMemo(() => {
-    if (!menuItems) return [];
-    return menuItems.filter(item => 
+    if (!inventoryItems) return [];
+    return inventoryItems.filter(item => 
       item.name?.toLowerCase().includes(search.toLowerCase())
     );
-  }, [menuItems, search]);
+  }, [inventoryItems, search]);
 
   // Pagination Logic
   React.useEffect(() => {
@@ -292,7 +288,7 @@ export default function SalesPage() {
                 <div className="relative">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input 
-                    placeholder="Search drinks and snacks..." 
+                    placeholder="Search inventory items..." 
                     className="pl-12 h-12 bg-white/5 border-white/10 rounded-2xl focus:border-primary/50" 
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
@@ -300,25 +296,25 @@ export default function SalesPage() {
                 </div>
 
                 <div className="mt-6 space-y-6">
-                  {menuLoading ? (
-                    <div className="py-20 text-center text-muted-foreground animate-pulse">Gathering menu data...</div>
+                  {inventoryLoading ? (
+                    <div className="py-20 text-center text-muted-foreground animate-pulse">Gathering inventory...</div>
                   ) : filteredItems.length === 0 ? (
                     <Card className="glass-card border-dashed border-white/10 bg-transparent">
                       <CardContent className="py-20 flex flex-col items-center text-center">
                         <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mb-6">
-                          <BookOpen className="w-8 h-8 text-muted-foreground" />
+                          <Package className="w-8 h-8 text-muted-foreground" />
                         </div>
                         <h3 className="text-xl font-headline font-bold mb-2">No items found</h3>
                         <p className="text-muted-foreground max-w-sm mb-8">
                           {search 
-                            ? `We couldn't find any menu items matching "${search}".`
-                            : "Your menu is currently empty. Inventory items don't show up here until they are added to the Menu Configuration."
+                            ? `We couldn't find any items matching "${search}".`
+                            : "Your inventory is currently empty. Add items in the Bar Inventory section to start selling."
                           }
                         </p>
                         {!search && (
                           <Button asChild className="gap-2">
-                            <Link href="/menu">
-                              Go to Menu Configuration <ArrowRight className="w-4 h-4" />
+                            <Link href="/inventory">
+                              Go to Bar Inventory <ArrowRight className="w-4 h-4" />
                             </Link>
                           </Button>
                         )}
@@ -338,7 +334,7 @@ export default function SalesPage() {
                               <span className="text-xs uppercase tracking-widest text-muted-foreground font-bold">{item.category}</span>
                               <span className="font-headline font-bold text-lg leading-tight text-white">{item.name}</span>
                               <div className="flex justify-between items-center mt-2">
-                                <span className="text-primary font-headline font-bold text-xl">${item.price.toFixed(2)}</span>
+                                <span className="text-primary font-headline font-bold text-xl">${(item.price || 0).toFixed(2)}</span>
                                 <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-all">
                                   <Plus className="w-4 h-4" />
                                 </div>
@@ -414,20 +410,20 @@ export default function SalesPage() {
                   </div>
                 ) : (
                   cart.map(item => (
-                    <div key={item.menuItemId} className="flex flex-col gap-3 p-4 bg-white/5 rounded-2xl border border-white/5">
+                    <div key={item.itemId} className="flex flex-col gap-3 p-4 bg-white/5 rounded-2xl border border-white/5">
                       <div className="flex justify-between items-start gap-4">
                         <span className="font-headline font-bold text-base leading-tight text-white">{item.name}</span>
-                        <button onClick={() => removeFromCart(item.menuItemId)} className="text-muted-foreground hover:text-destructive transition-colors">
+                        <button onClick={() => removeFromCart(item.itemId)} className="text-muted-foreground hover:text-destructive transition-colors">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                       <div className="flex justify-between items-center">
                         <div className="flex items-center gap-1 bg-black/20 rounded-xl p-1">
-                          <Button size="icon" variant="ghost" className="w-8 h-8 rounded-lg" onClick={() => updateQuantity(item.menuItemId, -1)}>
+                          <Button size="icon" variant="ghost" className="w-8 h-8 rounded-lg" onClick={() => updateQuantity(item.itemId, -1)}>
                             <Minus className="w-3 h-3" />
                           </Button>
                           <span className="w-10 text-center font-headline font-bold text-white">{item.quantity}</span>
-                          <Button size="icon" variant="ghost" className="w-8 h-8 rounded-lg" onClick={() => updateQuantity(item.menuItemId, 1)}>
+                          <Button size="icon" variant="ghost" className="w-8 h-8 rounded-lg" onClick={() => updateQuantity(item.itemId, 1)}>
                             <Plus className="w-3 h-3" />
                           </Button>
                         </div>

@@ -11,31 +11,10 @@
         "stock": { "type": "number" },
         "unit": { "type": "string" },
         "min": { "type": "number" },
+        "price": { "type": "number" },
         "lastUpdated": { "type": "string", "format": "date-time" }
       },
-      "required": ["name", "stock", "min"]
-    },
-    "MenuItem": {
-      "title": "Menu Item",
-      "description": "An item available for sale on the menu",
-      "type": "object",
-      "properties": {
-        "name": { "type": "string" },
-        "price": { "type": "number" },
-        "category": { "type": "string" },
-        "ingredients": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "stockItemId": { "type": "string" },
-              "amount": { "type": "number" }
-            }
-          }
-        },
-        "status": { "type": "string", "enum": ["Active", "Seasonal", "Archived"] }
-      },
-      "required": ["name", "price", "status"]
+      "required": ["name", "stock", "min", "price"]
     },
     "Sale": {
       "title": "Sale Record",
@@ -47,7 +26,7 @@
           "items": {
             "type": "object",
             "properties": {
-              "menuItemId": { "type": "string" },
+              "itemId": { "type": "string" },
               "name": { "type": "string" },
               "quantity": { "type": "number" },
               "price": { "type": "number" }
@@ -72,7 +51,7 @@
           "items": {
             "type": "object",
             "properties": {
-              "menuItemId": { "type": "string" },
+              "itemId": { "type": "string" },
               "name": { "type": "string" },
               "quantity": { "type": "number" },
               "price": { "type": "number" }
@@ -91,10 +70,6 @@
     "/inventory/{itemId}": {
       "schema": "StockItem",
       "description": "Collection of inventory items"
-    },
-    "/menu/{itemId}": {
-      "schema": "MenuItem",
-      "description": "Collection of menu items"
     },
     "/sales/{saleId}": {
       "schema": "Sale",

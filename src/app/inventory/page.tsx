@@ -82,6 +82,7 @@ export default function InventoryPage() {
       category: formData.get("category") as string,
       stock: Number(formData.get("stock")),
       min: Number(formData.get("min")),
+      price: Number(formData.get("price")),
       unit: formData.get("unit") as string,
       lastUpdated: serverTimestamp()
     };
@@ -91,7 +92,7 @@ export default function InventoryPage() {
       setIsAddOpen(false);
       toast({
         title: "Item Added",
-        description: `${newItem.name} has been added to inventory.`,
+        description: `${newItem.name} has been added with a price of $${newItem.price.toFixed(2)}.`,
       });
     } catch (error) {
       toast({
@@ -108,7 +109,7 @@ export default function InventoryPage() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-headline font-bold">Bar Inventory</h1>
-            <p className="text-muted-foreground">Manage and track your bar stock levels in real-time.</p>
+            <p className="text-muted-foreground">Manage stock levels and sales pricing in one place.</p>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" className="gap-2">
@@ -118,33 +119,37 @@ export default function InventoryPage() {
             <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
               <DialogTrigger asChild>
                 <Button className="bg-primary text-primary-foreground gap-2">
-                  <Plus className="w-4 h-4" /> Add Stock Item
+                  <Plus className="w-4 h-4" /> Add Item
                 </Button>
               </DialogTrigger>
               <DialogContent className="glass-card border-white/10">
                 <DialogHeader>
-                  <DialogTitle>Add New Inventory Item</DialogTitle>
+                  <DialogTitle>Add New Bar Item</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleAddItem} className="space-y-4 py-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2 col-span-2">
                       <Label htmlFor="name">Item Name</Label>
-                      <Input id="name" name="name" placeholder="e.g. Tito's Vodka" required className="bg-white/5" />
+                      <Input id="name" name="name" placeholder="e.g. Heineken Pint" required className="bg-white/5" />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="category">Category</Label>
-                      <Input id="category" name="category" placeholder="Spirits" required className="bg-white/5" />
+                      <Input id="category" name="category" placeholder="Beer" required className="bg-white/5" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="price">Sales Price ($)</Label>
+                      <Input id="price" name="price" type="number" step="0.01" required className="bg-white/5" />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="unit">Unit</Label>
-                      <Input id="unit" name="unit" placeholder="Bottles/ml" required className="bg-white/5" />
+                      <Input id="unit" name="unit" placeholder="Pint/Bottle" required className="bg-white/5" />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="stock">Initial Stock</Label>
+                      <Label htmlFor="stock">Current Stock</Label>
                       <Input id="stock" name="stock" type="number" step="0.01" required className="bg-white/5" />
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="min">Min Threshold</Label>
+                    <div className="space-y-2 col-span-2">
+                      <Label htmlFor="min">Min Threshold (for alerts)</Label>
                       <Input id="min" name="min" type="number" step="0.01" required className="bg-white/5" />
                     </div>
                   </div>
@@ -160,10 +165,10 @@ export default function InventoryPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card className="glass-card">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Inventory Items</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Total Items</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold font-headline">{stockItems?.length || 0} Total</div>
+              <div className="text-2xl font-bold font-headline">{stockItems?.length || 0} Listed</div>
             </CardContent>
           </Card>
           <Card className="glass-card">
@@ -171,15 +176,15 @@ export default function InventoryPage() {
               <CardTitle className="text-sm font-medium text-muted-foreground">Low Stock Alerts</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-destructive font-headline">{stats.lowStock} Items</div>
+              <div className="text-2xl font-bold text-destructive font-headline">{stats.lowStock} Critical</div>
             </CardContent>
           </Card>
           <Card className="glass-card">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Status</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Inventory Value</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-primary font-headline">Live Tracking</div>
+              <div className="text-2xl font-bold text-primary font-headline">Live Pricing</div>
             </CardContent>
           </Card>
         </div>
@@ -187,11 +192,11 @@ export default function InventoryPage() {
         <Card className="glass-card">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle>Current Stock</CardTitle>
+              <CardTitle>Inventory & Pricing</CardTitle>
               <div className="relative w-64">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input 
-                  placeholder="Filter stock..." 
+                  placeholder="Filter inventory..." 
                   className="pl-10 h-9 bg-background/50 border-white/5" 
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
@@ -201,9 +206,9 @@ export default function InventoryPage() {
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="py-10 text-center text-muted-foreground">Loading stock data...</div>
+              <div className="py-10 text-center text-muted-foreground">Loading inventory...</div>
             ) : filteredItems?.length === 0 ? (
-              <div className="py-20 text-center text-muted-foreground italic">No inventory items found. Add your first item to begin tracking.</div>
+              <div className="py-20 text-center text-muted-foreground italic">No items found. Add items to start selling.</div>
             ) : (
               <div className="space-y-4">
                 <Table>
@@ -211,8 +216,8 @@ export default function InventoryPage() {
                     <TableRow className="hover:bg-transparent border-white/5">
                       <TableHead className="font-bold">Item Name</TableHead>
                       <TableHead className="font-bold">Category</TableHead>
-                      <TableHead className="font-bold">Current Stock</TableHead>
-                      <TableHead className="font-bold">Threshold</TableHead>
+                      <TableHead className="font-bold text-right">Price</TableHead>
+                      <TableHead className="font-bold">Stock</TableHead>
                       <TableHead className="font-bold">Status</TableHead>
                       <TableHead className="font-bold text-right">Actions</TableHead>
                     </TableRow>
@@ -224,14 +229,15 @@ export default function InventoryPage() {
                         <TableRow key={item.id} className="border-white/5 hover:bg-white/5">
                           <TableCell className="font-medium">{item.name}</TableCell>
                           <TableCell className="text-muted-foreground">{item.category}</TableCell>
+                          <TableCell className="text-right font-headline font-bold text-primary">
+                            ${(item.price || 0).toFixed(2)}
+                          </TableCell>
                           <TableCell>
                             <span className={cn("font-headline font-bold", isLow && "text-destructive")}>{item.stock.toFixed(2)}</span> {item.unit}
                           </TableCell>
-                          <TableCell className="text-muted-foreground">{item.min} {item.unit}</TableCell>
                           <TableCell>
                             {isLow ? (
-                              <Badge variant="destructive" className="gap-1 animate-pulse">
-                                <AlertTriangle className="w-3 h-3" />
+                              <Badge variant="destructive" className="gap-1">
                                 Low Stock
                               </Badge>
                             ) : (
