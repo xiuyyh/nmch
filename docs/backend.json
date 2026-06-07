@@ -47,9 +47,32 @@
         },
         "total": { "type": "number" },
         "method": { "type": "string", "enum": ["Card", "Cash"] },
+        "tableNumber": { "type": "string" },
         "timestamp": { "type": "string", "format": "date-time" }
       },
       "required": ["items", "total", "method", "timestamp"]
+    },
+    "TableSession": {
+      "title": "Active Table Session",
+      "description": "An ongoing order for a specific table",
+      "type": "object",
+      "properties": {
+        "tableNumber": { "type": "string" },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "menuItemId": { "type": "string" },
+              "name": { "type": "string" },
+              "quantity": { "type": "number" },
+              "price": { "type": "number" }
+            }
+          }
+        },
+        "lastUpdated": { "type": "string", "format": "date-time" }
+      },
+      "required": ["tableNumber", "items"]
     }
   },
   "auth": {
@@ -67,6 +90,10 @@
     "/sales/{saleId}": {
       "schema": "Sale",
       "description": "History of sales"
+    },
+    "/tableSessions/{tableNumber}": {
+      "schema": "TableSession",
+      "description": "Active tabs for tables"
     }
   }
 }

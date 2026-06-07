@@ -52,7 +52,7 @@ const departments = [
     title: "Bar",
     icon: Wine,
     items: [
-      { name: "POS / Quick Sale", href: "/pos", icon: ShoppingCart },
+      { name: "Sales & Tables", href: "/bar/sales", icon: ShoppingCart },
       { name: "Inventory", href: "/inventory", icon: Package },
       { name: "Menu Config", href: "/menu", icon: MenuIcon },
       { name: "Sales Reports", href: "/reports", icon: BarChart3 },
