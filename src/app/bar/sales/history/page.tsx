@@ -26,10 +26,10 @@ import {
   ChevronDown,
   ShoppingCart,
   XCircle,
-  RotateCcw,
+  History as HistoryIcon,
   MinusCircle
 } from "lucide-react";
-import { useCollection, useFirestore, useUser } from "@/firebase";
+import { useCollection, useFirestore } from "@/firebase";
 import { collection, query, orderBy, doc, updateDoc, increment, serverTimestamp, getDoc } from "firebase/firestore";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -51,6 +51,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
+import { errorEmitter } from "@/firebase/error-emitter";
+import { FirestorePermissionError } from "@/firebase/errors";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -92,7 +94,7 @@ export default function SalesHistoryPage() {
   }, [sales]);
 
   const checkSettlement = async (timestamp: any) => {
-    if (!firestore || !timestamp) return true;
+    if (!firestore || !timestamp) return false;
     const dateStr = format(timestamp.toDate(), "yyyy-MM-dd");
     const closingRef = doc(firestore, "dailyClosings", dateStr);
     const closingSnap = await getDoc(closingRef);
@@ -112,31 +114,41 @@ export default function SalesHistoryPage() {
       return;
     }
 
-    try {
-      await updateDoc(doc(firestore, "sales", sale.id), {
-        status: "Canceled",
-        canceledAt: serverTimestamp()
-      });
+    const saleRef = doc(firestore, "sales", sale.id);
+    const saleData = {
+      status: "Canceled",
+      canceledAt: serverTimestamp()
+    };
 
-      for (const item of sale.items) {
-        const stockRef = doc(firestore, "inventory", item.itemId);
-        await updateDoc(stockRef, {
-          stock: increment(item.quantity),
-          lastUpdated: serverTimestamp()
-        });
-      }
+    updateDoc(saleRef, saleData).catch(async (error) => {
+      errorEmitter.emit("permission-error", new FirestorePermissionError({
+        path: saleRef.path,
+        operation: "update",
+        requestResourceData: saleData
+      }));
+    });
 
-      toast({
-        title: "Sale Canceled",
-        description: `Inventory restored and transaction marked as canceled.`,
-      });
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Could not cancel sale. Check permissions.",
+    // Restock all items
+    for (const item of sale.items) {
+      const stockRef = doc(firestore, "inventory", item.itemId);
+      const stockUpdate = {
+        stock: increment(item.quantity),
+        lastUpdated: serverTimestamp()
+      };
+      
+      updateDoc(stockRef, stockUpdate).catch(async (error) => {
+        errorEmitter.emit("permission-error", new FirestorePermissionError({
+          path: stockRef.path,
+          operation: "update",
+          requestResourceData: stockUpdate
+        }));
       });
     }
+
+    toast({
+      title: "Sale Canceled",
+      description: `Inventory restored and transaction marked as canceled.`,
+    });
   };
 
   const handleVoidItem = async (sale: any, itemIndex: number) => {
@@ -155,39 +167,50 @@ export default function SalesHistoryPage() {
     const itemToVoid = sale.items[itemIndex];
     const updatedItems = sale.items.filter((_: any, i: number) => i !== itemIndex);
     const updatedTotal = updatedItems.reduce((sum: number, i: any) => sum + (i.price * i.quantity), 0);
+    const saleRef = doc(firestore, "sales", sale.id);
 
-    try {
-      if (updatedItems.length === 0) {
-        await updateDoc(doc(firestore, "sales", sale.id), {
-          status: "Canceled",
-          canceledAt: serverTimestamp(),
-          items: [],
-          total: 0
-        });
-      } else {
-        await updateDoc(doc(firestore, "sales", sale.id), {
-          items: updatedItems,
-          total: updatedTotal
-        });
-      }
-
-      const stockRef = doc(firestore, "inventory", itemToVoid.itemId);
-      await updateDoc(stockRef, {
-        stock: increment(itemToVoid.quantity),
-        lastUpdated: serverTimestamp()
-      });
-
-      toast({
-        title: "Item Voided",
-        description: `${itemToVoid.name} removed and stock restored.`,
-      });
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Could not void item.",
-      });
+    let saleUpdate: any;
+    if (updatedItems.length === 0) {
+      saleUpdate = {
+        status: "Canceled",
+        canceledAt: serverTimestamp(),
+        items: [],
+        total: 0
+      };
+    } else {
+      saleUpdate = {
+        items: updatedItems,
+        total: updatedTotal
+      };
     }
+
+    updateDoc(saleRef, saleUpdate).catch(async (error) => {
+      errorEmitter.emit("permission-error", new FirestorePermissionError({
+        path: saleRef.path,
+        operation: "update",
+        requestResourceData: saleUpdate
+      }));
+    });
+
+    // Restock the specific item
+    const stockRef = doc(firestore, "inventory", itemToVoid.itemId);
+    const stockUpdate = {
+      stock: increment(itemToVoid.quantity),
+      lastUpdated: serverTimestamp()
+    };
+
+    updateDoc(stockRef, stockUpdate).catch(async (error) => {
+      errorEmitter.emit("permission-error", new FirestorePermissionError({
+        path: stockRef.path,
+        operation: "update",
+        requestResourceData: stockUpdate
+      }));
+    });
+
+    toast({
+      title: "Item Voided",
+      description: `${itemToVoid.name} removed and stock restored.`,
+    });
   };
 
   const printDucket = (sale: any) => {

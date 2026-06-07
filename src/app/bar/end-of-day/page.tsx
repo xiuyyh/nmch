@@ -29,6 +29,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+import { errorEmitter } from "@/firebase/error-emitter";
+import { FirestorePermissionError } from "@/firebase/errors";
 
 export default function EndOfDayPage() {
   const firestore = useFirestore();
@@ -42,7 +44,6 @@ export default function EndOfDayPage() {
     if (!firestore) return null;
     const start = startOfDay(new Date());
     const end = endOfDay(new Date());
-    // Note: This query might require an index on Firestore.
     return query(
       collection(firestore, "sales"), 
       where("timestamp", ">=", start),
@@ -69,29 +70,31 @@ export default function EndOfDayPage() {
     };
   }, [sales]);
 
-  const handleSettle = async () => {
+  const handleSettle = () => {
     if (!firestore || !user || !closingRef) return;
 
-    try {
-      await setDoc(closingRef, {
-        date: todayStr,
-        settledAt: serverTimestamp(),
-        settledBy: user.displayName || user.email,
-        totalRevenue: stats.total,
-        salesCount: stats.count
-      });
+    const settlementData = {
+      date: todayStr,
+      settledAt: serverTimestamp(),
+      settledBy: user.displayName || user.email,
+      totalRevenue: stats.total,
+      salesCount: stats.count
+    };
 
-      toast({
-        title: "Day Settled",
-        description: `Successfully closed sales for ${todayStr}. Records are now permanent.`,
+    setDoc(closingRef, settlementData)
+      .then(() => {
+        toast({
+          title: "Day Settled",
+          description: `Successfully closed sales for ${todayStr}. Records are now permanent.`,
+        });
+      })
+      .catch(async (error) => {
+        errorEmitter.emit("permission-error", new FirestorePermissionError({
+          path: closingRef.path,
+          operation: "write",
+          requestResourceData: settlementData
+        }));
       });
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Settlement Failed",
-        description: "Could not settle sales. Please try again.",
-      });
-    }
   };
 
   if (salesLoading || closingLoading) {

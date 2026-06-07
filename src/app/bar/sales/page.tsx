@@ -135,14 +135,20 @@ export default function SalesPage() {
     const ref = doc(firestore, "tableSessions", selectedTable);
     
     if (items.length === 0) {
-      deleteDoc(ref).catch(err => console.error("Error clearing table session", err));
+      deleteDoc(ref).catch(err => {
+        // Silently fail or handle specifically if needed
+      });
     } else {
       setDoc(ref, {
         tableNumber: selectedTable,
         items,
         lastUpdated: serverTimestamp()
       }, { merge: true }).catch(err => {
-        console.error("Error saving table session", err);
+        errorEmitter.emit("permission-error", new FirestorePermissionError({
+          path: ref.path,
+          operation: "write",
+          requestResourceData: { tableNumber: selectedTable, items }
+        }));
       });
     }
   };
@@ -161,42 +167,50 @@ export default function SalesPage() {
       status: "Completed"
     };
 
-    try {
-      const docRef = await addDoc(collection(firestore, "sales"), saleData);
-
-      // Decrement inventory stock directly for each item sold
-      for (const cartItem of cart) {
-        const stockRef = doc(firestore, "inventory", cartItem.itemId);
-        updateDoc(stockRef, {
-          stock: increment(-cartItem.quantity),
-          lastUpdated: serverTimestamp()
-        });
-      }
-
-      if (shouldPrintDucket) {
-        printDucket({ ...saleData, id: docRef.id });
-      }
-
-      toast({
-        title: "Sale Recorded",
-        description: `Processed ₦${total.toLocaleString()} via ${method}.`,
+    // Optimistic record creation
+    addDoc(collection(firestore, "sales"), saleData)
+      .then((docRef) => {
+        if (shouldPrintDucket) {
+          printDucket({ ...saleData, id: docRef.id });
+        }
+      })
+      .catch(async (error: any) => {
+        errorEmitter.emit("permission-error", new FirestorePermissionError({
+          path: "sales",
+          operation: "create",
+          requestResourceData: saleData,
+        }));
       });
+
+    // Decrement inventory stock
+    for (const cartItem of cart) {
+      const stockRef = doc(firestore, "inventory", cartItem.itemId);
+      const stockUpdate = {
+        stock: increment(-cartItem.quantity),
+        lastUpdated: serverTimestamp()
+      };
       
-      if (selectedTable) {
-        deleteDoc(doc(firestore, "tableSessions", selectedTable));
-        setSelectedTable(null);
-      }
-      
-      setCart([]);
-      setIsMobileCartOpen(false);
-    } catch (error: any) {
-      const permissionError = new FirestorePermissionError({
-        path: "sales",
-        operation: "create",
-        requestResourceData: saleData,
+      updateDoc(stockRef, stockUpdate).catch(async (error) => {
+        errorEmitter.emit("permission-error", new FirestorePermissionError({
+          path: stockRef.path,
+          operation: "update",
+          requestResourceData: stockUpdate
+        }));
       });
-      errorEmitter.emit("permission-error", permissionError);
     }
+
+    toast({
+      title: "Sale Recorded",
+      description: `Processed ₦${total.toLocaleString()} via ${method}.`,
+    });
+    
+    if (selectedTable) {
+      deleteDoc(doc(firestore, "tableSessions", selectedTable));
+      setSelectedTable(null);
+    }
+    
+    setCart([]);
+    setIsMobileCartOpen(false);
   };
 
   const printDucket = (sale: any) => {
