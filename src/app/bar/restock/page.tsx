@@ -128,8 +128,7 @@ export default function BarRestockPage() {
     <AppShell>
       <div className="flex flex-col gap-8 max-w-6xl mx-auto">
         <div>
-          <h1 className="text-3xl font-headline font-bold uppercase tracking-tight">Bar Restock Hub</h1>
-          <p className="text-muted-foreground">Request beverages and supplies from the main store.</p>
+          <h1 className="text-3xl font-headline font-bold uppercase tracking-tight">Bar Restock</h1>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -170,7 +169,7 @@ export default function BarRestockPage() {
                 )}
               </CardHeader>
               
-              {/* Inventory Selection Section - Now at the top */}
+              {/* Inventory Selection Section */}
               <div className="border-b border-white/5 bg-white/[0.02] p-6 space-y-4">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <span className="text-sm font-bold uppercase tracking-widest text-muted-foreground shrink-0">Select from Inventory</span>
