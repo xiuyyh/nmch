@@ -16,8 +16,15 @@ import {
   CheckCircle2, 
   XCircle,
   Package,
-  AlertTriangle
+  AlertTriangle,
+  ChevronDown,
+  ArrowRight
 } from "lucide-react";
+import { 
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { useCollection, useFirestore, useUser } from "@/firebase";
 import { collection, addDoc, serverTimestamp, query, orderBy } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
@@ -218,25 +225,67 @@ export default function BarRestockPage() {
                 ) : (
                   <div className="divide-y divide-white/5">
                     {history?.map(req => (
-                      <div key={req.id} className="p-4 space-y-3 hover:bg-white/5 transition-colors">
-                        <div className="flex justify-between items-start">
-                          <div className="flex flex-col">
-                            <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
-                              {req.requestDate?.toDate ? format(req.requestDate.toDate(), "MMM dd, HH:mm") : "N/A"}
-                            </span>
-                            <span className="text-sm font-bold">{req.items?.length || 0} items requested</span>
+                      <Collapsible key={req.id} className="group">
+                        <CollapsibleTrigger asChild>
+                          <div className="p-4 space-y-3 hover:bg-white/5 transition-colors cursor-pointer">
+                            <div className="flex justify-between items-start">
+                              <div className="flex flex-col">
+                                <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                                  {req.requestDate?.toDate ? format(req.requestDate.toDate(), "MMM dd, HH:mm") : "N/A"}
+                                </span>
+                                <span className="text-sm font-bold">{req.items?.length || 0} items requested</span>
+                              </div>
+                              <div className="flex flex-col items-end gap-2">
+                                {getStatusBadge(req.status)}
+                                <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+                              </div>
+                            </div>
                           </div>
-                          {getStatusBadge(req.status)}
-                        </div>
-                        <div className="text-[10px] text-muted-foreground italic">
-                          By: {req.requestedBy}
-                        </div>
-                        {req.status !== "Pending" && (
-                          <div className="pt-2 border-t border-white/5 flex justify-between items-center text-[10px]">
-                            <span className="uppercase font-bold text-muted-foreground/60">Processed by {req.processedBy}</span>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="bg-white/[0.02] border-t border-white/5 p-4 space-y-4">
+                          <div className="space-y-3">
+                            <div className="flex justify-between text-[10px] font-bold text-muted-foreground uppercase tracking-widest border-b border-white/5 pb-1">
+                              <span>Item</span>
+                              <span>Status</span>
+                            </div>
+                            {req.items?.map((item: any, idx: number) => (
+                              <div key={idx} className="flex justify-between items-center text-sm">
+                                <span className={cn("text-white/80", item.isDeclined && "line-through text-muted-foreground")}>
+                                  {item.name}
+                                </span>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-bold text-muted-foreground">
+                                    {item.requestedQuantity}
+                                  </span>
+                                  {req.status === "Approved" && !item.isDeclined && (
+                                    <>
+                                      <ArrowRight className="w-3 h-3 text-muted-foreground" />
+                                      <Badge variant="outline" className="h-5 bg-emerald-500/10 text-emerald-500 border-emerald-500/20 px-1 text-[10px]">
+                                        {item.approvedQuantity} Received
+                                      </Badge>
+                                    </>
+                                  )}
+                                  {item.isDeclined && (
+                                    <Badge variant="destructive" className="h-5 text-[8px] uppercase px-1">Declined</Badge>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
                           </div>
-                        )}
-                      </div>
+                          
+                          <div className="pt-2 flex flex-col gap-1 border-t border-white/5">
+                            <div className="flex justify-between text-[10px] uppercase font-bold text-muted-foreground/60">
+                              <span>Requested by: {req.requestedBy}</span>
+                              {req.processedBy && <span>Authorized: {req.processedBy}</span>}
+                            </div>
+                            {req.processedAt && (
+                              <span className="text-[10px] uppercase font-bold text-muted-foreground/60 text-right">
+                                Processed: {format(req.processedAt.toDate(), "MMM dd, HH:mm")}
+                              </span>
+                            )}
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
                     ))}
                   </div>
                 )}

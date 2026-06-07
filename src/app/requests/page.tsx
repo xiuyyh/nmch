@@ -15,10 +15,14 @@ import {
   XCircle, 
   Clock, 
   User,
-  MinusCircle,
-  CheckCircle,
-  AlertCircle
+  ChevronDown,
+  ArrowRight
 } from "lucide-react";
+import { 
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { useCollection, useFirestore, useUser } from "@/firebase";
 import { collection, query, orderBy, doc, updateDoc, increment, serverTimestamp } from "firebase/firestore";
 import { format } from "date-fns";
@@ -263,43 +267,74 @@ export default function StoreRequestsPage() {
                 ) : (
                   <div className="divide-y divide-white/5">
                     {processedRequests.map(req => (
-                      <div key={req.id} className="p-4 space-y-3 hover:bg-white/[0.02] transition-colors">
-                        <div className="flex justify-between items-center">
-                          <div className="flex flex-col">
-                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                              {req.processedAt?.toDate ? format(req.processedAt.toDate(), "MMM dd, HH:mm") : "N/A"}
-                            </span>
-                            <span className="text-sm font-bold text-white">{req.items?.length || 0} items processed</span>
+                      <Collapsible key={req.id} className="group">
+                        <CollapsibleTrigger asChild>
+                          <div className="p-4 space-y-3 hover:bg-white/[0.02] transition-colors cursor-pointer">
+                            <div className="flex justify-between items-center">
+                              <div className="flex flex-col">
+                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                                  {req.processedAt?.toDate ? format(req.processedAt.toDate(), "MMM dd, HH:mm") : "N/A"}
+                                </span>
+                                <span className="text-sm font-bold text-white">{req.items?.length || 0} items processed</span>
+                              </div>
+                              <div className="flex flex-col items-end gap-2">
+                                <Badge 
+                                  variant="outline" 
+                                  className={cn(
+                                    "font-bold uppercase tracking-widest text-[10px] px-2 py-0.5",
+                                    req.status === "Approved" ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-destructive/10 text-destructive border-destructive/20"
+                                  )}
+                                >
+                                  {req.status}
+                                </Badge>
+                                <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+                              </div>
+                            </div>
                           </div>
-                          <Badge 
-                            variant="outline" 
-                            className={cn(
-                              "font-bold uppercase tracking-widest text-[10px] px-2 py-0.5",
-                              req.status === "Approved" ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-destructive/10 text-destructive border-destructive/20"
-                            )}
-                          >
-                            {req.status}
-                          </Badge>
-                        </div>
-                        
-                        {req.status === "Approved" && (
-                          <div className="flex flex-wrap gap-1">
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="bg-white/[0.02] border-t border-white/5 p-4 space-y-4">
+                          <div className="space-y-3">
+                            <div className="flex justify-between text-[10px] font-bold text-muted-foreground uppercase tracking-widest border-b border-white/5 pb-1">
+                              <span>Item Detail</span>
+                              <span>Final Outcome</span>
+                            </div>
                             {req.items?.map((item: any, idx: number) => (
-                              <Badge key={idx} variant="ghost" className={cn(
-                                "text-[9px] uppercase font-bold",
-                                item.isDeclined ? "text-destructive line-through" : "text-emerald-500"
-                              )}>
-                                {item.name}: {item.isDeclined ? 'Declined' : item.approvedQuantity}
-                              </Badge>
+                              <div key={idx} className="flex justify-between items-center text-sm">
+                                <div className="flex flex-col">
+                                  <span className={cn("text-white/80", item.isDeclined && "line-through text-muted-foreground")}>
+                                    {item.name}
+                                  </span>
+                                  <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">REQ: {item.requestedQuantity}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {req.status === "Approved" ? (
+                                    item.isDeclined ? (
+                                      <Badge variant="destructive" className="h-5 text-[8px] uppercase px-1">Declined</Badge>
+                                    ) : (
+                                      <>
+                                        <ArrowRight className="w-3 h-3 text-muted-foreground" />
+                                        <Badge variant="outline" className="h-5 bg-emerald-500/10 text-emerald-500 border-emerald-500/20 px-1 text-[10px]">
+                                          {item.approvedQuantity} Approved
+                                        </Badge>
+                                      </>
+                                    )
+                                  ) : (
+                                    <Badge variant="outline" className="h-5 border-white/10 text-muted-foreground px-1 text-[10px]">Not Processed</Badge>
+                                  )}
+                                </div>
+                              </div>
                             ))}
                           </div>
-                        )}
-
-                        <div className="flex justify-between items-end text-[9px] text-muted-foreground uppercase tracking-widest font-bold pt-1">
-                          <span>By: {req.requestedBy}</span>
-                          <span>Auth: {req.processedBy}</span>
-                        </div>
-                      </div>
+                          
+                          <div className="flex justify-between items-end text-[9px] text-muted-foreground uppercase tracking-widest font-bold pt-1 border-t border-white/5">
+                            <div className="flex flex-col gap-0.5">
+                              <span>Requested By: {req.requestedBy}</span>
+                              <span>Authorized By: {req.processedBy}</span>
+                            </div>
+                            <span>#{req.id.slice(-6).toUpperCase()}</span>
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
                     ))}
                   </div>
                 )}
