@@ -32,8 +32,7 @@ import {
   ChevronRight,
   Package,
   ArrowLeftRight,
-  Printer,
-  History
+  Printer
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCollection, useDoc, useFirestore } from "@/firebase";
@@ -137,9 +136,9 @@ export default function SalesPage() {
     const ref = doc(firestore, "tableSessions", selectedTable);
     
     if (items.length === 0) {
-      await deleteDoc(ref).catch(err => console.error("Error clearing table session", err));
+      deleteDoc(ref).catch(err => console.error("Error clearing table session", err));
     } else {
-      await setDoc(ref, {
+      setDoc(ref, {
         tableNumber: selectedTable,
         items,
         lastUpdated: serverTimestamp()
@@ -379,11 +378,6 @@ export default function SalesPage() {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <h1 className="text-3xl font-headline font-bold uppercase tracking-tight">BAR SALES</h1>
           <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
-            <Button asChild variant="outline" className="gap-2 border-white/10 rounded-xl h-12">
-              <Link href="/bar/sales/history">
-                <History className="w-4 h-4" /> Sales History
-              </Link>
-            </Button>
             <Tabs value={activeTab} onValueChange={(v: any) => setActiveTab(v)} className="w-full md:w-auto">
               <TabsList className="bg-white/5 border border-white/10 p-1 w-full sm:w-auto h-12">
                 <TabsTrigger value="quick" className="flex-1 sm:flex-none gap-2 px-6 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
