@@ -41,9 +41,6 @@ export default function LoginPage() {
             </div>
             <h1 className="text-6xl font-headline font-bold tracking-tighter text-white">NMCH</h1>
           </div>
-          <p className="text-[10px] text-primary/70 tracking-[0.4em] uppercase font-bold opacity-80">
-            Elevated Bar Operations Management
-          </p>
         </div>
 
         <Card className="glass-card border-white/5">
