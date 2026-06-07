@@ -50,6 +50,7 @@ import {
 } from "@/components/ui/collapsible";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { useAuth, useUser, useDoc, useFirestore } from "@/firebase";
 import { signOut } from "firebase/auth";
 import { doc } from "firebase/firestore";
