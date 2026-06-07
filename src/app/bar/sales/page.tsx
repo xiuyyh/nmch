@@ -34,7 +34,8 @@ import {
   ArrowLeftRight,
   Printer,
   CookingPot,
-  CheckCircle2
+  CheckCircle2,
+  Receipt
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCollection, useDoc, useFirestore, useUser } from "@/firebase";
@@ -55,7 +56,7 @@ import { FirestorePermissionError } from "@/firebase/errors";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 
-const ITEMS_PER_PAGE = 5;
+const ITEMS_PER_PAGE = 8;
 const TABLES = Array.from({ length: 20 }, (_, i) => `Table ${i + 1}`);
 
 interface CartItem {
@@ -72,7 +73,7 @@ export default function SalesPage() {
   const { user } = useUser();
   const { toast } = useToast();
   
-  const [activeTab, setActiveTab] = useState<"quick" | "tables" | "history">("quick");
+  const [activeTab, setActiveTab] = useState<"quick" | "tables">("quick");
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [search, setSearch] = useState("");
@@ -80,28 +81,51 @@ export default function SalesPage() {
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
   const [shouldPrintDucket, setShouldPrintDucket] = useState(true);
 
-  // Fetch Inventory items directly for selling
+  // Fetch Inventory
   const inventoryQuery = useMemo(() => {
     if (!firestore) return null;
     return query(collection(firestore, "inventory"), orderBy("name"));
   }, [firestore]);
   const { data: inventoryItems, loading: inventoryLoading } = useCollection(inventoryQuery);
 
-  // Fetch Active Table Order if any
+  // Fetch Active Table Order
   const tableRef = useMemo(() => {
     if (!firestore || !selectedTable) return null;
     return doc(firestore, "tableSessions", selectedTable);
   }, [firestore, selectedTable]);
-  const { data: tableSession } = useDoc(tableRef);
+  const { data: tableSession, loading: sessionLoading } = useDoc(tableRef);
 
-  // Sync cart with table session when table changes
+  // Sync cart with table session
   useEffect(() => {
-    if (selectedTable && tableSession) {
-      setCart(tableSession.items || []);
-    } else if (selectedTable && !tableSession) {
-      setCart([]);
+    if (selectedTable) {
+      if (!sessionLoading && tableSession) {
+        setCart(tableSession.items || []);
+      } else if (!sessionLoading && !tableSession) {
+        setCart([]);
+      }
     }
-  }, [selectedTable, tableSession]);
+  }, [selectedTable, tableSession, sessionLoading]);
+
+  const saveToTable = async (items: any[]) => {
+    if (!firestore || !selectedTable) return;
+    const ref = doc(firestore, "tableSessions", selectedTable);
+    
+    if (items.length === 0) {
+      deleteDoc(ref).catch(() => {});
+    } else {
+      setDoc(ref, {
+        tableNumber: selectedTable,
+        items,
+        lastUpdated: serverTimestamp()
+      }, { merge: true }).catch(err => {
+        errorEmitter.emit("permission-error", new FirestorePermissionError({
+          path: ref.path,
+          operation: "write",
+          requestResourceData: { tableNumber: selectedTable, items }
+        }));
+      });
+    }
+  };
 
   const addToCart = (item: any) => {
     setCart(prev => {
@@ -119,11 +143,7 @@ export default function SalesPage() {
           isSent: false
         }];
       }
-
-      if (selectedTable && firestore) {
-        saveToTable(newCart);
-      }
-      
+      if (selectedTable) saveToTable(newCart);
       return newCart;
     });
   };
@@ -133,11 +153,11 @@ export default function SalesPage() {
       const newCart = prev.map(i => {
         if (i.itemId === itemId) {
           const newQty = Math.max(1, i.quantity + delta);
-          return { ...i, quantity: newQty, isSent: false }; // Reset isSent if quantity changes
+          return { ...i, quantity: newQty, isSent: false };
         }
         return i;
       });
-      if (selectedTable && firestore) saveToTable(newCart);
+      if (selectedTable) saveToTable(newCart);
       return newCart;
     });
   };
@@ -145,7 +165,7 @@ export default function SalesPage() {
   const removeFromCart = (itemId: string) => {
     setCart(prev => {
       const newCart = prev.filter(i => i.itemId !== itemId);
-      if (selectedTable && firestore) saveToTable(newCart);
+      if (selectedTable) saveToTable(newCart);
       return newCart;
     });
   };
@@ -164,12 +184,7 @@ export default function SalesPage() {
 
     addDoc(collection(firestore, "kitchenOrders"), kitchenOrderData)
       .then(() => {
-        toast({
-          title: "Order Sent to Kitchen",
-          description: `${item.name} x${item.quantity} sent.`,
-        });
-        
-        // Update local state and firestore session
+        toast({ title: "Order Sent to Kitchen", description: `${item.name} x${item.quantity} sent.` });
         setCart(prev => {
           const newCart = prev.map(i => i.itemId === itemId ? { ...i, isSent: true } : i);
           if (selectedTable) saveToTable(newCart);
@@ -183,29 +198,6 @@ export default function SalesPage() {
           requestResourceData: kitchenOrderData
         }));
       });
-  };
-
-  const saveToTable = async (items: any[]) => {
-    if (!firestore || !selectedTable) return;
-    const ref = doc(firestore, "tableSessions", selectedTable);
-    
-    if (items.length === 0) {
-      deleteDoc(ref).catch(err => {
-        // Silently fail
-      });
-    } else {
-      setDoc(ref, {
-        tableNumber: selectedTable,
-        items,
-        lastUpdated: serverTimestamp()
-      }, { merge: true }).catch(err => {
-        errorEmitter.emit("permission-error", new FirestorePermissionError({
-          path: ref.path,
-          operation: "write",
-          requestResourceData: { tableNumber: selectedTable, items }
-        }));
-      });
-    }
   };
 
   const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
@@ -222,12 +214,9 @@ export default function SalesPage() {
       status: "Completed"
     };
 
-    // Optimistic record creation
     addDoc(collection(firestore, "sales"), saleData)
       .then((docRef) => {
-        if (shouldPrintDucket) {
-          printDucket({ ...saleData, id: docRef.id });
-        }
+        if (shouldPrintDucket) printDucket({ ...saleData, id: docRef.id });
       })
       .catch(async (error: any) => {
         errorEmitter.emit("permission-error", new FirestorePermissionError({
@@ -237,7 +226,7 @@ export default function SalesPage() {
         }));
       });
 
-    // Handle remaining unsent FOOD items (in case they haven't fired them yet)
+    // Handle remaining unsent FOOD items
     const unsentFoodItems = cart.filter(item => item.category === "FOOD" && !item.isSent);
     if (unsentFoodItems.length > 0) {
       const kitchenOrderData = {
@@ -246,45 +235,25 @@ export default function SalesPage() {
         timestamp: serverTimestamp(),
         staffName: user?.displayName || user?.email || "Bar Staff"
       };
-
-      addDoc(collection(firestore, "kitchenOrders"), kitchenOrderData).catch(error => {
-        errorEmitter.emit("permission-error", new FirestorePermissionError({
-          path: "kitchenOrders",
-          operation: "create",
-          requestResourceData: kitchenOrderData
-        }));
-      });
+      addDoc(collection(firestore, "kitchenOrders"), kitchenOrderData).catch(() => {});
     }
 
-    // Decrement inventory stock (excluding FOOD)
+    // Update Stock
     for (const cartItem of cart) {
-      if (cartItem.category === "FOOD") continue; // Food has no inventory tracking
-      
+      if (cartItem.category === "FOOD") continue;
       const stockRef = doc(firestore, "inventory", cartItem.itemId);
-      const stockUpdate = {
+      updateDoc(stockRef, {
         stock: increment(-cartItem.quantity),
         lastUpdated: serverTimestamp()
-      };
-      
-      updateDoc(stockRef, stockUpdate).catch(async (error) => {
-        errorEmitter.emit("permission-error", new FirestorePermissionError({
-          path: stockRef.path,
-          operation: "update",
-          requestResourceData: stockUpdate
-        }));
-      });
+      }).catch(() => {});
     }
 
-    toast({
-      title: "Sale Recorded",
-      description: `Processed ₦${total.toLocaleString()} via ${method}.`,
-    });
+    toast({ title: "Sale Recorded", description: `Processed ₦${total.toLocaleString()} via ${method}.` });
     
     if (selectedTable) {
       deleteDoc(doc(firestore, "tableSessions", selectedTable));
       setSelectedTable(null);
     }
-    
     setCart([]);
     setIsMobileCartOpen(false);
   };
@@ -292,28 +261,19 @@ export default function SalesPage() {
   const printDucket = (sale: any) => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
-
     const itemsHtml = sale.items.map((item: any) => `
       <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-weight: 800; font-size: 16px;">
         <span>${item.name} x ${item.quantity}</span>
         <span>₦${(item.price * item.quantity).toLocaleString()}</span>
       </div>
     `).join('');
-
     const html = `
       <html>
         <head>
           <title>Ducket #${sale.id.slice(-6)}</title>
           <style>
             @page { size: 80mm auto; margin: 0; }
-            body { 
-              font-family: 'Arial', sans-serif; 
-              width: 80mm; 
-              padding: 10mm; 
-              font-size: 14px; 
-              color: #000;
-              line-height: 1.4;
-            }
+            body { font-family: 'Arial', sans-serif; width: 80mm; padding: 10mm; font-size: 14px; color: #000; line-height: 1.4; }
             .center { text-align: center; }
             .bold { font-weight: 900; }
             .divider { border-bottom: 2px solid #000; margin: 10px 0; }
@@ -342,26 +302,18 @@ export default function SalesPage() {
         </body>
       </html>
     `;
-
     printWindow.document.write(html);
     printWindow.document.close();
     printWindow.focus();
-    setTimeout(() => {
-      printWindow.print();
-      printWindow.close();
-    }, 250);
+    setTimeout(() => { printWindow.print(); printWindow.close(); }, 250);
   };
 
   const filteredItems = useMemo(() => {
     if (!inventoryItems) return [];
-    return inventoryItems.filter(item => 
-      item.name?.toLowerCase().includes(search.toLowerCase())
-    );
+    return inventoryItems.filter(item => item.name?.toLowerCase().includes(search.toLowerCase()));
   }, [inventoryItems, search]);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [search]);
+  useEffect(() => { setCurrentPage(1); }, [search]);
 
   const totalPages = Math.max(1, Math.ceil(filteredItems.length / ITEMS_PER_PAGE));
   const paginatedItems = useMemo(() => {
@@ -375,14 +327,20 @@ export default function SalesPage() {
   }, [firestore]);
   const { data: allActiveSessions } = useCollection(activeTablesQuery);
 
-  const isTableActive = (table: string) => {
-    return allActiveSessions?.some(s => s.tableNumber === table && (s.items?.length || 0) > 0);
+  const getTableItemsCount = (table: string) => {
+    const session = allActiveSessions?.find(s => s.tableNumber === table);
+    return session?.items?.length || 0;
   };
 
   const CartUI = () => (
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {cart.length === 0 ? (
+        {sessionLoading ? (
+          <div className="h-full flex flex-col items-center justify-center text-muted-foreground animate-pulse">
+            <Receipt className="w-8 h-8 mb-2 opacity-20" />
+            <p className="text-xs uppercase font-bold tracking-widest">Loading Session...</p>
+          </div>
+        ) : cart.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-muted-foreground opacity-30 text-center p-4">
             <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center mb-4">
               <ShoppingCart className="w-6 h-6" />
@@ -411,26 +369,19 @@ export default function SalesPage() {
                     <Plus className="w-2.5 h-2.5" />
                   </Button>
                 </div>
-                
                 {item.category === "FOOD" && (
                   <div className="flex-1 px-3">
                     {item.isSent ? (
                       <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 text-[10px] font-bold py-1 gap-1">
-                        <CheckCircle2 className="w-3 h-3" /> Fired to Kitchen
+                        <CheckCircle2 className="w-3 h-3" /> Fired
                       </Badge>
                     ) : (
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
-                        onClick={() => sendItemToKitchen(item.itemId)}
-                        className="h-8 text-[10px] font-bold uppercase tracking-widest bg-primary/10 text-primary hover:bg-primary/20 rounded-lg"
-                      >
-                        <CookingPot className="w-3 h-3 mr-1" /> Fire to Kitchen
+                      <Button size="sm" variant="ghost" onClick={() => sendItemToKitchen(item.itemId)} className="h-8 text-[10px] font-bold uppercase tracking-widest bg-primary/10 text-primary hover:bg-primary/20 rounded-lg">
+                        Fire Kitchen
                       </Button>
                     )}
                   </div>
                 )}
-
                 <span className="font-headline font-bold text-primary text-sm">₦{(item.price * item.quantity).toLocaleString()}</span>
               </div>
             </div>
@@ -441,13 +392,9 @@ export default function SalesPage() {
       <div className="p-4 bg-black/60 border-t border-white/10 space-y-4 shrink-0">
         <div className="flex items-center justify-between px-1">
           <div className="flex items-center gap-2">
-            <Switch 
-              id="print-ducket" 
-              checked={shouldPrintDucket} 
-              onCheckedChange={setShouldPrintDucket}
-            />
+            <Switch id="print-ducket" checked={shouldPrintDucket} onCheckedChange={setShouldPrintDucket} />
             <Label htmlFor="print-ducket" className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground flex items-center gap-1">
-              <Printer className="w-3 h-3" /> Print Ducket
+              <Printer className="w-3 h-3" /> Print
             </Label>
           </div>
           <div className="text-right">
@@ -455,32 +402,15 @@ export default function SalesPage() {
             <span className="text-2xl font-headline font-bold text-primary leading-tight">₦{total.toLocaleString()}</span>
           </div>
         </div>
-        
         <div className="grid grid-cols-3 gap-2">
-          <Button 
-            className="bg-primary text-primary-foreground font-bold h-12 rounded-xl px-2 text-[10px] sm:text-xs shadow-lg"
-            disabled={cart.length === 0}
-            onClick={() => handleCheckout('Card')}
-          >
-            <CreditCard className="w-4 h-4 mr-1.5" />
-            Card
+          <Button className="bg-primary text-primary-foreground font-bold h-12 rounded-xl text-[10px] sm:text-xs" disabled={cart.length === 0} onClick={() => handleCheckout('Card')}>
+            <CreditCard className="w-4 h-4 mr-1.5" /> Card
           </Button>
-          <Button 
-            variant="outline"
-            className="border-primary/30 text-primary font-bold h-12 rounded-xl px-2 text-[10px] sm:text-xs hover:bg-primary/10 shadow-lg"
-            disabled={cart.length === 0}
-            onClick={() => handleCheckout('Transfer')}
-          >
-            <ArrowLeftRight className="w-4 h-4 mr-1.5" />
-            Trans
+          <Button variant="outline" className="border-primary/30 text-primary font-bold h-12 rounded-xl text-[10px] sm:text-xs" disabled={cart.length === 0} onClick={() => handleCheckout('Transfer')}>
+            <ArrowLeftRight className="w-4 h-4 mr-1.5" /> Trans
           </Button>
-          <Button 
-            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-12 rounded-xl px-2 text-[10px] sm:text-xs shadow-lg"
-            disabled={cart.length === 0}
-            onClick={() => handleCheckout('Cash')}
-          >
-            <Banknote className="w-4 h-4 mr-1.5" />
-            Cash
+          <Button className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-12 rounded-xl text-[10px] sm:text-xs" disabled={cart.length === 0} onClick={() => handleCheckout('Cash')}>
+            <Banknote className="w-4 h-4 mr-1.5" /> Cash
           </Button>
         </div>
       </div>
@@ -492,53 +422,63 @@ export default function SalesPage() {
       <div className="flex flex-col gap-6 h-full max-w-[1600px] mx-auto pb-24 lg:pb-0">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <h1 className="text-3xl font-headline font-bold uppercase tracking-tight">BAR SALES</h1>
-          <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
-            <Tabs value={activeTab} onValueChange={(v: any) => setActiveTab(v)} className="w-full md:w-auto">
-              <TabsList className="bg-white/5 border border-white/10 p-1 w-full sm:w-auto h-12">
-                <TabsTrigger value="quick" className="flex-1 sm:flex-none gap-2 px-6 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                  <ShoppingCart className="w-4 h-4" /> Quick Sale
-                </TabsTrigger>
-                <TabsTrigger value="tables" className="flex-1 sm:flex-none gap-2 px-6 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                  <LayoutGrid className="w-4 h-4" /> Tables
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
+          <Tabs value={activeTab} onValueChange={(v: any) => setActiveTab(v)} className="w-full md:w-auto">
+            <TabsList className="bg-white/5 border border-white/10 p-1 w-full sm:w-auto h-12">
+              <TabsTrigger value="quick" className="flex-1 sm:flex-none gap-2 px-6 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                <ShoppingCart className="w-4 h-4" /> Quick Sale
+              </TabsTrigger>
+              <TabsTrigger value="tables" className="flex-1 sm:flex-none gap-2 px-6 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                <LayoutGrid className="w-4 h-4" /> Tables
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
 
         <div className="flex flex-col lg:flex-row gap-6">
           <div className="flex-1 space-y-4">
-            {activeTab === "tables" && !selectedTable ? (
+            {activeTab === "tables" ? (
               <Card className="glass-card border-white/5">
                 <CardHeader>
                   <CardTitle className="text-xl font-headline flex items-center gap-2">
-                    <LayoutGrid className="text-primary w-5 h-5" /> Select Table
+                    <LayoutGrid className="text-primary w-5 h-5" /> Active Tables
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                     {TABLES.map(table => {
-                      const active = isTableActive(table);
+                      const itemsCount = getTableItemsCount(table);
+                      const isActive = itemsCount > 0;
                       return (
-                        <Button
-                          key={table}
-                          variant="outline"
-                          className={cn(
-                            "h-24 flex flex-col gap-2 rounded-2xl border-white/5 transition-all",
-                            active ? "bg-primary/10 border-primary/30 text-primary shadow-[0_0_15px_rgba(var(--primary),0.1)]" : "hover:bg-white/5 hover:border-white/10"
+                        <div key={table} className={cn(
+                          "relative group rounded-2xl border transition-all p-1",
+                          isActive ? "bg-primary/5 border-primary/20" : "bg-white/[0.02] border-white/5"
+                        )}>
+                          <Button
+                            variant="ghost"
+                            className={cn(
+                              "w-full h-24 flex flex-col gap-1 rounded-xl transition-all",
+                              selectedTable === table ? "bg-primary text-primary-foreground shadow-lg" : "hover:bg-white/5"
+                            )}
+                            onClick={() => {
+                              setSelectedTable(table);
+                              if (!isActive) setActiveTab("quick");
+                            }}
+                          >
+                            <span className="font-headline font-bold text-lg">{table.split(' ')[1]}</span>
+                            {isActive && (
+                              <span className="flex items-center gap-1 text-[10px] uppercase font-bold text-primary">
+                                <Clock className="w-3 h-3" /> {itemsCount} items
+                              </span>
+                            )}
+                          </Button>
+                          {isActive && (
+                            <div className="absolute top-2 right-2 flex gap-1">
+                               <Button size="icon" variant="secondary" className="w-8 h-8 rounded-lg shadow-xl" onClick={() => { setSelectedTable(table); setActiveTab("quick"); }}>
+                                  <Receipt className="w-4 h-4" />
+                               </Button>
+                            </div>
                           )}
-                          onClick={() => {
-                            setSelectedTable(table);
-                            setActiveTab("quick");
-                          }}
-                        >
-                          <span className="font-headline font-bold text-lg">{table.split(' ')[1]}</span>
-                          {active && (
-                            <span className="flex items-center gap-1 text-[10px] uppercase tracking-widest font-bold">
-                              <Clock className="w-3 h-3" /> Active
-                            </span>
-                          )}
-                        </Button>
+                        </div>
                       );
                     })}
                   </div>
@@ -547,104 +487,46 @@ export default function SalesPage() {
             ) : (
               <div className="space-y-4">
                 {selectedTable && (
-                  <div className="flex items-center justify-between p-4 bg-primary/10 border border-primary/20 rounded-2xl">
+                  <div className="flex items-center justify-between p-4 bg-primary/10 border border-primary/20 rounded-2xl animate-in slide-in-from-top-4">
                     <div className="flex items-center gap-3">
                       <LayoutGrid className="w-5 h-5 text-primary" />
                       <span className="font-headline font-bold text-lg text-white">Serving {selectedTable}</span>
                     </div>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={() => {
-                        setSelectedTable(null);
-                        setCart([]);
-                      }}
-                      className="text-primary hover:bg-primary/20"
-                    >
-                      <X className="w-4 h-4 mr-2" /> Release
+                    <Button variant="ghost" size="sm" onClick={() => { setSelectedTable(null); setCart([]); }} className="text-primary hover:bg-primary/20">
+                      <X className="w-4 h-4 mr-2" /> Release Table
                     </Button>
                   </div>
                 )}
-
                 <div className="relative">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input 
-                    placeholder="Search inventory..." 
-                    className="pl-12 h-12 bg-white/5 border-white/10 rounded-2xl" 
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                  />
+                  <Input placeholder="Search inventory..." className="pl-12 h-12 bg-white/5 border-white/10 rounded-2xl" value={search} onChange={(e) => setSearch(e.target.value)} />
                 </div>
-
-                <div className="mt-6 space-y-6">
+                <div className="grid grid-cols-1 gap-2">
                   {inventoryLoading ? (
-                    <div className="py-20 text-center text-muted-foreground animate-pulse">Loading...</div>
-                  ) : filteredItems.length === 0 ? (
-                    <Card className="glass-card border-dashed border-white/10 bg-transparent">
-                      <CardContent className="py-20 flex flex-col items-center text-center">
-                        <Package className="w-8 h-8 text-muted-foreground mb-4" />
-                        <h3 className="text-xl font-headline font-bold mb-2">No items found</h3>
-                        <Button asChild variant="outline" className="mt-4">
-                          <Link href="/inventory">Go to Inventory</Link>
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    <>
-                      <div className="flex flex-col gap-2">
-                        {paginatedItems.map(item => (
-                          <div 
-                            key={item.id} 
-                            className="glass-card hover:border-primary/40 transition-all cursor-pointer p-4 flex items-center justify-between rounded-2xl border border-white/5"
-                            onClick={() => addToCart(item)}
-                          >
-                            <div className="flex flex-col">
-                              <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">{item.category}</span>
-                              <span className="font-headline font-bold text-lg leading-tight text-white">{item.name}</span>
-                            </div>
-                            <div className="flex items-center gap-6">
-                              <span className="text-primary font-headline font-bold text-xl">₦{(item.price || 0).toLocaleString()}</span>
-                              <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center">
-                                <Plus className="w-5 h-5" />
-                              </div>
-                            </div>
-                          </div>
-                        ))}
+                    <div className="py-20 text-center text-muted-foreground animate-pulse">Loading Inventory...</div>
+                  ) : paginatedItems.map(item => (
+                    <div key={item.id} className="glass-card hover:border-primary/40 transition-all cursor-pointer p-4 flex items-center justify-between rounded-2xl border border-white/5" onClick={() => addToCart(item)}>
+                      <div className="flex flex-col">
+                        <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">{item.category}</span>
+                        <span className="font-headline font-bold text-lg text-white">{item.name}</span>
                       </div>
-
-                      {totalPages > 1 && (
-                        <div className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-2xl">
-                          <p className="text-xs text-muted-foreground">
-                            {filteredItems.length} items
-                          </p>
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                              disabled={currentPage === 1}
-                              className="h-10 px-4 rounded-xl"
-                            >
-                              <ChevronLeft className="w-4 h-4" />
-                            </Button>
-                            <div className="flex items-center gap-1 text-sm font-bold px-4 bg-primary/10 rounded-xl text-primary">
-                              {currentPage} / {totalPages}
-                            </div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                              disabled={currentPage === totalPages}
-                              className="h-10 px-4 rounded-xl"
-                            >
-                              <ChevronRight className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  )}
+                      <div className="flex items-center gap-6">
+                        <span className="text-primary font-headline font-bold text-xl">₦{(item.price || 0).toLocaleString()}</span>
+                        <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center"><Plus className="w-5 h-5" /></div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-2xl">
+                    <p className="text-xs text-muted-foreground">{filteredItems.length} items</p>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="h-10 px-4 rounded-xl"><ChevronLeft className="w-4 h-4" /></Button>
+                      <div className="flex items-center gap-1 text-sm font-bold px-4 bg-primary/10 rounded-xl text-primary">{currentPage} / {totalPages}</div>
+                      <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="h-10 px-4 rounded-xl"><ChevronRight className="w-4 h-4" /></Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -652,13 +534,8 @@ export default function SalesPage() {
           <div className="hidden lg:block w-[400px]">
             <Card className="glass-card flex flex-col h-[calc(100vh-220px)] sticky top-28 border-white/5 overflow-hidden">
               <CardHeader className="p-4 border-b border-white/5 flex flex-row items-center justify-between shrink-0">
-                <CardTitle className="font-headline font-bold text-lg text-white">
-                  {selectedTable ? `Bill: ${selectedTable}` : "Cart"}
-                </CardTitle>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => {
-                  setCart([]);
-                  if(selectedTable) saveToTable([]);
-                }} disabled={cart.length === 0}>
+                <CardTitle className="font-headline font-bold text-lg text-white">{selectedTable ? `Bill: ${selectedTable}` : "Quick Sale"}</CardTitle>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => { setCart([]); if(selectedTable) saveToTable([]); }} disabled={cart.length === 0}>
                   <Trash2 className="w-4 h-4" />
                 </Button>
               </CardHeader>
@@ -672,26 +549,15 @@ export default function SalesPage() {
         <Sheet open={isMobileCartOpen} onOpenChange={setIsMobileCartOpen}>
           <SheetTrigger asChild>
             <Button className="w-full h-14 bg-primary text-primary-foreground font-bold text-lg shadow-2xl rounded-2xl flex justify-between px-6">
-              <div className="flex items-center gap-2">
-                <ShoppingCart className="w-5 h-5" />
-                <span>View Cart</span>
-                <Badge variant="secondary" className="ml-2 bg-primary-foreground/20 text-primary-foreground border-none">
-                  {cart.length}
-                </Badge>
-              </div>
+              <div className="flex items-center gap-2"><ShoppingCart className="w-5 h-5" /><span>Cart</span><Badge variant="secondary" className="bg-primary-foreground/20 text-primary-foreground border-none">{cart.length}</Badge></div>
               <span className="font-headline">₦{total.toLocaleString()}</span>
             </Button>
           </SheetTrigger>
           <SheetContent side="bottom" className="h-[80vh] bg-background border-white/10 p-0 rounded-t-[2.5rem] overflow-hidden">
             <div className="flex flex-col h-full">
               <SheetHeader className="p-6 border-b border-white/5 flex flex-row items-center justify-between space-y-0">
-                <SheetTitle className="font-headline font-bold text-xl text-white">
-                  {selectedTable ? `Bill: ${selectedTable}` : "Order"}
-                </SheetTitle>
-                <Button variant="ghost" size="icon" className="h-10 w-10 text-muted-foreground hover:text-destructive" onClick={() => {
-                  setCart([]);
-                  if(selectedTable) saveToTable([]);
-                }} disabled={cart.length === 0}>
+                <SheetTitle className="font-headline font-bold text-xl text-white">{selectedTable ? `Bill: ${selectedTable}` : "Quick Sale"}</SheetTitle>
+                <Button variant="ghost" size="icon" className="h-10 w-10 text-muted-foreground hover:text-destructive" onClick={() => { setCart([]); if(selectedTable) saveToTable([]); }} disabled={cart.length === 0}>
                   <Trash2 className="w-5 h-5" />
                 </Button>
               </SheetHeader>
