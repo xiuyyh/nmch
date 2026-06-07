@@ -52,7 +52,9 @@ import {
   serverTimestamp, 
   doc, 
   deleteDoc,
-  updateDoc
+  updateDoc,
+  getDocs,
+  setDoc
 } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -66,19 +68,11 @@ export default function WarehouseStockPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
   const [search, setSearch] = useState("");
-  const [isManageCategoriesOpen, setIsManageCategoriesOpen] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [newCategoryName, setNewCategoryName] = useState("");
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [editCategory, setEditCategory] = useState<string>("");
-
-  // Fetch Shared Categories from the Bar Inventory system
-  const categoriesQuery = useMemo(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, "inventoryCategories"), orderBy("name"));
-  }, [firestore]);
-  const { data: categories, loading: categoriesLoading } = useCollection(categoriesQuery);
 
   // Fetch Warehouse Inventory
   const warehouseQuery = useMemo(() => {
@@ -100,6 +94,49 @@ export default function WarehouseStockPage() {
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
     return filteredItems.slice(start, start + ITEMS_PER_PAGE);
   }, [filteredItems, currentPage]);
+
+  const handleSyncMissingItems = async () => {
+    if (!firestore) return;
+    setIsSyncing(true);
+
+    try {
+      const barInventorySnap = await getDocs(collection(firestore, "inventory"));
+      const warehouseInventorySnap = await getDocs(collection(firestore, "warehouseInventory"));
+      
+      const warehouseIds = new Set(warehouseInventorySnap.docs.map(doc => doc.id));
+      let syncCount = 0;
+
+      for (const barDoc of barInventorySnap.docs) {
+        const data = barDoc.data();
+        // Don't sync FOOD or items that already exist in warehouse
+        if (!warehouseIds.has(barDoc.id) && data.category !== "FOOD") {
+          const warehouseRef = doc(firestore, "warehouseInventory", barDoc.id);
+          await setDoc(warehouseRef, {
+            name: data.name,
+            category: data.category,
+            unit: data.unit || "N/A",
+            stock: 0,
+            min: 5,
+            lastUpdated: serverTimestamp()
+          });
+          syncCount++;
+        }
+      }
+
+      toast({
+        title: "Sync Complete",
+        description: `Successfully imported ${syncCount} missing items from bar inventory.`,
+      });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Sync Failed",
+        description: "Could not synchronize missing items. Please check permissions.",
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const handleUpdateItem = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -143,10 +180,14 @@ export default function WarehouseStockPage() {
             <p className="text-muted-foreground">Main store stock levels. Items are mirrored from Bar Inventory definitions.</p>
           </div>
           <div className="flex gap-2">
-            <Button asChild variant="outline" className="gap-2 h-12 px-6 rounded-xl border-white/10">
-              <Link href="/inventory">
-                <RefreshCw className="w-4 h-4" /> Sync Definitions
-              </Link>
+            <Button 
+              variant="outline" 
+              onClick={handleSyncMissingItems} 
+              disabled={isSyncing}
+              className="gap-2 h-12 px-6 rounded-xl border-white/10"
+            >
+              <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
+              {isSyncing ? "Syncing..." : "Sync Missing Items"}
             </Button>
             <Button asChild className="bg-primary text-primary-foreground gap-2 h-12 px-6 rounded-xl shadow-lg font-bold">
               <Link href="/store/suppliers">
@@ -179,7 +220,7 @@ export default function WarehouseStockPage() {
             ) : filteredItems?.length === 0 ? (
               <div className="py-20 text-center text-muted-foreground italic flex flex-col items-center gap-4">
                 <p>No warehouse items found.</p>
-                <p className="text-xs">Add items to the Bar Inventory first to see them appear here.</p>
+                <p className="text-xs">Add items to the Bar Inventory first, or use "Sync Missing Items" above.</p>
               </div>
             ) : (
               <div className="space-y-4">
