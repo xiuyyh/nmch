@@ -27,12 +27,18 @@ export default function AddWarehouseItemPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
 
-  // Fetch Categories
+  // Fetch Categories from the shared Bar Inventory Categories
   const categoriesQuery = useMemo(() => {
     if (!firestore) return null;
-    return query(collection(firestore, "warehouseCategories"), orderBy("name"));
+    return query(collection(firestore, "inventoryCategories"), orderBy("name"));
   }, [firestore]);
+  
   const { data: categories } = useCollection(categoriesQuery);
+
+  // Filter out FOOD category for Warehouse
+  const filteredCategories = useMemo(() => {
+    return categories?.filter(cat => cat.name !== "FOOD") || [];
+  }, [categories]);
 
   const handleAddItem = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -100,13 +106,13 @@ export default function AddWarehouseItemPage() {
                 </div>
                 
                 <div className="space-y-2 md:col-span-2">
-                  <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Category</Label>
+                  <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Category (Shared with Bar)</Label>
                   <Select value={selectedCategory} onValueChange={setSelectedCategory} required>
                     <SelectTrigger className="bg-white/5 border-white/10 h-12">
-                      <SelectValue placeholder="Select Warehouse Category" />
+                      <SelectValue placeholder="Select Category" />
                     </SelectTrigger>
                     <SelectContent className="glass-card border-white/10 max-h-[300px]">
-                      {categories?.map(cat => (
+                      {filteredCategories.map(cat => (
                         <SelectItem key={cat.id} value={cat.name} className="focus:bg-primary focus:text-primary-foreground">{cat.name}</SelectItem>
                       ))}
                     </SelectContent>
