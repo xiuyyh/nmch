@@ -355,7 +355,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <header className="hidden md:flex items-center h-20 px-10 border-b border-white/5 bg-background/30 backdrop-blur-xl sticky top-0 z-20">
             <SidebarTrigger className="mr-6 text-muted-foreground hover:text-primary transition-all duration-300 scale-110" />
             <div className="flex items-center gap-3 mr-auto">
-              <span className="font-headline font-bold text-xl tracking-tighter opacity-40">ADMIN CONSOLE</span>
             </div>
           </header>
 
