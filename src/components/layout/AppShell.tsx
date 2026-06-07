@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState } from "react";
@@ -18,7 +17,7 @@ import {
   Sparkles,
   Menu,
   X,
-  History,
+  History as HistoryIcon,
   Lock
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -56,15 +55,15 @@ const departments = [
     icon: Wine,
     items: [
       { name: "Bar Sales", href: "/bar/sales", icon: ShoppingCart },
-      { name: "Sales History", href: "/bar/sales/history", icon: History },
+      { name: "Sales History", href: "/bar/sales/history", icon: HistoryIcon },
       { name: "End of Day", href: "/bar/end-of-day", icon: Lock },
-      { name: "Bar Inventory", href: "/inventory", icon: Package },
     ],
   },
   {
     title: "Store",
     icon: Warehouse,
     items: [
+      { name: "Bar Inventory", href: "/inventory", icon: Package },
       { name: "Stock Requests", href: "/requests", icon: ClipboardList },
       { name: "Warehouse Stock", href: "/store/warehouse" },
       { name: "Suppliers", href: "/store/suppliers" },
