@@ -42,7 +42,7 @@ import { FirestorePermissionError } from "@/firebase/errors";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 
-const ITEMS_PER_PAGE = 8;
+const ITEMS_PER_PAGE = 5;
 const TABLES = Array.from({ length: 20 }, (_, i) => `Table ${i + 1}`);
 
 export default function SalesPage() {
@@ -209,7 +209,7 @@ export default function SalesPage() {
       <div className="flex flex-col gap-6 h-full max-w-[1600px] mx-auto">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-headline font-bold uppercase tracking-tight">Bar Sales</h1>
+            <h1 className="text-3xl font-headline font-bold uppercase tracking-tight">BAR SALES</h1>
           </div>
           <Tabs value={activeTab} onValueChange={(v: any) => setActiveTab(v)} className="w-full md:w-auto">
             <TabsList className="bg-white/5 border border-white/10 p-1">
@@ -322,25 +322,24 @@ export default function SalesPage() {
                     </Card>
                   ) : (
                     <>
-                      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+                      <div className="flex flex-col gap-2">
                         {paginatedItems.map(item => (
-                          <Card 
+                          <div 
                             key={item.id} 
-                            className="glass-card hover:border-primary/40 transition-all cursor-pointer group overflow-hidden"
+                            className="glass-card hover:border-primary/40 transition-all cursor-pointer group overflow-hidden p-4 flex items-center justify-between rounded-2xl border border-white/5"
                             onClick={() => addToCart(item)}
                           >
-                            <div className="h-1.5 w-full bg-primary/0 group-hover:bg-primary/40 transition-all" />
-                            <CardContent className="p-5 flex flex-col gap-2">
-                              <span className="text-xs uppercase tracking-widest text-muted-foreground font-bold">{item.category}</span>
+                            <div className="flex flex-col gap-1">
+                              <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">{item.category}</span>
                               <span className="font-headline font-bold text-lg leading-tight text-white">{item.name}</span>
-                              <div className="flex justify-between items-center mt-2">
-                                <span className="text-primary font-headline font-bold text-xl">₦{(item.price || 0).toLocaleString()}</span>
-                                <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-all">
-                                  <Plus className="w-4 h-4" />
-                                </div>
+                            </div>
+                            <div className="flex items-center gap-6">
+                              <span className="text-primary font-headline font-bold text-xl">₦{(item.price || 0).toLocaleString()}</span>
+                              <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-all">
+                                <Plus className="w-5 h-5" />
                               </div>
-                            </CardContent>
-                          </Card>
+                            </div>
+                          </div>
                         ))}
                       </div>
 
