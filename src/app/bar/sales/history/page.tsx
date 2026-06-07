@@ -25,7 +25,8 @@ import {
   CreditCard,
   Banknote,
   ArrowLeftRight,
-  ChevronDown
+  ChevronDown,
+  ShoppingCart
 } from "lucide-react";
 import { useCollection, useFirestore } from "@/firebase";
 import { collection, query, orderBy } from "firebase/firestore";
@@ -36,6 +37,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import Link from "next/link";
 
 const ITEMS_PER_PAGE = 10;
 

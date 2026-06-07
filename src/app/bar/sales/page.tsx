@@ -32,7 +32,8 @@ import {
   ChevronRight,
   Package,
   ArrowLeftRight,
-  Printer
+  Printer,
+  History
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCollection, useDoc, useFirestore } from "@/firebase";
