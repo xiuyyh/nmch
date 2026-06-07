@@ -1,4 +1,3 @@
-
 "use client";
 
 import React from "react";
@@ -13,6 +12,7 @@ import {
   BarChart3,
   Beer,
   Settings,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -29,6 +29,8 @@ import {
   useSidebar
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { useAuth, useUser } from "@/firebase";
+import { signOut } from "firebase/auth";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -42,6 +44,8 @@ const navigation = [
 function AppSidebar() {
   const pathname = usePathname();
   const { state } = useSidebar();
+  const auth = useAuth();
+  const { user } = useUser();
   const isCollapsed = state === "collapsed";
   const defaultAvatar = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQw8oatrplLFy0o-ghLuTFtu1gKQqYtgfXw0A&s";
 
@@ -103,9 +107,12 @@ function AppSidebar() {
       <SidebarFooter className="p-4 border-t border-white/5 mt-auto bg-black/20">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton className="text-muted-foreground hover:text-white hover:bg-white/5 h-11 rounded-xl transition-all duration-300">
-              <Settings className="w-5 h-5" />
-              <span>Settings</span>
+            <SidebarMenuButton 
+              className="text-muted-foreground hover:text-white hover:bg-white/5 h-11 rounded-xl transition-all duration-300"
+              onClick={() => signOut(auth)}
+            >
+              <LogOut className="w-5 h-5" />
+              <span>Sign Out</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem className="mt-2">
@@ -114,13 +121,19 @@ function AppSidebar() {
               isCollapsed ? "justify-center" : "px-3"
             )}>
               <Avatar className="w-9 h-9 border border-white/10 shadow-inner shrink-0">
-                <AvatarImage src={defaultAvatar} alt="User Profile" />
-                <AvatarFallback className="bg-gradient-to-tr from-secondary to-primary/50 text-white text-xs font-bold">JD</AvatarFallback>
+                <AvatarImage src={user?.photoURL || defaultAvatar} alt="User Profile" />
+                <AvatarFallback className="bg-gradient-to-tr from-secondary to-primary/50 text-white text-xs font-bold">
+                  {user?.displayName?.charAt(0) || user?.email?.charAt(0) || "U"}
+                </AvatarFallback>
               </Avatar>
               {!isCollapsed && (
                 <div className="flex flex-col min-w-0">
-                  <span className="text-sm font-semibold truncate text-white/90">John Doe</span>
-                  <span className="text-[10px] text-primary/70 truncate uppercase tracking-[0.2em] font-bold">Manager</span>
+                  <span className="text-sm font-semibold truncate text-white/90">
+                    {user?.displayName || "Bar Staff"}
+                  </span>
+                  <span className="text-[10px] text-primary/70 truncate uppercase tracking-[0.2em] font-bold">
+                    {user?.email || "Manager"}
+                  </span>
                 </div>
               )}
             </div>
@@ -139,7 +152,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <AppSidebar />
         
         <main className="flex-1 flex flex-col overflow-hidden relative">
-          {/* Top Navigation Bar */}
           <header className="flex items-center h-20 px-4 md:px-10 border-b border-white/5 bg-background/30 backdrop-blur-xl sticky top-0 z-20">
             <SidebarTrigger className="mr-6 text-muted-foreground hover:text-primary transition-all duration-300 scale-110" />
             <div className="md:hidden flex items-center gap-2 mr-auto">
