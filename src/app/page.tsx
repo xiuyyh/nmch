@@ -95,7 +95,7 @@ export default function Dashboard() {
     if (!todaySales) return [];
     return todaySales
       .filter(sale => (sale.total || 0) >= 1000)
-      .slice(0, 7);
+      .slice(0, 6);
   }, [todaySales]);
 
   const chartConfig = {
@@ -139,7 +139,7 @@ export default function Dashboard() {
             ))}
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
             {/* Main Chart */}
             <Card className="lg:col-span-2 glass-card">
               <CardHeader>
@@ -176,7 +176,7 @@ export default function Dashboard() {
             </Card>
 
             {/* Recent Activity */}
-            <Card className="glass-card">
+            <Card className="glass-card h-fit">
               <CardHeader>
                 <CardTitle className="text-xl font-headline">Recent Activity</CardTitle>
               </CardHeader>
@@ -199,7 +199,7 @@ export default function Dashboard() {
                   {recentHighValueSales.length === 0 && (
                     <div className="py-20 text-center flex flex-col items-center opacity-40">
                       <PackageCheck className="w-10 h-10 mb-2" />
-                      <p className="italic text-xs">No significant transactions today</p>
+                      <p className="italic text-xs">No high-value transactions today</p>
                     </div>
                   )}
                 </div>
