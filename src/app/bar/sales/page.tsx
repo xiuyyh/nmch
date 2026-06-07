@@ -465,7 +465,6 @@ export default function SalesPage() {
                             onClick={() => {
                               setSelectedTable(table);
                               setActiveTab("quick");
-                              setIsMobileCartOpen(true);
                             }}
                           >
                             <span className="font-headline font-bold text-lg">{table.split(' ')[1]}</span>
@@ -568,7 +567,6 @@ export default function SalesPage() {
                 onClick={() => {
                   setSelectedTable(session.tableNumber);
                   setActiveTab("quick");
-                  setIsMobileCartOpen(true);
                 }}
               >
                 <div className={cn(
