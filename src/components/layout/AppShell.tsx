@@ -1,7 +1,7 @@
 
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { 
@@ -11,12 +11,14 @@ import {
   ClipboardList, 
   LogOut,
   ChevronRight,
+  ChevronDown,
   Wine,
   Warehouse,
   UtensilsCrossed,
   Contact,
   Sparkles,
-  Layers
+  Menu,
+  X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -41,6 +43,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import { useAuth, useUser } from "@/firebase";
 import { signOut } from "firebase/auth";
 
@@ -257,19 +260,96 @@ function AppSidebar() {
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const pathname = usePathname();
+  const { user } = useUser();
+  const auth = useAuth();
+
+  const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
+
   return (
     <SidebarProvider>
-      <div className="flex h-screen overflow-hidden bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-zinc-900 via-background to-black w-full">
-        <AppSidebar />
+      <div className="flex h-screen overflow-hidden bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-zinc-900 via-background to-black w-full flex-col md:flex-row">
+        
+        {/* Mobile Navbar */}
+        <header className="md:hidden flex items-center justify-between h-20 px-6 border-b border-white/5 bg-background/30 backdrop-blur-2xl sticky top-0 z-[60]">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg overflow-hidden border border-primary/30 shadow-[0_0_15px_rgba(var(--primary),0.2)]">
+              <img src={LOGO_URL} alt="NMCH Logo" className="w-full h-full object-cover" />
+            </div>
+            <span className="font-headline font-bold text-xl tracking-tighter">NMCH</span>
+          </div>
+          <Button variant="ghost" size="icon" className="text-white" onClick={toggleMobileMenu}>
+            {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </Button>
+        </header>
+
+        {/* Mobile Dropdown Menu Overlay */}
+        {isMobileMenuOpen && (
+          <div className="md:hidden fixed inset-x-0 top-20 bottom-0 bg-background/95 backdrop-blur-3xl z-50 overflow-y-auto animate-in slide-in-from-top duration-300">
+            <nav className="p-6 space-y-6">
+              <Link 
+                href="/" 
+                className={cn(
+                  "flex items-center gap-3 p-4 rounded-xl font-bold transition-all",
+                  pathname === "/" ? "bg-primary text-primary-foreground" : "text-white/70 hover:bg-white/5"
+                )}
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <LayoutDashboard className="w-5 h-5" /> Overview
+              </Link>
+
+              <div className="space-y-4">
+                <p className="text-[10px] uppercase tracking-[0.3em] font-bold text-muted-foreground/40 px-4">Departments</p>
+                {departments.map((dept) => (
+                  <div key={dept.title} className="space-y-2">
+                    <div className="flex items-center gap-3 px-4 py-2 text-primary font-bold text-sm">
+                      <dept.icon className="w-4 h-4" /> {dept.title}
+                    </div>
+                    <div className="grid grid-cols-1 gap-1 ml-4 border-l border-white/10 pl-4">
+                      {dept.items.map((item) => (
+                        <Link
+                          key={item.name}
+                          href={item.href}
+                          className={cn(
+                            "flex items-center gap-2 p-3 rounded-lg text-sm transition-all",
+                            pathname === item.href ? "text-primary bg-primary/10 font-bold" : "text-white/60 hover:text-white"
+                          )}
+                          onClick={() => setIsMobileMenuOpen(false)}
+                        >
+                          {item.name}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="pt-6 border-t border-white/5">
+                <Button 
+                  variant="ghost" 
+                  className="w-full justify-start gap-3 text-destructive hover:bg-destructive/10 h-12 rounded-xl"
+                  onClick={() => {
+                    signOut(auth);
+                    setIsMobileMenuOpen(false);
+                  }}
+                >
+                  <LogOut className="w-5 h-5" /> Sign Out
+                </Button>
+              </div>
+            </nav>
+          </div>
+        )}
+
+        <div className="hidden md:block">
+          <AppSidebar />
+        </div>
         
         <main className="flex-1 flex flex-col overflow-hidden relative">
-          <header className="flex items-center h-20 px-4 md:px-10 border-b border-white/5 bg-background/30 backdrop-blur-xl sticky top-0 z-20">
+          <header className="hidden md:flex items-center h-20 px-10 border-b border-white/5 bg-background/30 backdrop-blur-xl sticky top-0 z-20">
             <SidebarTrigger className="mr-6 text-muted-foreground hover:text-primary transition-all duration-300 scale-110" />
-            <div className="md:hidden flex items-center gap-2 mr-auto">
-              <div className="w-8 h-8 rounded-lg overflow-hidden border border-primary/30 shadow-[0_0_15px_rgba(var(--primary),0.2)]">
-                <img src={LOGO_URL} alt="NMCH Logo" className="w-full h-full object-cover" />
-              </div>
-              <span className="font-headline font-bold text-xl tracking-tighter">NMCH</span>
+            <div className="flex items-center gap-3 mr-auto">
+              <span className="font-headline font-bold text-xl tracking-tighter opacity-40">ADMIN CONSOLE</span>
             </div>
           </header>
 
