@@ -93,7 +93,7 @@ export default function InventoryPage() {
       setIsAddOpen(false);
       toast({
         title: "Item Added",
-        description: `${newItem.name} has been added successfully.`,
+        description: `${newItem.name} added successfully.`,
       });
     } catch (error) {
       toast({
@@ -126,7 +126,7 @@ export default function InventoryPage() {
       setEditingItem(null);
       toast({
         title: "Item Updated",
-        description: `${updatedData.name} has been updated successfully.`,
+        description: `${updatedData.name} updated successfully.`,
       });
     } catch (error) {
       toast({
@@ -148,13 +148,9 @@ export default function InventoryPage() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-headline font-bold">Bar Inventory</h1>
-            <p className="text-muted-foreground">Manage stock levels and sales pricing in one place.</p>
+            <p className="text-muted-foreground">Manage stock levels and sales pricing.</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" className="gap-2">
-              <RefreshCw className="w-4 h-4" /> Sync
-            </Button>
-            
             <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
               <DialogTrigger asChild>
                 <Button className="bg-primary text-primary-foreground gap-2">
@@ -169,27 +165,27 @@ export default function InventoryPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2 col-span-2">
                       <Label htmlFor="name">Item Name</Label>
-                      <Input id="name" name="name" placeholder="e.g. Heineken Pint" required className="bg-white/5" />
+                      <Input id="name" name="name" placeholder="e.g. Heineken" required className="bg-white/5" />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="category">Category</Label>
                       <Input id="category" name="category" placeholder="Beer" required className="bg-white/5" />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="price">Sales Price (₦)</Label>
-                      <Input id="price" name="price" type="number" step="0.01" required className="bg-white/5" />
+                      <Label htmlFor="price">Price (₦)</Label>
+                      <Input id="price" name="price" type="number" step="1" required className="bg-white/5" />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="unit">Unit</Label>
-                      <Input id="unit" name="unit" placeholder="Pint/Bottle" required className="bg-white/5" />
+                      <Input id="unit" name="unit" placeholder="Bottle" required className="bg-white/5" />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="stock">Current Stock</Label>
-                      <Input id="stock" name="stock" type="number" step="0.01" required className="bg-white/5" />
+                      <Label htmlFor="stock">Initial Stock</Label>
+                      <Input id="stock" name="stock" type="number" step="1" required className="bg-white/5" />
                     </div>
                     <div className="space-y-2 col-span-2">
-                      <Label htmlFor="min">Min Threshold (for alerts)</Label>
-                      <Input id="min" name="min" type="number" step="0.01" required className="bg-white/5" />
+                      <Label htmlFor="min">Min Threshold (Alert)</Label>
+                      <Input id="min" name="min" type="number" step="1" required className="bg-white/5" />
                     </div>
                   </div>
                   <DialogFooter className="pt-4">
@@ -207,7 +203,7 @@ export default function InventoryPage() {
               <CardTitle className="text-sm font-medium text-muted-foreground">Total Items</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold font-headline">{stockItems?.length || 0} Listed</div>
+              <div className="text-2xl font-bold font-headline">{stockItems?.length || 0}</div>
             </CardContent>
           </Card>
           <Card className="glass-card">
@@ -237,19 +233,19 @@ export default function InventoryPage() {
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="py-10 text-center text-muted-foreground">Loading inventory...</div>
+              <div className="py-10 text-center text-muted-foreground animate-pulse">Loading...</div>
             ) : filteredItems?.length === 0 ? (
-              <div className="py-20 text-center text-muted-foreground italic">No items found. Add items to start selling.</div>
+              <div className="py-20 text-center text-muted-foreground italic">No items found.</div>
             ) : (
               <div className="space-y-4">
                 <Table>
                   <TableHeader>
                     <TableRow className="hover:bg-transparent border-white/5">
-                      <TableHead className="font-bold">Item Name</TableHead>
+                      <TableHead className="font-bold">Name</TableHead>
                       <TableHead className="font-bold">Category</TableHead>
                       <TableHead className="font-bold text-right">Price</TableHead>
-                      <TableHead className="font-bold">Stock</TableHead>
-                      <TableHead className="font-bold">Status</TableHead>
+                      <TableHead className="font-bold text-right">Stock</TableHead>
+                      <TableHead className="font-bold text-right">Min</TableHead>
                       <TableHead className="font-bold text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -263,20 +259,10 @@ export default function InventoryPage() {
                           <TableCell className="text-right font-headline font-bold text-primary">
                             ₦{(item.price || 0).toLocaleString()}
                           </TableCell>
-                          <TableCell>
-                            <span className={cn("font-headline font-bold", isLow && "text-destructive")}>{item.stock.toFixed(2)}</span> {item.unit}
+                          <TableCell className="text-right">
+                            <span className={cn("font-headline font-bold", isLow && "text-destructive")}>{item.stock.toFixed(0)}</span> <span className="text-[10px] text-muted-foreground">{item.unit}</span>
                           </TableCell>
-                          <TableCell>
-                            {isLow ? (
-                              <Badge variant="destructive" className="gap-1">
-                                Low Stock
-                              </Badge>
-                            ) : (
-                              <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
-                                Healthy
-                              </Badge>
-                            )}
-                          </TableCell>
+                          <TableCell className="text-right text-muted-foreground text-xs">{item.min}</TableCell>
                           <TableCell className="text-right">
                             <Button variant="ghost" size="icon" onClick={() => openEditDialog(item)}>
                               <Edit2 className="w-4 h-4" />
@@ -291,7 +277,7 @@ export default function InventoryPage() {
                 {totalPages > 1 && (
                   <div className="flex items-center justify-between pt-4 border-t border-white/5">
                     <p className="text-xs text-muted-foreground">
-                      Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1} to {Math.min(currentPage * ITEMS_PER_PAGE, filteredItems.length)} of {filteredItems.length} items
+                      {filteredItems.length} items
                     </p>
                     <div className="flex gap-2">
                       <Button
@@ -327,7 +313,7 @@ export default function InventoryPage() {
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent className="glass-card border-white/10">
           <DialogHeader>
-            <DialogTitle>Edit Inventory Item</DialogTitle>
+            <DialogTitle>Edit Item</DialogTitle>
           </DialogHeader>
           {editingItem && (
             <form onSubmit={handleUpdateItem} className="space-y-4 py-4">
@@ -341,24 +327,24 @@ export default function InventoryPage() {
                   <Input id="edit-category" name="category" defaultValue={editingItem.category} required className="bg-white/5" />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-price">Sales Price (₦)</Label>
-                  <Input id="edit-price" name="price" type="number" step="0.01" defaultValue={editingItem.price} required className="bg-white/5" />
+                  <Label htmlFor="edit-price">Price (₦)</Label>
+                  <Input id="edit-price" name="price" type="number" step="1" defaultValue={editingItem.price} required className="bg-white/5" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit-unit">Unit</Label>
                   <Input id="edit-unit" name="unit" defaultValue={editingItem.unit} required className="bg-white/5" />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-stock">Current Stock</Label>
-                  <Input id="edit-stock" name="stock" type="number" step="0.01" defaultValue={editingItem.stock} required className="bg-white/5" />
+                  <Label htmlFor="edit-stock">Stock</Label>
+                  <Input id="edit-stock" name="stock" type="number" step="1" defaultValue={editingItem.stock} required className="bg-white/5" />
                 </div>
-                <div className="space-y-2 col-span-2">
-                  <Label htmlFor="edit-min">Min Threshold (for alerts)</Label>
-                  <Input id="edit-min" name="min" type="number" step="0.01" defaultValue={editingItem.min} required className="bg-white/5" />
+                <div className="space-y-2">
+                  <Label htmlFor="edit-min">Threshold</Label>
+                  <Input id="edit-min" name="min" type="number" step="1" defaultValue={editingItem.min} required className="bg-white/5" />
                 </div>
               </div>
               <DialogFooter className="pt-4">
-                <Button type="submit" className="w-full">Update Item</Button>
+                <Button type="submit" className="w-full">Update</Button>
               </DialogFooter>
             </form>
           )}

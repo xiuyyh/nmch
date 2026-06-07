@@ -214,7 +214,6 @@ export default function SalesPage() {
     return allActiveSessions?.some(s => s.tableNumber === table);
   };
 
-  // Shared Cart Component to avoid duplication
   const CartUI = () => (
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
@@ -223,7 +222,7 @@ export default function SalesPage() {
             <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center mb-4">
               <ShoppingCart className="w-6 h-6" />
             </div>
-            <p className="text-sm font-medium italic">Your cart is empty.</p>
+            <p className="text-sm font-medium italic">Cart is empty</p>
           </div>
         ) : (
           cart.map(item => (
@@ -253,13 +252,13 @@ export default function SalesPage() {
 
       <div className="p-3 bg-black/60 border-t border-white/10 space-y-3 shrink-0">
         <div className="flex justify-between items-center px-1">
-          <span className="text-sm font-headline font-bold text-white uppercase tracking-wider">Total Amount</span>
+          <span className="text-xs font-headline font-bold text-muted-foreground uppercase tracking-widest">Total</span>
           <span className="text-xl font-headline font-bold text-primary">₦{total.toLocaleString()}</span>
         </div>
         
         <div className="grid grid-cols-2 gap-2">
           <Button 
-            className="bg-primary text-primary-foreground font-bold h-10 rounded-xl flex-1"
+            className="bg-primary text-primary-foreground font-bold h-10 rounded-xl"
             disabled={cart.length === 0}
             onClick={() => handleCheckout('Card')}
           >
@@ -267,7 +266,7 @@ export default function SalesPage() {
             Card
           </Button>
           <Button 
-            className="bg-secondary text-secondary-foreground font-bold h-10 rounded-xl flex-1"
+            className="bg-secondary text-secondary-foreground font-bold h-10 rounded-xl"
             disabled={cart.length === 0}
             onClick={() => handleCheckout('Cash')}
           >
@@ -283,16 +282,14 @@ export default function SalesPage() {
     <AppShell>
       <div className="flex flex-col gap-6 h-full max-w-[1600px] mx-auto pb-24 lg:pb-0">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <h1 className="text-3xl font-headline font-bold uppercase tracking-tight">BAR SALES</h1>
-          </div>
+          <h1 className="text-3xl font-headline font-bold uppercase tracking-tight">BAR SALES</h1>
           <Tabs value={activeTab} onValueChange={(v: any) => setActiveTab(v)} className="w-full md:w-auto">
             <TabsList className="bg-white/5 border border-white/10 p-1">
               <TabsTrigger value="quick" className="gap-2 px-6 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                 <ShoppingCart className="w-4 h-4" /> Quick Sale
               </TabsTrigger>
               <TabsTrigger value="tables" className="gap-2 px-6 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                <LayoutGrid className="w-4 h-4" /> Table Service
+                <LayoutGrid className="w-4 h-4" /> Tables
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -304,7 +301,7 @@ export default function SalesPage() {
               <Card className="glass-card border-white/5">
                 <CardHeader>
                   <CardTitle className="text-xl font-headline flex items-center gap-2">
-                    <LayoutGrid className="text-primary w-5 h-5" /> Select Table to Begin
+                    <LayoutGrid className="text-primary w-5 h-5" /> Select Table
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -317,7 +314,7 @@ export default function SalesPage() {
                           variant="outline"
                           className={cn(
                             "h-24 flex flex-col gap-2 rounded-2xl border-white/5 transition-all",
-                            active ? "bg-primary/10 border-primary/30 text-primary shadow-[0_0_15px_rgba(var(--primary),0.1)]" : "hover:bg-white/5 hover:border-white/10"
+                            active ? "bg-primary/10 border-primary/30 text-primary" : "hover:bg-white/5 hover:border-white/10"
                           )}
                           onClick={() => {
                             setSelectedTable(table);
@@ -327,7 +324,7 @@ export default function SalesPage() {
                           <span className="font-headline font-bold text-lg">{table.split(' ')[1]}</span>
                           {active && (
                             <span className="flex items-center gap-1 text-[10px] uppercase tracking-widest font-bold">
-                              <Clock className="w-3 h-3" /> Active Tab
+                              <Clock className="w-3 h-3" /> Active
                             </span>
                           )}
                         </Button>
@@ -341,9 +338,7 @@ export default function SalesPage() {
                 {selectedTable && (
                   <div className="flex items-center justify-between p-4 bg-primary/10 border border-primary/20 rounded-2xl">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-primary rounded-lg text-primary-foreground">
-                        <LayoutGrid className="w-5 h-5" />
-                      </div>
+                      <LayoutGrid className="w-5 h-5 text-primary" />
                       <span className="font-headline font-bold text-lg text-white">Serving {selectedTable}</span>
                     </div>
                     <Button 
@@ -355,7 +350,7 @@ export default function SalesPage() {
                       }}
                       className="text-primary hover:bg-primary/20"
                     >
-                      <X className="w-4 h-4 mr-2" /> Release Table
+                      <X className="w-4 h-4 mr-2" /> Release
                     </Button>
                   </div>
                 )}
@@ -363,8 +358,8 @@ export default function SalesPage() {
                 <div className="relative">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input 
-                    placeholder="Search inventory items..." 
-                    className="pl-12 h-12 bg-white/5 border-white/10 rounded-2xl focus:border-primary/50" 
+                    placeholder="Search inventory..." 
+                    className="pl-12 h-12 bg-white/5 border-white/10 rounded-2xl" 
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                   />
@@ -372,27 +367,15 @@ export default function SalesPage() {
 
                 <div className="mt-6 space-y-6">
                   {inventoryLoading ? (
-                    <div className="py-20 text-center text-muted-foreground animate-pulse">Gathering inventory...</div>
+                    <div className="py-20 text-center text-muted-foreground animate-pulse">Loading...</div>
                   ) : filteredItems.length === 0 ? (
                     <Card className="glass-card border-dashed border-white/10 bg-transparent">
                       <CardContent className="py-20 flex flex-col items-center text-center">
-                        <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mb-6">
-                          <Package className="w-8 h-8 text-muted-foreground" />
-                        </div>
+                        <Package className="w-8 h-8 text-muted-foreground mb-4" />
                         <h3 className="text-xl font-headline font-bold mb-2">No items found</h3>
-                        <p className="text-muted-foreground max-w-sm mb-8">
-                          {search 
-                            ? `We couldn't find any items matching "${search}".`
-                            : "Your inventory is currently empty. Add items in the Bar Inventory section to start selling."
-                          }
-                        </p>
-                        {!search && (
-                          <Button asChild className="gap-2">
-                            <Link href="/inventory">
-                              Go to Bar Inventory <ArrowRight className="w-4 h-4" />
-                            </Link>
-                          </Button>
-                        )}
+                        <Button asChild variant="outline" className="mt-4">
+                          <Link href="/inventory">Go to Inventory</Link>
+                        </Button>
                       </CardContent>
                     </Card>
                   ) : (
@@ -401,16 +384,16 @@ export default function SalesPage() {
                         {paginatedItems.map(item => (
                           <div 
                             key={item.id} 
-                            className="glass-card hover:border-primary/40 transition-all cursor-pointer group overflow-hidden p-4 flex items-center justify-between rounded-2xl border border-white/5"
+                            className="glass-card hover:border-primary/40 transition-all cursor-pointer p-4 flex items-center justify-between rounded-2xl border border-white/5"
                             onClick={() => addToCart(item)}
                           >
-                            <div className="flex flex-col gap-1">
+                            <div className="flex flex-col">
                               <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">{item.category}</span>
                               <span className="font-headline font-bold text-lg leading-tight text-white">{item.name}</span>
                             </div>
                             <div className="flex items-center gap-6">
                               <span className="text-primary font-headline font-bold text-xl">₦{(item.price || 0).toLocaleString()}</span>
-                              <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-all">
+                              <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center">
                                 <Plus className="w-5 h-5" />
                               </div>
                             </div>
@@ -421,7 +404,7 @@ export default function SalesPage() {
                       {totalPages > 1 && (
                         <div className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-2xl">
                           <p className="text-xs text-muted-foreground">
-                            Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1} to {Math.min(currentPage * ITEMS_PER_PAGE, filteredItems.length)} of {filteredItems.length} items
+                            {filteredItems.length} items
                           </p>
                           <div className="flex gap-2">
                             <Button
@@ -431,7 +414,7 @@ export default function SalesPage() {
                               disabled={currentPage === 1}
                               className="h-10 px-4 rounded-xl"
                             >
-                              <ChevronLeft className="w-4 h-4 mr-1" /> Previous
+                              <ChevronLeft className="w-4 h-4" />
                             </Button>
                             <div className="flex items-center gap-1 text-sm font-bold px-4 bg-primary/10 rounded-xl text-primary">
                               {currentPage} / {totalPages}
@@ -443,7 +426,7 @@ export default function SalesPage() {
                               disabled={currentPage === totalPages}
                               className="h-10 px-4 rounded-xl"
                             >
-                              Next <ChevronRight className="w-4 h-4 ml-1" />
+                              <ChevronRight className="w-4 h-4" />
                             </Button>
                           </div>
                         </div>
@@ -455,39 +438,29 @@ export default function SalesPage() {
             )}
           </div>
 
-          {/* Desktop Sidebar Cart */}
           <div className="hidden lg:block w-[400px]">
-            <Card className="glass-card flex flex-col h-[calc(100vh-220px)] sticky top-28 border-white/5">
+            <Card className="glass-card flex flex-col h-[calc(100vh-220px)] sticky top-28 border-white/5 overflow-hidden">
               <CardHeader className="p-4 border-b border-white/5 flex flex-row items-center justify-between shrink-0">
-                <div>
-                  <CardTitle className="font-headline font-bold text-lg text-white">
-                    {selectedTable ? `Bill: ${selectedTable}` : "Quick Sale"}
-                  </CardTitle>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold mt-0.5">
-                    {cart.length} items
-                  </p>
-                </div>
-                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive" onClick={() => {
+                <CardTitle className="font-headline font-bold text-lg text-white">
+                  {selectedTable ? `Bill: ${selectedTable}` : "Cart"}
+                </CardTitle>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => {
                   setCart([]);
                   if(selectedTable) saveToTable([]);
                 }} disabled={cart.length === 0}>
                   <Trash2 className="w-4 h-4" />
                 </Button>
               </CardHeader>
-              
               <CartUI />
             </Card>
           </div>
         </div>
       </div>
 
-      {/* Mobile Floating Cart Button */}
       <div className="lg:hidden fixed bottom-6 left-6 right-6 z-50">
         <Sheet open={isMobileCartOpen} onOpenChange={setIsMobileCartOpen}>
           <SheetTrigger asChild>
-            <Button 
-              className="w-full h-14 bg-primary text-primary-foreground font-bold text-lg shadow-2xl neon-glow-primary rounded-2xl flex justify-between px-6"
-            >
+            <Button className="w-full h-14 bg-primary text-primary-foreground font-bold text-lg shadow-2xl rounded-2xl flex justify-between px-6">
               <div className="flex items-center gap-2">
                 <ShoppingCart className="w-5 h-5" />
                 <span>View Cart</span>
@@ -502,9 +475,9 @@ export default function SalesPage() {
             <div className="flex flex-col h-full">
               <SheetHeader className="p-6 border-b border-white/5 flex flex-row items-center justify-between space-y-0">
                 <SheetTitle className="font-headline font-bold text-xl">
-                  {selectedTable ? `Table: ${selectedTable}` : "Current Order"}
+                  {selectedTable ? `Bill: ${selectedTable}` : "Order"}
                 </SheetTitle>
-                <Button variant="ghost" size="icon" className="h-10 w-10 hover:bg-destructive/10 hover:text-destructive" onClick={() => {
+                <Button variant="ghost" size="icon" className="h-10 w-10 text-muted-foreground" onClick={() => {
                   setCart([]);
                   if(selectedTable) saveToTable([]);
                 }} disabled={cart.length === 0}>
