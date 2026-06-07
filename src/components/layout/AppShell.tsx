@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from "react";
@@ -10,8 +11,13 @@ import {
   Menu as MenuIcon, 
   ClipboardList, 
   BarChart3,
-  Settings,
   LogOut,
+  ChevronRight,
+  Wine,
+  Warehouse,
+  UtensilsCrossed,
+  Contact,
+  Sparkles
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -25,21 +31,69 @@ import {
   SidebarProvider,
   SidebarTrigger,
   SidebarRail,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
   useSidebar
 } from "@/components/ui/sidebar";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth, useUser } from "@/firebase";
 import { signOut } from "firebase/auth";
 
 const LOGO_URL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQw8oatrplLFy0o-ghLuTFtu1gKQqYtgfXw0A&s";
 
-const navigation = [
-  { name: "Dashboard", href: "/", icon: LayoutDashboard },
-  { name: "Quick Sale", href: "/pos", icon: ShoppingCart },
-  { name: "Inventory", href: "/inventory", icon: Package },
-  { name: "Menu", href: "/menu", icon: MenuIcon },
-  { name: "Stock Requests", href: "/requests", icon: ClipboardList },
-  { name: "Reports", href: "/reports", icon: BarChart3 },
+const departments = [
+  {
+    title: "Bar",
+    icon: Wine,
+    items: [
+      { name: "POS / Quick Sale", href: "/pos", icon: ShoppingCart },
+      { name: "Inventory", href: "/inventory", icon: Package },
+      { name: "Menu Config", href: "/menu", icon: MenuIcon },
+      { name: "Sales Reports", href: "/reports", icon: BarChart3 },
+    ],
+  },
+  {
+    title: "Store",
+    icon: Warehouse,
+    items: [
+      { name: "Stock Requests", href: "/requests", icon: ClipboardList },
+      { name: "Warehouse Stock", href: "/store/warehouse" },
+      { name: "Suppliers", href: "/store/suppliers" },
+    ],
+  },
+  {
+    title: "Kitchen",
+    icon: UtensilsCrossed,
+    items: [
+      { name: "Active Orders", href: "/kitchen/orders" },
+      { name: "Recipe Book", href: "/kitchen/recipes" },
+      { name: "Prep List", href: "/kitchen/prep" },
+    ],
+  },
+  {
+    title: "Front Desk",
+    icon: Contact,
+    items: [
+      { name: "Bookings", href: "/front-desk/bookings" },
+      { name: "Guest List", href: "/front-desk/guests" },
+      { name: "Check-in", href: "/front-desk/check-in" },
+    ],
+  },
+  {
+    title: "Cleaning",
+    icon: Sparkles,
+    items: [
+      { name: "Daily Schedule", href: "/cleaning/schedule" },
+      { name: "Supplies Inventory", href: "/cleaning/supplies" },
+      { name: "Maintenance Logs", href: "/cleaning/logs" },
+    ],
+  },
 ];
 
 function AppSidebar() {
@@ -68,40 +122,67 @@ function AppSidebar() {
         </div>
       </SidebarHeader>
       
-      <SidebarContent className="px-4 py-6 space-y-4">
-        <SidebarMenu className="gap-3">
-          {navigation.map((item) => {
-            const isActive = pathname === item.href;
-            return (
-              <SidebarMenuItem key={item.name}>
-                <SidebarMenuButton 
-                  asChild 
-                  isActive={isActive}
-                  tooltip={item.name}
-                  className={cn(
-                    "relative transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] h-12 rounded-xl group",
-                    "hover:-translate-y-1 hover:shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)]",
-                    isActive 
-                      ? "bg-primary text-primary-foreground shadow-[0_0_20px_rgba(var(--primary),0.2)] neon-glow-primary border border-white/20" 
-                      : "text-muted-foreground bg-white/5 hover:bg-white/10 hover:text-white border border-transparent hover:border-white/10"
-                  )}
-                >
-                  <Link href={item.href} className="flex items-center gap-3 px-4">
-                    <div className={cn(
-                      "transition-transform duration-500 group-hover:scale-110",
-                      isActive ? "text-primary-foreground" : "text-primary/70 group-hover:text-primary"
-                    )}>
-                      <item.icon className="w-5 h-5" />
-                    </div>
-                    <span className="font-medium tracking-wide">{item.name}</span>
-                    {isActive && (
-                      <div className="absolute right-2 w-1.5 h-1.5 rounded-full bg-primary-foreground animate-pulse" />
-                    )}
-                  </Link>
-                </SidebarMenuButton>
+      <SidebarContent className="px-4 py-6">
+        <SidebarMenu className="gap-2">
+          {/* Dashboard Link (Flat) */}
+          <SidebarMenuItem>
+            <SidebarMenuButton 
+              asChild 
+              isActive={pathname === "/"}
+              tooltip="Overview"
+              className={cn(
+                "transition-all duration-300 h-11 rounded-xl",
+                pathname === "/" 
+                  ? "bg-primary text-primary-foreground neon-glow-primary" 
+                  : "text-muted-foreground hover:bg-white/5 hover:text-white"
+              )}
+            >
+              <Link href="/">
+                <LayoutDashboard className="w-5 h-5" />
+                <span className="font-medium">Overview</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+
+          {/* Department Sections (Collapsible) */}
+          {departments.map((dept) => (
+            <Collapsible key={dept.title} asChild defaultOpen={dept.items.some(i => i.href === pathname)} className="group/collapsible">
+              <SidebarMenuItem>
+                <CollapsibleTrigger asChild>
+                  <SidebarMenuButton 
+                    tooltip={dept.title}
+                    className="h-11 rounded-xl text-muted-foreground hover:bg-white/5 hover:text-white group-data-[state=open]/collapsible:text-primary"
+                  >
+                    <dept.icon className="w-5 h-5" />
+                    <span className="font-medium">{dept.title}</span>
+                    <ChevronRight className="ml-auto w-4 h-4 transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90" />
+                  </SidebarMenuButton>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <SidebarMenuSub className="border-l border-white/5 ml-4 mt-1 gap-1">
+                    {dept.items.map((item) => (
+                      <SidebarMenuSubItem key={item.name}>
+                        <SidebarMenuSubButton 
+                          asChild 
+                          isActive={pathname === item.href}
+                          className={cn(
+                            "rounded-lg transition-all duration-200",
+                            pathname === item.href 
+                              ? "text-primary bg-primary/10" 
+                              : "text-muted-foreground hover:text-white"
+                          )}
+                        >
+                          <Link href={item.href}>
+                            <span>{item.name}</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    ))}
+                  </SidebarMenuSub>
+                </CollapsibleContent>
               </SidebarMenuItem>
-            );
-          })}
+            </Collapsible>
+          ))}
         </SidebarMenu>
       </SidebarContent>
 
