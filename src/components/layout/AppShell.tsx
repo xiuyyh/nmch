@@ -105,7 +105,7 @@ function AppSidebar() {
   const defaultAvatar = LOGO_URL;
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-white/5 bg-background/50 backdrop-blur-2xl">
+    <Sidebar collapsible="icon" className="border-r border-white/5 bg-background/50 backdrop-blur-3xl shadow-2xl">
       <SidebarHeader className="p-6">
         <div className={cn(
           "flex items-center gap-3 transition-all duration-500",
@@ -131,78 +131,113 @@ function AppSidebar() {
               isActive={pathname === "/"}
               tooltip="Overview"
               className={cn(
-                "transition-all duration-300 h-11 rounded-xl",
+                "transition-all duration-300 h-12 rounded-xl group/btn overflow-hidden",
                 pathname === "/" 
-                  ? "bg-primary text-primary-foreground neon-glow-primary" 
-                  : "text-muted-foreground hover:bg-white/5 hover:text-white"
+                  ? "bg-primary text-primary-foreground neon-glow-primary font-bold shadow-lg" 
+                  : "text-muted-foreground hover:bg-white/10 hover:text-white"
               )}
             >
               <Link href="/">
-                <LayoutDashboard className="w-5 h-5" />
+                <LayoutDashboard className={cn(
+                  "w-5 h-5 transition-transform duration-300 group-hover/btn:scale-110",
+                  pathname === "/" ? "text-primary-foreground" : "text-primary/70"
+                )} />
                 <span className="font-medium">Overview</span>
+                {pathname === "/" && (
+                  <div className="absolute right-0 top-0 bottom-0 w-1 bg-white/20" />
+                )}
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
 
+          <div className="my-4 px-2">
+            {!isCollapsed && (
+              <span className="text-[10px] uppercase tracking-[0.3em] font-bold text-muted-foreground/40">
+                Departments
+              </span>
+            )}
+            <div className="h-px bg-white/5 mt-2" />
+          </div>
+
           {/* Department Sections (Collapsible) */}
-          {departments.map((dept) => (
-            <Collapsible key={dept.title} asChild defaultOpen={dept.items.some(i => i.href === pathname)} className="group/collapsible">
-              <SidebarMenuItem>
-                <CollapsibleTrigger asChild>
-                  <SidebarMenuButton 
-                    tooltip={dept.title}
-                    className="h-11 rounded-xl text-muted-foreground hover:bg-white/5 hover:text-white group-data-[state=open]/collapsible:text-primary"
-                  >
-                    <dept.icon className="w-5 h-5" />
-                    <span className="font-medium">{dept.title}</span>
-                    <ChevronRight className="ml-auto w-4 h-4 transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90" />
-                  </SidebarMenuButton>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <SidebarMenuSub className="border-l border-white/5 ml-4 mt-1 gap-1">
-                    {dept.items.map((item) => (
-                      <SidebarMenuSubItem key={item.name}>
-                        <SidebarMenuSubButton 
-                          asChild 
-                          isActive={pathname === item.href}
-                          className={cn(
-                            "rounded-lg transition-all duration-200",
-                            pathname === item.href 
-                              ? "text-primary bg-primary/10" 
-                              : "text-muted-foreground hover:text-white"
-                          )}
-                        >
-                          <Link href={item.href}>
-                            <span>{item.name}</span>
-                          </Link>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    ))}
-                  </SidebarMenuSub>
-                </CollapsibleContent>
-              </SidebarMenuItem>
-            </Collapsible>
-          ))}
+          {departments.map((dept) => {
+            const isActive = dept.items.some(i => i.href === pathname);
+            return (
+              <Collapsible key={dept.title} asChild defaultOpen={isActive} className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton 
+                      tooltip={dept.title}
+                      className={cn(
+                        "h-12 rounded-xl text-muted-foreground hover:bg-white/10 hover:text-white transition-all duration-300 group-data-[state=open]/collapsible:bg-white/5",
+                        isActive && "text-primary bg-primary/5"
+                      )}
+                    >
+                      <div className={cn(
+                        "p-1.5 rounded-lg transition-colors duration-300",
+                        isActive ? "bg-primary/20 text-primary" : "bg-white/5 group-hover:bg-white/10"
+                      )}>
+                        <dept.icon className="w-4 h-4" />
+                      </div>
+                      <span className="font-medium ml-1">{dept.title}</span>
+                      <ChevronRight className={cn(
+                        "ml-auto w-4 h-4 transition-transform duration-500 ease-in-out opacity-40 group-hover:opacity-100",
+                        "group-data-[state=open]/collapsible:rotate-90 group-data-[state=open]/collapsible:opacity-100"
+                      )} />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="animate-in fade-in-0 slide-in-from-top-1 duration-300">
+                    <SidebarMenuSub className="border-l border-white/5 ml-6 mt-1 gap-1">
+                      {dept.items.map((item) => (
+                        <SidebarMenuSubItem key={item.name}>
+                          <SidebarMenuSubButton 
+                            asChild 
+                            isActive={pathname === item.href}
+                            className={cn(
+                              "rounded-lg transition-all duration-200 h-9 relative overflow-hidden group/subitem",
+                              pathname === item.href 
+                                ? "text-primary bg-primary/10 font-bold" 
+                                : "text-muted-foreground hover:text-white hover:bg-white/5"
+                            )}
+                          >
+                            <Link href={item.href || "#"}>
+                              <div className={cn(
+                                "w-1.5 h-1.5 rounded-full mr-2 transition-all duration-300",
+                                pathname === item.href 
+                                  ? "bg-primary scale-100 shadow-[0_0_8px_rgba(var(--primary),0.8)]" 
+                                  : "bg-white/10 scale-50 group-hover/subitem:scale-75 group-hover/subitem:bg-white/30"
+                              )} />
+                              <span>{item.name}</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
+            );
+          })}
         </SidebarMenu>
       </SidebarContent>
 
-      <SidebarFooter className="p-4 border-t border-white/5 mt-auto bg-black/20">
-        <SidebarMenu>
+      <SidebarFooter className="p-4 border-t border-white/5 mt-auto bg-black/40 backdrop-blur-xl">
+        <SidebarMenu className="gap-2">
           <SidebarMenuItem>
             <SidebarMenuButton 
-              className="text-muted-foreground hover:text-white hover:bg-white/5 h-11 rounded-xl transition-all duration-300"
+              className="text-muted-foreground hover:text-white hover:bg-destructive/10 hover:text-destructive h-11 rounded-xl transition-all duration-300 group/logout"
               onClick={() => signOut(auth)}
             >
-              <LogOut className="w-5 h-5" />
-              <span>Sign Out</span>
+              <LogOut className="w-5 h-5 transition-transform duration-300 group-hover/logout:-translate-x-1" />
+              <span className="font-medium">Sign Out</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem className="mt-2">
             <div className={cn(
-              "flex items-center gap-3 transition-all duration-500 p-2 rounded-2xl bg-white/5 border border-white/5",
+              "flex items-center gap-3 transition-all duration-500 p-2.5 rounded-2xl bg-white/5 border border-white/5 hover:border-white/10 group/user",
               isCollapsed ? "justify-center" : "px-3"
             )}>
-              <Avatar className="w-9 h-9 border border-white/10 shadow-inner shrink-0">
+              <Avatar className="w-10 h-10 border border-white/10 shadow-inner shrink-0 ring-2 ring-transparent group-hover/user:ring-primary/20 transition-all duration-500">
                 <AvatarImage src={user?.photoURL || defaultAvatar} alt="User Profile" />
                 <AvatarFallback className="bg-gradient-to-tr from-secondary to-primary/50 text-white text-xs font-bold">
                   {user?.displayName?.charAt(0) || user?.email?.charAt(0) || "U"}
@@ -237,7 +272,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <header className="flex items-center h-20 px-4 md:px-10 border-b border-white/5 bg-background/30 backdrop-blur-xl sticky top-0 z-20">
             <SidebarTrigger className="mr-6 text-muted-foreground hover:text-primary transition-all duration-300 scale-110" />
             <div className="md:hidden flex items-center gap-2 mr-auto">
-              <div className="w-8 h-8 rounded-lg overflow-hidden border border-primary/30">
+              <div className="w-8 h-8 rounded-lg overflow-hidden border border-primary/30 shadow-[0_0_15px_rgba(var(--primary),0.2)]">
                 <img src={LOGO_URL} alt="NMCH Logo" className="w-full h-full object-cover" />
               </div>
               <span className="font-headline font-bold text-xl tracking-tighter">NMCH</span>
