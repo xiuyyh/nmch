@@ -186,7 +186,8 @@ export default function SalesPage() {
       tableNumber: selectedTable || "Counter",
       items: [{ name: item.name, quantity: quantityToFire }],
       timestamp: serverTimestamp(),
-      staffName: user?.displayName || user?.email || "Bar Staff"
+      staffName: user?.displayName || user?.email || "Bar Staff",
+      status: "Pending"
     };
 
     addDoc(collection(firestore, "kitchenOrders"), kitchenOrderData)
@@ -253,7 +254,8 @@ export default function SalesPage() {
         tableNumber: selectedTable || "Counter",
         items: foodItemsToFire,
         timestamp: serverTimestamp(),
-        staffName: user?.displayName || user?.email || "Bar Staff"
+        staffName: user?.displayName || user?.email || "Bar Staff",
+        status: "Pending"
       };
       addDoc(collection(firestore, "kitchenOrders"), kitchenOrderData).catch(() => {});
     }

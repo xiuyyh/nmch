@@ -175,7 +175,9 @@
           }
         },
         "timestamp": { "type": "string", "format": "date-time" },
-        "staffName": { "type": "string" }
+        "staffName": { "type": "string" },
+        "status": { "type": "string", "enum": ["Pending", "Delivered"] },
+        "deliveredAt": { "type": "string", "format": "date-time" }
       },
       "required": ["tableNumber", "items", "timestamp"]
     }
