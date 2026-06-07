@@ -2,7 +2,7 @@
 {
   "entities": {
     "StockItem": {
-      "title": "Stock Item",
+      "title": "Bar Stock Item",
       "description": "An item in the bar's inventory",
       "type": "object",
       "properties": {
@@ -15,6 +15,54 @@
         "lastUpdated": { "type": "string", "format": "date-time" }
       },
       "required": ["name", "stock", "min", "price"]
+    },
+    "WarehouseItem": {
+      "title": "Warehouse Stock Item",
+      "description": "An item in the main store/warehouse",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "stock": { "type": "number" },
+        "unit": { "type": "string" },
+        "min": { "type": "number" },
+        "lastUpdated": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "stock", "min"]
+    },
+    "Supplier": {
+      "title": "Supplier",
+      "description": "A vendor that provides stock",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "contact": { "type": "string" },
+        "address": { "type": "string" }
+      },
+      "required": ["name"]
+    },
+    "StockReceival": {
+      "title": "Stock Receival",
+      "description": "A record of items received from a supplier into the warehouse",
+      "type": "object",
+      "properties": {
+        "supplierId": { "type": "string" },
+        "supplierName": { "type": "string" },
+        "receivedDate": { "type": "string", "format": "date-time" },
+        "receivedBy": { "type": "string" },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "itemId": { "type": "string" },
+              "name": { "type": "string" },
+              "quantity": { "type": "number" }
+            }
+          }
+        }
+      },
+      "required": ["supplierId", "receivedDate", "items", "receivedBy"]
     },
     "InventoryCategory": {
       "title": "Inventory Category",
@@ -116,11 +164,27 @@
   "firestore": {
     "/inventory/{itemId}": {
       "schema": "StockItem",
-      "description": "Collection of inventory items"
+      "description": "Collection of bar inventory items"
+    },
+    "/warehouseInventory/{itemId}": {
+      "schema": "WarehouseItem",
+      "description": "Collection of main warehouse inventory items"
+    },
+    "/warehouseCategories/{categoryId}": {
+      "schema": "InventoryCategory",
+      "description": "Categories for warehouse inventory"
+    },
+    "/suppliers/{supplierId}": {
+      "schema": "Supplier",
+      "description": "List of vendors/suppliers"
+    },
+    "/stockReceivals/{receivalId}": {
+      "schema": "StockReceival",
+      "description": "History of stock received from suppliers"
     },
     "/inventoryCategories/{categoryId}": {
       "schema": "InventoryCategory",
-      "description": "Managed categories for inventory"
+      "description": "Managed categories for bar inventory"
     },
     "/sales/{saleId}": {
       "schema": "Sale",
