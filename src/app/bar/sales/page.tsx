@@ -211,7 +211,6 @@ export default function SalesPage() {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h1 className="text-3xl font-headline font-bold">BAR SALES</h1>
-            <p className="text-muted-foreground">Manage quick sales and table service efficiently.</p>
           </div>
           <Tabs value={activeTab} onValueChange={(v: any) => setActiveTab(v)} className="w-full md:w-auto">
             <TabsList className="bg-white/5 border border-white/10">
