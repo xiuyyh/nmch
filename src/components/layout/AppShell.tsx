@@ -79,8 +79,6 @@ const departments = [
     icon: UtensilsCrossed,
     items: [
       { name: "Orders", href: "/kitchen/orders", icon: CookingPot },
-      { name: "Recipe Book", href: "/kitchen/recipes" },
-      { name: "Prep List", href: "/kitchen/prep" },
     ],
   },
   {
