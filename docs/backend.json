@@ -156,6 +156,27 @@
         "processedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["requestDate", "items", "status", "requestedBy"]
+    },
+    "KitchenOrder": {
+      "title": "Kitchen Order",
+      "description": "An order sent to the kitchen",
+      "type": "object",
+      "properties": {
+        "tableNumber": { "type": "string" },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "quantity": { "type": "number" }
+            }
+          }
+        },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "staffName": { "type": "string" }
+      },
+      "required": ["tableNumber", "items", "timestamp"]
     }
   },
   "auth": {
@@ -201,6 +222,10 @@
     "/restockRequests/{requestId}": {
       "schema": "RestockRequest",
       "description": "Collection of restock requests"
+    },
+    "/kitchenOrders/{orderId}": {
+      "schema": "KitchenOrder",
+      "description": "Orders currently being processed by the kitchen"
     }
   }
 }

@@ -21,7 +21,8 @@ import {
   History as HistoryIcon,
   Lock,
   RefreshCw,
-  PackagePlus
+  PackagePlus,
+  CookingPot
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -77,7 +78,7 @@ const departments = [
     title: "Kitchen",
     icon: UtensilsCrossed,
     items: [
-      { name: "Active Orders", href: "/kitchen/orders" },
+      { name: "Orders", href: "/kitchen/orders", icon: CookingPot },
       { name: "Recipe Book", href: "/kitchen/recipes" },
       { name: "Prep List", href: "/kitchen/prep" },
     ],

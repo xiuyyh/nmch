@@ -35,7 +35,7 @@ import {
   Printer
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useCollection, useDoc, useFirestore } from "@/firebase";
+import { useCollection, useDoc, useFirestore, useUser } from "@/firebase";
 import { 
   collection, 
   addDoc, 
@@ -58,6 +58,7 @@ const TABLES = Array.from({ length: 20 }, (_, i) => `Table ${i + 1}`);
 
 export default function SalesPage() {
   const firestore = useFirestore();
+  const { user } = useUser();
   const { toast } = useToast();
   
   const [activeTab, setActiveTab] = useState<"quick" | "tables" | "history">("quick");
@@ -188,6 +189,25 @@ export default function SalesPage() {
           requestResourceData: saleData,
         }));
       });
+
+    // Handle Kitchen Routing for FOOD items
+    const foodItems = cart.filter(item => item.category === "FOOD");
+    if (foodItems.length > 0) {
+      const kitchenOrderData = {
+        tableNumber: selectedTable || "Counter",
+        items: foodItems.map(i => ({ name: i.name, quantity: i.quantity })),
+        timestamp: serverTimestamp(),
+        staffName: user?.displayName || user?.email || "Bar Staff"
+      };
+
+      addDoc(collection(firestore, "kitchenOrders"), kitchenOrderData).catch(error => {
+        errorEmitter.emit("permission-error", new FirestorePermissionError({
+          path: "kitchenOrders",
+          operation: "create",
+          requestResourceData: kitchenOrderData
+        }));
+      });
+    }
 
     // Decrement inventory stock (excluding FOOD)
     for (const cartItem of cart) {
