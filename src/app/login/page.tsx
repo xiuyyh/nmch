@@ -34,22 +34,19 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex bg-background">
-      {/* Left Side: Hero Image */}
+      {/* Left Side: Hero Image with Overlay Text */}
       <div className="hidden lg:block w-1/2 relative overflow-hidden">
         <div 
           className="absolute inset-0 bg-cover bg-center transition-transform duration-[10s] hover:scale-110"
           style={{ backgroundImage: `url(${HERO_IMAGE})` }}
           data-ai-hint="modern bar"
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/20 to-background" />
-        <div className="absolute bottom-12 left-12 max-w-md">
-          <h2 className="text-4xl font-headline font-bold text-white mb-4 tracking-tight">
-            NMCH Elevated 
-            <span className="block text-primary">Bar Operations</span>
+        <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent" />
+        <div className="absolute bottom-12 left-12 max-w-xl">
+          <h2 className="text-4xl font-headline font-bold text-white tracking-tighter uppercase leading-tight">
+            NMCH Structured <br/>
+            <span className="text-primary">Admin Management Interface</span>
           </h2>
-          <p className="text-white/60 font-body text-lg leading-relaxed">
-            Precision management for the world's most sophisticated social spaces.
-          </p>
         </div>
       </div>
 
@@ -67,7 +64,7 @@ export default function LoginPage() {
 
           <Card className="glass-card border-white/5 backdrop-blur-2xl">
             <CardHeader className="space-y-1">
-              <CardTitle className="text-2xl font-headline font-bold">Terminal Access</CardTitle>
+              <CardTitle className="text-2xl font-headline font-bold">Sign In</CardTitle>
             </CardHeader>
             <CardContent>
               {error && (
@@ -79,7 +76,7 @@ export default function LoginPage() {
 
               <form onSubmit={handleEmailLogin} className="space-y-5">
                 <div className="space-y-2">
-                  <Label htmlFor="email" className="text-xs uppercase tracking-[0.2em] font-bold text-primary/70">Identity</Label>
+                  <Label htmlFor="email" className="text-xs uppercase tracking-[0.2em] font-bold text-primary/70">Email Address</Label>
                   <Input 
                     id="email" 
                     name="email" 
@@ -90,17 +87,18 @@ export default function LoginPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="password" className="text-xs uppercase tracking-[0.2em] font-bold text-primary/70">Keycode</Label>
+                  <Label htmlFor="password" className="text-xs uppercase tracking-[0.2em] font-bold text-primary/70">Password</Label>
                   <Input 
                     id="password" 
                     name="password" 
                     type="password" 
+                    placeholder="••••••••"
                     required 
                     className="bg-white/5 border-white/10 h-12 focus:border-primary/50 transition-colors" 
                   />
                 </div>
                 <Button type="submit" className="w-full h-14 bg-primary text-primary-foreground neon-glow-primary font-bold text-lg hover:opacity-90 transition-all active:scale-[0.98]">
-                  Initialize Session
+                  Sign In
                 </Button>
               </form>
             </CardContent>
