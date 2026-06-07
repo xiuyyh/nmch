@@ -5,7 +5,7 @@ import { useAuth } from '@/firebase';
 import { 
   signInWithEmailAndPassword 
 } from 'firebase/auth';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,7 +13,7 @@ import { AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const LOGO_URL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQw8oatrplLFy0o-ghLuTFtu1gKQqYtgfXw0A&s";
-const HERO_IMAGE = "https://picsum.photos/seed/bar1/1200/1600";
+const HERO_IMAGE = "https://img.pikbest.com/ai/illus_our/20230427/f5a88ce53697b93b0f7a6156238ba044.jpg!w700wp";
 
 export default function LoginPage() {
   const auth = useAuth();
@@ -68,7 +68,6 @@ export default function LoginPage() {
           <Card className="glass-card border-white/5 backdrop-blur-2xl">
             <CardHeader className="space-y-1">
               <CardTitle className="text-2xl font-headline font-bold">Terminal Access</CardTitle>
-              <CardDescription className="text-muted-foreground/70">Enter your secure credentials</CardDescription>
             </CardHeader>
             <CardContent>
               {error && (
