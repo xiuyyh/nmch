@@ -10,10 +10,10 @@ import { ClipboardList, Printer, Send, ShoppingCart, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const suggestedRestock = [
-  { id: "1", name: "Tito's Vodka", current: 2, min: 4, suggested: 6, cost: 24.50 },
-  { id: "2", name: "Angostura Bitters", current: 1, min: 2, suggested: 2, cost: 12.00 },
-  { id: "3", name: "IPA Keg", current: 4, min: 2, suggested: 2, cost: 180.00 },
-  { id: "4", name: "Simple Syrup", current: 500, min: 2000, suggested: 5000, cost: 8.00 },
+  { id: "1", name: "Tito's Vodka", current: 2, min: 4, suggested: 6, cost: 24500 },
+  { id: "2", name: "Angostura Bitters", current: 1, min: 2, suggested: 2, cost: 12000 },
+  { id: "3", name: "IPA Keg", current: 4, min: 2, suggested: 2, cost: 180000 },
+  { id: "4", name: "Simple Syrup", current: 500, min: 2000, suggested: 5000, cost: 8000 },
 ];
 
 export default function RestockPage() {
@@ -92,7 +92,7 @@ export default function RestockPage() {
                       </div>
                       <div className="flex flex-col text-right min-w-[100px]">
                         <span className="text-xs text-muted-foreground uppercase tracking-wider">Est. Cost</span>
-                        <span className="text-lg font-headline font-bold">${item.cost.toFixed(2)}</span>
+                        <span className="text-lg font-headline font-bold">₦{item.cost.toLocaleString()}</span>
                       </div>
                     </div>
                   </div>
@@ -106,7 +106,7 @@ export default function RestockPage() {
               </div>
               <div className="flex items-baseline gap-4">
                 <span className="text-muted-foreground font-medium">Order Total:</span>
-                <span className="text-3xl font-headline font-bold text-secondary">${totalCost.toFixed(2)}</span>
+                <span className="text-3xl font-headline font-bold text-secondary">₦{totalCost.toLocaleString()}</span>
               </div>
             </CardFooter>
           </Card>

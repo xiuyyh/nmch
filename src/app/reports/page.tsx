@@ -14,7 +14,7 @@ import {
   ChevronRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Area, AreaChart, CartesianGrid, XAxis, ResponsiveContainer } from "recharts";
+import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 
 const trendData = [
@@ -29,7 +29,7 @@ const trendData = [
 
 const trendConfig = {
   revenue: {
-    label: "Daily Revenue ($)",
+    label: "Daily Revenue (₦)",
     color: "hsl(var(--secondary))",
   },
 };
@@ -69,7 +69,7 @@ export default function ReportsPage() {
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Total Revenue</p>
-                    <h3 className="text-2xl font-bold font-headline mt-1">$12,482.00</h3>
+                    <h3 className="text-2xl font-bold font-headline mt-1">₦12,482.00</h3>
                   </div>
                   <div className="p-2 bg-primary/10 rounded-lg">
                     <TrendingUp className="w-5 h-5 text-primary" />
@@ -117,7 +117,7 @@ export default function ReportsPage() {
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Waste / Loss</p>
-                    <h3 className="text-2xl font-bold font-headline mt-1">$240.50</h3>
+                    <h3 className="text-2xl font-bold font-headline mt-1">₦240.50</h3>
                   </div>
                   <div className="p-2 bg-destructive/10 rounded-lg">
                     <TrendingUp className="w-5 h-5 text-destructive rotate-180" />
@@ -173,11 +173,11 @@ export default function ReportsPage() {
               <CardContent>
                 <div className="space-y-6">
                   {[
-                    { name: "Old Fashioned", count: 142, revenue: "$1,988", progress: 85 },
-                    { name: "Draft IPA", count: 118, revenue: "$1,003", progress: 72 },
-                    { name: "House Red", count: 86, revenue: "$946", progress: 60 },
-                    { name: "Margarita", count: 74, revenue: "$888", progress: 54 },
-                    { name: "Sliders", count: 52, revenue: "$780", progress: 40 },
+                    { name: "Old Fashioned", count: 142, revenue: "₦1,988", progress: 85 },
+                    { name: "Draft IPA", count: 118, revenue: "₦1,003", progress: 72 },
+                    { name: "House Red", count: 86, revenue: "₦946", progress: 60 },
+                    { name: "Margarita", count: 74, revenue: "₦888", progress: 54 },
+                    { name: "Sliders", count: 52, revenue: "₦780", progress: 40 },
                   ].map((item, i) => (
                     <div key={i} className="flex flex-col gap-2">
                       <div className="flex justify-between items-center">

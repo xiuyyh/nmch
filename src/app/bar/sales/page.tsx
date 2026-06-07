@@ -157,7 +157,7 @@ export default function SalesPage() {
 
       toast({
         title: "Sale Recorded",
-        description: `Processed $${total.toFixed(2)} via ${method}. Stock updated.`,
+        description: `Processed ₦${total.toLocaleString()} via ${method}. Stock updated.`,
       });
       
       if (selectedTable) {
@@ -334,7 +334,7 @@ export default function SalesPage() {
                               <span className="text-xs uppercase tracking-widest text-muted-foreground font-bold">{item.category}</span>
                               <span className="font-headline font-bold text-lg leading-tight text-white">{item.name}</span>
                               <div className="flex justify-between items-center mt-2">
-                                <span className="text-primary font-headline font-bold text-xl">${(item.price || 0).toFixed(2)}</span>
+                                <span className="text-primary font-headline font-bold text-xl">₦{(item.price || 0).toLocaleString()}</span>
                                 <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-all">
                                   <Plus className="w-4 h-4" />
                                 </div>
@@ -427,7 +427,7 @@ export default function SalesPage() {
                             <Plus className="w-3 h-3" />
                           </Button>
                         </div>
-                        <span className="font-headline font-bold text-primary text-lg">${(item.price * item.quantity).toFixed(2)}</span>
+                        <span className="font-headline font-bold text-primary text-lg">₦{(item.price * item.quantity).toLocaleString()}</span>
                       </div>
                     </div>
                   ))
@@ -438,11 +438,11 @@ export default function SalesPage() {
                 <div className="space-y-2">
                   <div className="flex justify-between items-center text-muted-foreground font-medium">
                     <span>Subtotal</span>
-                    <span>${total.toFixed(2)}</span>
+                    <span>₦{total.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between items-center text-2xl font-bold">
                     <span className="font-headline text-white">Total</span>
-                    <span className="text-primary font-headline">${total.toFixed(2)}</span>
+                    <span className="text-primary font-headline">₦{total.toLocaleString()}</span>
                   </div>
                 </div>
                 

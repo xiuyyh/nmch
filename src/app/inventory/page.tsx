@@ -24,7 +24,7 @@ import {
   DialogFooter
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Search, Plus, Edit2, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Plus, Edit2, RefreshCw, ChevronLeft, ChevronRight, Package } from "lucide-react";
 import { useCollection, useFirestore } from "@/firebase";
 import { collection, query, orderBy, addDoc, serverTimestamp } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
@@ -92,7 +92,7 @@ export default function InventoryPage() {
       setIsAddOpen(false);
       toast({
         title: "Item Added",
-        description: `${newItem.name} has been added with a price of $${newItem.price.toFixed(2)}.`,
+        description: `${newItem.name} has been added with a price of ₦${newItem.price.toLocaleString()}.`,
       });
     } catch (error) {
       toast({
@@ -137,7 +137,7 @@ export default function InventoryPage() {
                       <Input id="category" name="category" placeholder="Beer" required className="bg-white/5" />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="price">Sales Price ($)</Label>
+                      <Label htmlFor="price">Sales Price (₦)</Label>
                       <Input id="price" name="price" type="number" step="0.01" required className="bg-white/5" />
                     </div>
                     <div className="space-y-2">
@@ -230,7 +230,7 @@ export default function InventoryPage() {
                           <TableCell className="font-medium">{item.name}</TableCell>
                           <TableCell className="text-muted-foreground">{item.category}</TableCell>
                           <TableCell className="text-right font-headline font-bold text-primary">
-                            ${(item.price || 0).toFixed(2)}
+                            ₦{(item.price || 0).toLocaleString()}
                           </TableCell>
                           <TableCell>
                             <span className={cn("font-headline font-bold", isLow && "text-destructive")}>{item.stock.toFixed(2)}</span> {item.unit}

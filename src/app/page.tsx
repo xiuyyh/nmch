@@ -11,7 +11,7 @@ import {
   ArrowUpRight,
   ArrowDownRight
 } from "lucide-react";
-import { Bar, BarChart, CartesianGrid, XAxis, ResponsiveContainer } from "recharts";
+import { Bar, BarChart, CartesianGrid, XAxis } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 
 const chartData = [
@@ -26,24 +26,24 @@ const chartData = [
 
 const chartConfig = {
   sales: {
-    label: "Sales ($)",
+    label: "Sales (₦)",
     color: "hsl(var(--primary))",
   },
 };
 
 export default function Dashboard() {
   const stats = [
-    { label: "Today's Revenue", value: "$1,248.50", trend: "+12.5%", icon: DollarSign, color: "text-primary" },
+    { label: "Today's Revenue", value: "₦1,248.50", trend: "+12.5%", icon: DollarSign, color: "text-primary" },
     { label: "Active Orders", value: "8", trend: "-2", icon: PackageCheck, color: "text-secondary" },
     { label: "Items to Restock", value: "5", trend: "+1", icon: AlertCircle, color: "text-destructive" },
-    { label: "Avg. Sale Value", value: "$18.20", trend: "+4.2%", icon: TrendingUp, color: "text-primary" },
+    { label: "Avg. Sale Value", value: "₦18.20", trend: "+4.2%", icon: TrendingUp, color: "text-primary" },
   ];
 
   const recentSales = [
-    { id: "1", item: "Old Fashioned", time: "2 mins ago", price: "$14.00" },
-    { id: "2", item: "Draft IPA (Pint)", time: "5 mins ago", price: "$8.50" },
-    { id: "3", item: "House Red Wine", time: "12 mins ago", price: "$11.00" },
-    { id: "4", item: "Truffle Fries", time: "15 mins ago", price: "$12.00" },
+    { id: "1", item: "Old Fashioned", time: "2 mins ago", price: "₦14.00" },
+    { id: "2", item: "Draft IPA (Pint)", time: "5 mins ago", price: "₦8.50" },
+    { id: "3", item: "House Red Wine", time: "12 mins ago", price: "₦11.00" },
+    { id: "4", item: "Truffle Fries", time: "15 mins ago", price: "₦12.00" },
   ];
 
   return (
