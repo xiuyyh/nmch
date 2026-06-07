@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { 
@@ -22,7 +22,9 @@ import {
   Lock,
   RefreshCw,
   PackagePlus,
-  CookingPot
+  CookingPot,
+  Users as UsersIcon,
+  ShieldCheck
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -48,8 +50,9 @@ import {
 } from "@/components/ui/collapsible";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { useAuth, useUser } from "@/firebase";
+import { useAuth, useUser, useDoc, useFirestore } from "@/firebase";
 import { signOut } from "firebase/auth";
+import { doc } from "firebase/firestore";
 
 const LOGO_URL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQw8oatrplLFy0o-ghLuTFtu1gKQqYtgfXw0A&s";
 
@@ -57,6 +60,7 @@ const departments = [
   {
     title: "Bar Operations",
     icon: Wine,
+    role: "bar",
     items: [
       { name: "Bar Sales", href: "/bar/sales", icon: ShoppingCart },
       { name: "Sales History", href: "/bar/sales/history", icon: HistoryIcon },
@@ -67,6 +71,7 @@ const departments = [
   {
     title: "Store",
     icon: Warehouse,
+    role: "store",
     items: [
       { name: "Bar Inventory", href: "/inventory", icon: Package },
       { name: "Stock Requests", href: "/requests", icon: ClipboardList },
@@ -77,6 +82,7 @@ const departments = [
   {
     title: "Kitchen",
     icon: UtensilsCrossed,
+    role: "kitchen",
     items: [
       { name: "Orders", href: "/kitchen/orders", icon: CookingPot },
     ],
@@ -84,6 +90,7 @@ const departments = [
   {
     title: "Front Desk",
     icon: Contact,
+    role: "front_desk",
     items: [
       { name: "Bookings", href: "/front-desk/bookings" },
       { name: "Guest List", href: "/front-desk/guests" },
@@ -93,10 +100,20 @@ const departments = [
   {
     title: "Cleaning",
     icon: Brush,
+    role: "housekeeper",
     items: [
       { name: "Daily Schedule", href: "/cleaning/schedule" },
       { name: "Supplies Inventory", href: "/cleaning/supplies" },
       { name: "Maintenance Logs", href: "/cleaning/logs" },
+    ],
+  },
+  {
+    title: "System Admin",
+    icon: ShieldCheck,
+    role: "admin",
+    items: [
+      { name: "User Management", href: "/admin/users", icon: UsersIcon },
+      { name: "Analytics", href: "/reports", icon: LayoutDashboard },
     ],
   },
 ];
@@ -106,8 +123,23 @@ function AppSidebar() {
   const { state } = useSidebar();
   const auth = useAuth();
   const { user } = useUser();
+  const firestore = useFirestore();
+  
+  const userRef = useMemo(() => {
+    if (!firestore || !user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
+
+  const { data: userRecord } = useDoc(userRef);
+  
   const isCollapsed = state === "collapsed";
   const defaultAvatar = LOGO_URL;
+
+  const filteredDepartments = useMemo(() => {
+    if (!userRecord) return [];
+    if (userRecord.role === 'admin') return departments;
+    return departments.filter(dept => dept.role === userRecord.role);
+  }, [userRecord]);
 
   return (
     <Sidebar collapsible="icon" className="border-r border-white/5 bg-background/50 backdrop-blur-3xl shadow-2xl">
@@ -160,7 +192,7 @@ function AppSidebar() {
             <div className="h-px bg-white/5 mt-2" />
           </div>
 
-          {departments.map((dept) => {
+          {filteredDepartments.map((dept) => {
             const isActive = dept.items.some(i => i.href === pathname);
             return (
               <Collapsible key={dept.title} asChild defaultOpen={isActive} className="group/collapsible">
@@ -251,7 +283,7 @@ function AppSidebar() {
                     {user?.displayName || "Bar Staff"}
                   </span>
                   <span className="text-[10px] text-primary/70 truncate uppercase tracking-[0.2em] font-bold">
-                    {user?.email || "Manager"}
+                    {userRecord?.role || "Manager"}
                   </span>
                 </div>
               )}
@@ -269,6 +301,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user } = useUser();
   const auth = useAuth();
+  const firestore = useFirestore();
+
+  const userRef = useMemo(() => {
+    if (!firestore || !user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
+
+  const { data: userRecord } = useDoc(userRef);
+
+  const filteredDepartments = useMemo(() => {
+    if (!userRecord) return [];
+    if (userRecord.role === 'admin') return departments;
+    return departments.filter(dept => dept.role === userRecord.role);
+  }, [userRecord]);
 
   const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
 
@@ -306,7 +352,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
               <div className="space-y-4">
                 <p className="text-[10px] uppercase tracking-[0.3em] font-bold text-muted-foreground/40 px-4">Departments</p>
-                {departments.map((dept) => (
+                {filteredDepartments.map((dept) => (
                   <div key={dept.title} className="space-y-2">
                     <div className="flex items-center gap-3 px-4 py-2 text-primary font-bold text-sm">
                       <dept.icon className="w-4 h-4" /> {dept.title}
@@ -354,6 +400,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <header className="hidden md:flex items-center h-20 px-10 border-b border-white/5 bg-background/30 backdrop-blur-xl sticky top-0 z-20">
             <SidebarTrigger className="mr-6 text-muted-foreground hover:text-primary transition-all duration-300 scale-110" />
             <div className="flex items-center gap-3 mr-auto">
+              {userRecord?.role === 'admin' && (
+                <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 gap-1.5 px-3 py-1">
+                  <ShieldCheck className="w-3.5 h-3.5" /> ADMIN MODE
+                </Badge>
+              )}
             </div>
           </header>
 
@@ -361,8 +412,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div className="max-w-7xl mx-auto w-full no-print">
               {children}
             </div>
-            {/* Print area placeholder for Duckets */}
-            <div id="print-area" className="print-only" />
           </div>
         </main>
       </div>

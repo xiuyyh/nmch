@@ -1,6 +1,21 @@
 
 {
   "entities": {
+    "UserRecord": {
+      "title": "User Profile",
+      "description": "User role and profile data stored in Firestore",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { 
+          "type": "string", 
+          "enum": ["admin", "bar", "kitchen", "store", "front_desk", "housekeeper"] 
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "role"]
+    },
     "StockItem": {
       "title": "Bar Stock Item",
       "description": "An item in the bar's inventory",
@@ -186,6 +201,10 @@
     "providers": ["password"]
   },
   "firestore": {
+    "/users/{uid}": {
+      "schema": "UserRecord",
+      "description": "User metadata and permissions"
+    },
     "/inventory/{itemId}": {
       "schema": "StockItem",
       "description": "Collection of bar inventory items"
