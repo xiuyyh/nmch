@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from "react";
@@ -27,6 +28,7 @@ import {
   SidebarRail,
   useSidebar
 } from "@/components/ui/sidebar";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -41,6 +43,7 @@ function AppSidebar() {
   const pathname = usePathname();
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
+  const defaultAvatar = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQw8oatrplLFy0o-ghLuTFtu1gKQqYtgfXw0A&s";
 
   return (
     <Sidebar collapsible="icon" className="border-r border-white/5 bg-background/50 backdrop-blur-2xl">
@@ -110,9 +113,10 @@ function AppSidebar() {
               "flex items-center gap-3 transition-all duration-500 p-2 rounded-2xl bg-white/5 border border-white/5",
               isCollapsed ? "justify-center" : "px-3"
             )}>
-              <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-secondary to-primary/50 flex items-center justify-center text-xs font-bold text-white shrink-0 shadow-inner">
-                JD
-              </div>
+              <Avatar className="w-9 h-9 border border-white/10 shadow-inner shrink-0">
+                <AvatarImage src={defaultAvatar} alt="User Profile" />
+                <AvatarFallback className="bg-gradient-to-tr from-secondary to-primary/50 text-white text-xs font-bold">JD</AvatarFallback>
+              </Avatar>
               {!isCollapsed && (
                 <div className="flex flex-col min-w-0">
                   <span className="text-sm font-semibold truncate text-white/90">John Doe</span>
