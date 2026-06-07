@@ -1,7 +1,6 @@
-
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,7 +9,6 @@ import {
   Lock, 
   Unlock, 
   Calendar, 
-  DollarSign, 
   AlertTriangle,
   CheckCircle2,
   Clock
@@ -30,6 +28,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { cn } from "@/lib/utils";
 
 export default function EndOfDayPage() {
   const firestore = useFirestore();
@@ -43,6 +42,7 @@ export default function EndOfDayPage() {
     if (!firestore) return null;
     const start = startOfDay(new Date());
     const end = endOfDay(new Date());
+    // Note: This query might require an index on Firestore.
     return query(
       collection(firestore, "sales"), 
       where("timestamp", ">=", start),
