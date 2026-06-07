@@ -5,7 +5,7 @@ import { AuthGuard } from '@/components/auth/AuthGuard';
 import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
-  title: 'TapTrack Bar Operations',
+  title: 'NMCH Bar Operations',
   description: 'Streamlined bar sales and inventory management',
 };
 

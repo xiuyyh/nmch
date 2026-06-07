@@ -10,7 +10,6 @@ import {
   Menu as MenuIcon, 
   ClipboardList, 
   BarChart3,
-  Beer,
   Settings,
   LogOut,
 } from "lucide-react";
@@ -32,6 +31,8 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth, useUser } from "@/firebase";
 import { signOut } from "firebase/auth";
 
+const LOGO_URL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQw8oatrplLFy0o-ghLuTFtu1gKQqYtgfXw0A&s";
+
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Quick Sale", href: "/pos", icon: ShoppingCart },
@@ -47,7 +48,7 @@ function AppSidebar() {
   const auth = useAuth();
   const { user } = useUser();
   const isCollapsed = state === "collapsed";
-  const defaultAvatar = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQw8oatrplLFy0o-ghLuTFtu1gKQqYtgfXw0A&s";
+  const defaultAvatar = LOGO_URL;
 
   return (
     <Sidebar collapsible="icon" className="border-r border-white/5 bg-background/50 backdrop-blur-2xl">
@@ -56,12 +57,12 @@ function AppSidebar() {
           "flex items-center gap-3 transition-all duration-500",
           isCollapsed ? "justify-center" : "px-2"
         )}>
-          <div className="p-2.5 bg-primary rounded-xl shrink-0 shadow-[0_0_25px_rgba(var(--primary),0.3)] neon-glow-primary transform rotate-3 hover:rotate-0 transition-transform duration-500">
-            <Beer className="w-6 h-6 text-primary-foreground" />
+          <div className="w-10 h-10 bg-primary/20 rounded-xl shrink-0 shadow-[0_0_25px_rgba(var(--primary),0.3)] neon-glow-primary transform rotate-3 hover:rotate-0 transition-transform duration-500 overflow-hidden border border-primary/30">
+            <img src={LOGO_URL} alt="NMCH Logo" className="w-full h-full object-cover" />
           </div>
           {!isCollapsed && (
             <span className="font-headline font-bold text-2xl tracking-tighter text-white whitespace-nowrap bg-gradient-to-br from-white to-white/60 bg-clip-text text-transparent">
-              TapTrack
+              NMCH
             </span>
           )}
         </div>
@@ -155,8 +156,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <header className="flex items-center h-20 px-4 md:px-10 border-b border-white/5 bg-background/30 backdrop-blur-xl sticky top-0 z-20">
             <SidebarTrigger className="mr-6 text-muted-foreground hover:text-primary transition-all duration-300 scale-110" />
             <div className="md:hidden flex items-center gap-2 mr-auto">
-              <Beer className="w-6 h-6 text-primary" />
-              <span className="font-headline font-bold text-xl tracking-tighter">TapTrack</span>
+              <div className="w-8 h-8 rounded-lg overflow-hidden border border-primary/30">
+                <img src={LOGO_URL} alt="NMCH Logo" className="w-full h-full object-cover" />
+              </div>
+              <span className="font-headline font-bold text-xl tracking-tighter">NMCH</span>
             </div>
           </header>
 

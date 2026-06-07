@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState } from 'react';
@@ -10,8 +9,11 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Beer, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import Image from 'next/image';
+
+const LOGO_URL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQw8oatrplLFy0o-ghLuTFtu1gKQqYtgfXw0A&s";
 
 export default function LoginPage() {
   const auth = useAuth();
@@ -34,10 +36,10 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-zinc-900 via-background to-black p-4">
       <div className="w-full max-w-md space-y-8">
         <div className="text-center space-y-2">
-          <div className="mx-auto w-16 h-16 bg-primary rounded-2xl flex items-center justify-center shadow-[0_0_50px_rgba(var(--primary),0.2)] neon-glow-primary transform rotate-6">
-            <Beer className="w-10 h-10 text-primary-foreground" />
+          <div className="mx-auto w-20 h-20 bg-primary/20 rounded-2xl flex items-center justify-center shadow-[0_0_50px_rgba(var(--primary),0.2)] neon-glow-primary transform rotate-6 overflow-hidden border border-primary/30">
+            <img src={LOGO_URL} alt="NMCH Logo" className="w-full h-full object-cover" />
           </div>
-          <h1 className="text-4xl font-headline font-bold tracking-tighter mt-6">TapTrack</h1>
+          <h1 className="text-4xl font-headline font-bold tracking-tighter mt-6">NMCH</h1>
           <p className="text-muted-foreground tracking-wide">Elevated Bar Operations Management</p>
         </div>
 
@@ -61,7 +63,7 @@ export default function LoginPage() {
                   id="email" 
                   name="email" 
                   type="email" 
-                  placeholder="manager@taptrack.com" 
+                  placeholder="manager@nmch.com" 
                   required 
                   className="bg-background/50 border-white/10" 
                 />
