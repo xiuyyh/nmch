@@ -42,7 +42,6 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
@@ -216,7 +215,7 @@ export default function UserManagementPage() {
             <CardHeader className="pb-2">
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Active Admins</span>
               <CardTitle className="text-3xl font-headline text-primary">
-                {users?.filter(u => u.role === 'admin').length || 0}
+                {displayUsers.filter(u => u.role === 'admin').length || 0}
               </CardTitle>
             </CardHeader>
           </Card>
@@ -261,7 +260,7 @@ export default function UserManagementPage() {
                         <Select 
                           value={u.role || ""} 
                           onValueChange={(val: UserRole) => handleUpdateRole(u.id, val)}
-                          disabled={processingId === u.id || (u.role === 'admin' && isSelf(u.id) && users?.filter(a => a.role === 'admin').length === 1)}
+                          disabled={processingId === u.id || (u.role === 'admin' && isSelf(u.id) && displayUsers.filter(a => a.role === 'admin').length === 0)}
                         >
                           <SelectTrigger className={cn(
                             "w-44 bg-white/5 border-white/10 h-10 text-xs font-bold uppercase",
