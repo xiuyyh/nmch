@@ -34,16 +34,20 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex bg-background">
-      {/* Left Side: Hero Image with Overlay Text */}
-      <div className="hidden lg:block w-1/2 relative overflow-hidden">
+      {/* Left Side: Hero Image with Fade-to-Black Transition */}
+      <div className="hidden lg:block w-1/2 relative overflow-hidden bg-background">
         <div 
-          className="absolute inset-0 bg-cover bg-center transition-transform duration-[10s] hover:scale-110"
+          className="absolute inset-0 bg-cover bg-center transition-transform duration-[20s] hover:scale-110 opacity-70"
           style={{ backgroundImage: `url(${HERO_IMAGE})` }}
           data-ai-hint="modern bar"
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent" />
-        <div className="absolute bottom-12 left-12 max-w-xl">
-          <h2 className="text-4xl font-headline font-bold text-white tracking-tighter uppercase leading-tight">
+        {/* Horizontal Gradient: Fades image into the right background */}
+        <div className="absolute inset-0 bg-gradient-to-r from-background/10 via-background/40 to-background" />
+        {/* Vertical Gradient: Adds depth to top and bottom */}
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-background/30" />
+        
+        <div className="absolute bottom-12 left-12 max-w-xl z-10">
+          <h2 className="text-4xl font-headline font-bold text-white tracking-tighter uppercase leading-tight drop-shadow-2xl">
             NMCH Structured <br/>
             <span className="text-primary">Admin Management Interface</span>
           </h2>
