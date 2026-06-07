@@ -15,7 +15,7 @@ import {
   Warehouse,
   UtensilsCrossed,
   Contact,
-  Sparkles,
+  Brush,
   Menu,
   X,
   History as HistoryIcon,
@@ -92,7 +92,7 @@ const departments = [
   },
   {
     title: "Cleaning",
-    icon: Sparkles,
+    icon: Brush,
     items: [
       { name: "Daily Schedule", href: "/cleaning/schedule" },
       { name: "Supplies Inventory", href: "/cleaning/supplies" },
