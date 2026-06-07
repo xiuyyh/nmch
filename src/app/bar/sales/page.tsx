@@ -419,7 +419,7 @@ export default function SalesPage() {
 
   return (
     <AppShell>
-      <div className="flex flex-col gap-6 h-full max-w-[1600px] mx-auto pb-24 lg:pb-0">
+      <div className="flex flex-col gap-6 h-full max-w-[1600px] mx-auto pb-32 lg:pb-0">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <h1 className="text-3xl font-headline font-bold uppercase tracking-tight">BAR SALES</h1>
           <Tabs value={activeTab} onValueChange={(v: any) => setActiveTab(v)} className="w-full md:w-auto">
@@ -444,7 +444,7 @@ export default function SalesPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                     {TABLES.map(table => {
                       const itemsCount = getTableItemsCount(table);
                       const isActive = itemsCount > 0;
@@ -461,7 +461,7 @@ export default function SalesPage() {
                             )}
                             onClick={() => {
                               setSelectedTable(table);
-                              if (!isActive) setActiveTab("quick");
+                              setActiveTab("quick");
                             }}
                           >
                             <span className="font-headline font-bold text-lg">{table.split(' ')[1]}</span>
@@ -471,13 +471,6 @@ export default function SalesPage() {
                               </span>
                             )}
                           </Button>
-                          {isActive && (
-                            <div className="absolute top-2 right-2 flex gap-1">
-                               <Button size="icon" variant="secondary" className="w-8 h-8 rounded-lg shadow-xl" onClick={() => { setSelectedTable(table); setActiveTab("quick"); }}>
-                                  <Receipt className="w-4 h-4" />
-                               </Button>
-                            </div>
-                          )}
                         </div>
                       );
                     })}
@@ -532,7 +525,7 @@ export default function SalesPage() {
           </div>
 
           <div className="hidden lg:block w-[400px]">
-            <Card className="glass-card flex flex-col h-[calc(100vh-220px)] sticky top-28 border-white/5 overflow-hidden">
+            <Card className="glass-card flex flex-col h-[calc(100vh-280px)] sticky top-28 border-white/5 overflow-hidden">
               <CardHeader className="p-4 border-b border-white/5 flex flex-row items-center justify-between shrink-0">
                 <CardTitle className="font-headline font-bold text-lg text-white">{selectedTable ? `Bill: ${selectedTable}` : "Quick Sale"}</CardTitle>
                 <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => { setCart([]); if(selectedTable) saveToTable([]); }} disabled={cart.length === 0}>
@@ -545,6 +538,47 @@ export default function SalesPage() {
         </div>
       </div>
 
+      {/* Active Tables Bar - Bottom persistent navigation */}
+      <div className="fixed bottom-24 lg:bottom-6 left-6 right-6 lg:left-80 lg:right-[432px] z-40">
+        <div className="glass-card bg-black/80 backdrop-blur-3xl border-white/10 p-2 rounded-2xl shadow-2xl overflow-x-auto scrollbar-none flex items-center gap-3">
+          <div className="flex items-center gap-2 px-3 border-r border-white/10 mr-1">
+             <LayoutGrid className="w-4 h-4 text-primary" />
+             <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground whitespace-nowrap">Open Tabs</span>
+          </div>
+          {allActiveSessions?.length === 0 ? (
+            <span className="text-[10px] italic text-muted-foreground px-4">No active tables</span>
+          ) : (
+            allActiveSessions?.map((session) => (
+              <Button
+                key={session.id}
+                variant="ghost"
+                size="sm"
+                className={cn(
+                  "h-10 px-4 rounded-xl flex items-center gap-2 transition-all shrink-0",
+                  selectedTable === session.tableNumber 
+                    ? "bg-primary text-primary-foreground font-bold" 
+                    : "bg-white/5 hover:bg-white/10 text-white"
+                )}
+                onClick={() => {
+                  setSelectedTable(session.tableNumber);
+                  setActiveTab("quick");
+                }}
+              >
+                <div className={cn(
+                  "w-1.5 h-1.5 rounded-full",
+                  selectedTable === session.tableNumber ? "bg-white" : "bg-emerald-500"
+                )} />
+                <span className="whitespace-nowrap">{session.tableNumber}</span>
+                <Badge variant="secondary" className="h-5 px-1.5 min-w-[20px] bg-black/20 text-inherit border-none text-[10px]">
+                  {session.items?.length || 0}
+                </Badge>
+              </Button>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Mobile Cart Trigger */}
       <div className="lg:hidden fixed bottom-6 left-6 right-6 z-50">
         <Sheet open={isMobileCartOpen} onOpenChange={setIsMobileCartOpen}>
           <SheetTrigger asChild>
@@ -553,7 +587,7 @@ export default function SalesPage() {
               <span className="font-headline">₦{total.toLocaleString()}</span>
             </Button>
           </SheetTrigger>
-          <SheetContent side="bottom" className="h-[80vh] bg-background border-white/10 p-0 rounded-t-[2.5rem] overflow-hidden">
+          <SheetContent side="bottom" className="h-[85vh] bg-background border-white/10 p-0 rounded-t-[2.5rem] overflow-hidden">
             <div className="flex flex-col h-full">
               <SheetHeader className="p-6 border-b border-white/5 flex flex-row items-center justify-between space-y-0">
                 <SheetTitle className="font-headline font-bold text-xl text-white">{selectedTable ? `Bill: ${selectedTable}` : "Quick Sale"}</SheetTitle>
@@ -569,3 +603,4 @@ export default function SalesPage() {
     </AppShell>
   );
 }
+
