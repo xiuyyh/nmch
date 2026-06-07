@@ -30,7 +30,8 @@ import {
   CheckCircle2,
   Lock,
   ShieldAlert,
-  Loader2
+  Loader2,
+  UserPlus
 } from "lucide-react";
 import { useCollection, useFirestore, useUser, useDoc } from "@/firebase";
 import { collection, query, orderBy, doc, updateDoc, deleteDoc, setDoc, serverTimestamp } from "firebase/firestore";
@@ -108,11 +109,12 @@ export default function UserManagementPage() {
   const handleBootstrapAdmin = async () => {
     if (!firestore || !currentUser) return;
     const ref = doc(firestore, 'users', currentUser.uid);
+    // Explicitly set the role as admin. Merge: true prevents loss of other data.
     setDoc(ref, { 
       email: currentUser.email,
       displayName: currentUser.displayName,
       role: 'admin',
-      createdAt: serverTimestamp() 
+      lastModified: serverTimestamp()
     }, { merge: true })
     .then(() => {
       toast({ title: "Admin Activated", description: "You are now the System Admin." });
@@ -139,7 +141,7 @@ export default function UserManagementPage() {
     );
   }
 
-  // ALLOW ACCESS IF: User is Admin OR No Admins exist in the entire system
+  // ALLOW ACCESS IF: User is Admin OR No Admins exist in the entire system (to prevent initial lockout)
   const canAccess = isUserAdmin || !adminsExist;
 
   if (!canAccess) {
@@ -150,7 +152,7 @@ export default function UserManagementPage() {
             <ShieldAlert className="w-8 h-8 text-destructive" />
           </div>
           <div className="space-y-2">
-            <h2 className="text-2xl font-headline font-bold uppercase tracking-tight">Access Restricted</h2>
+            <h2 className="text-2xl font-headline font-bold uppercase tracking-tight text-white">Access Restricted</h2>
             <p className="text-muted-foreground max-w-md mx-auto">
               Only authorized Administrators can manage staff roles.
             </p>
@@ -172,9 +174,9 @@ export default function UserManagementPage() {
           </div>
           
           {!adminsExist && (
-            <div className="flex flex-col items-end gap-2">
-              <Badge variant="outline" className="text-amber-500 border-amber-500/30 bg-amber-500/10">NO ADMIN DETECTED</Badge>
-              <Button onClick={handleBootstrapAdmin} className="bg-amber-600 hover:bg-amber-700 gap-2">
+            <div className="flex flex-col items-end gap-2 animate-pulse">
+              <Badge variant="outline" className="text-amber-500 border-amber-500/30 bg-amber-500/10">SECURITY UNCONFIGURED</Badge>
+              <Button onClick={handleBootstrapAdmin} className="bg-amber-600 hover:bg-amber-700 gap-2 font-bold shadow-xl">
                 <Lock className="w-4 h-4" /> Bootstrap First Admin
               </Button>
             </div>
@@ -201,7 +203,7 @@ export default function UserManagementPage() {
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">System Status</span>
               <CardTitle className="text-sm font-headline flex items-center gap-2">
                 <CheckCircle2 className={`w-4 h-4 ${adminsExist ? 'text-emerald-500' : 'text-amber-500'}`} /> 
-                {adminsExist ? 'SECURE & ACTIVE' : 'SECURITY UNCONFIGURED'}
+                {adminsExist ? 'SECURE & ACTIVE' : 'OPEN - ACTION REQUIRED'}
               </CardTitle>
             </CardHeader>
           </Card>
@@ -233,22 +235,32 @@ export default function UserManagementPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Select 
-                        value={u.role} 
-                        onValueChange={(val: UserRole) => handleUpdateRole(u.id, val)}
-                        disabled={processingId === u.id || (u.role === 'admin' && isSelf(u.id) && users.filter(a => a.role === 'admin').length === 1)}
-                      >
-                        <SelectTrigger className="w-40 bg-white/5 border-white/10 h-10 text-xs font-bold uppercase">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="glass-card border-white/10">
-                          {ROLES.map(role => (
-                            <SelectItem key={role.value} value={role.value} className="text-xs font-bold uppercase">
-                              {role.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="flex items-center gap-3">
+                        <Select 
+                          value={u.role || ""} 
+                          onValueChange={(val: UserRole) => handleUpdateRole(u.id, val)}
+                          disabled={processingId === u.id || (u.role === 'admin' && isSelf(u.id) && users.filter(a => a.role === 'admin').length === 1)}
+                        >
+                          <SelectTrigger className={cn(
+                            "w-44 bg-white/5 border-white/10 h-10 text-xs font-bold uppercase",
+                            !u.role && "text-amber-500 border-amber-500/30"
+                          )}>
+                            <SelectValue placeholder="UNASSIGNED STAFF" />
+                          </SelectTrigger>
+                          <SelectContent className="glass-card border-white/10">
+                            {ROLES.map(role => (
+                              <SelectItem key={role.value} value={role.value} className="text-xs font-bold uppercase">
+                                {role.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {!u.role && (
+                          <Badge variant="outline" className="bg-amber-500/10 text-amber-500 border-amber-500/20 text-[8px] animate-pulse">
+                            PENDING ASSIGNMENT
+                          </Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <span className="text-xs text-muted-foreground uppercase font-bold">
@@ -297,7 +309,7 @@ export default function UserManagementPage() {
           <div className="space-y-1">
             <p className="text-sm font-bold text-amber-500 uppercase tracking-widest">Security Protocol</p>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Staff roles strictly define what departments are visible in the sidebar. Admins have oversight across all departments and can manage these permissions.
+              Staff roles strictly define what departments are visible in the sidebar. New sign-ups have no access until an Administrator assigns them a department. Admins have oversight across all departments.
             </p>
           </div>
         </div>

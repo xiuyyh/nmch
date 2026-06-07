@@ -34,13 +34,14 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }, [user, authLoading, pathname, router]);
 
   // Sync user record if it doesn't exist
+  // We only sync basic info. We NO LONGER assign a default role here.
   useEffect(() => {
     if (user && !recordLoading && !userRecord && firestore) {
       const ref = doc(firestore, 'users', user.uid);
       setDoc(ref, {
         email: user.email,
         displayName: user.displayName,
-        role: 'bar', // Default role for new signups
+        // Role is omitted so user stays "Unassigned" until an Admin acts
         createdAt: serverTimestamp()
       }, { merge: true });
     }
