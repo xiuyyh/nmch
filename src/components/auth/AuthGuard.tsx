@@ -10,11 +10,14 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
+  const publicPaths = ['/login', '/signup'];
+
   useEffect(() => {
     if (!loading) {
-      if (!user && pathname !== '/login') {
+      const isPublicPath = publicPaths.includes(pathname);
+      if (!user && !isPublicPath) {
         router.push('/login');
-      } else if (user && pathname === '/login') {
+      } else if (user && isPublicPath) {
         router.push('/');
       }
     }
@@ -28,10 +31,12 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
+  const isPublicPath = publicPaths.includes(pathname);
+
   // Allow rendering children if:
-  // 1. We are on the login page and not logged in
+  // 1. We are on a public page and not logged in
   // 2. We are logged in
-  if (!user && pathname !== '/login') {
+  if (!user && !isPublicPath) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
