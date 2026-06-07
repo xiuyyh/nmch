@@ -51,11 +51,14 @@ import {
   serverTimestamp, 
   doc, 
   updateDoc, 
-  deleteDoc 
+  deleteDoc,
+  setDoc
 } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { errorEmitter } from "@/firebase/error-emitter";
+import { FirestorePermissionError } from "@/firebase/errors";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -117,55 +120,92 @@ export default function InventoryPage() {
     const category = editCategory;
     const isFood = category === "FOOD";
 
+    const name = formData.get("name") as string;
+    const stock = isFood ? 0 : Number(formData.get("stock"));
+    const min = isFood ? 0 : Number(formData.get("min"));
+    const price = Number(formData.get("price"));
+    const unit = isFood ? "N/A" : (formData.get("unit") as string);
+
     const updatedData = {
-      name: formData.get("name") as string,
-      category: category,
-      stock: isFood ? 0 : Number(formData.get("stock")),
-      min: isFood ? 0 : Number(formData.get("min")),
-      price: Number(formData.get("price")),
-      unit: isFood ? "N/A" : (formData.get("unit") as string),
+      name,
+      category,
+      stock,
+      min,
+      price,
+      unit,
       lastUpdated: serverTimestamp()
     };
 
-    try {
-      const itemRef = doc(firestore, "inventory", editingItem.id);
-      await updateDoc(itemRef, updatedData);
-      setIsEditOpen(false);
-      setEditingItem(null);
-      toast({
-        title: "Item Updated",
-        description: `${updatedData.name} updated successfully.`,
+    const itemRef = doc(firestore, "inventory", editingItem.id);
+    updateDoc(itemRef, updatedData)
+      .then(() => {
+        // Sync definition with Warehouse Inventory (if not Food)
+        if (!isFood) {
+          const warehouseRef = doc(firestore, "warehouseInventory", editingItem.id);
+          setDoc(warehouseRef, {
+            name,
+            category,
+            unit,
+            lastUpdated: serverTimestamp()
+          }, { merge: true }).catch(err => {
+            errorEmitter.emit("permission-error", new FirestorePermissionError({
+              path: warehouseRef.path,
+              operation: "update",
+              requestResourceData: { name, category, unit }
+            }));
+          });
+        }
+
+        setIsEditOpen(false);
+        setEditingItem(null);
+        toast({
+          title: "Item Updated",
+          description: `${name} updated successfully.`,
+        });
+      })
+      .catch(error => {
+        errorEmitter.emit("permission-error", new FirestorePermissionError({
+          path: itemRef.path,
+          operation: "update",
+          requestResourceData: updatedData
+        }));
       });
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to update inventory item.",
-      });
-    }
   };
 
   const handleAddCategory = async () => {
     if (!firestore || !newCategoryName.trim()) return;
-    try {
-      await addDoc(collection(firestore, "inventoryCategories"), {
-        name: newCategoryName.trim().toUpperCase()
+    
+    const categoryData = {
+      name: newCategoryName.trim().toUpperCase()
+    };
+
+    addDoc(collection(firestore, "inventoryCategories"), categoryData)
+      .then(() => {
+        setNewCategoryName("");
+        toast({ title: "Category Added", description: "Successfully added new category." });
+      })
+      .catch(error => {
+        errorEmitter.emit("permission-error", new FirestorePermissionError({
+          path: "inventoryCategories",
+          operation: "create",
+          requestResourceData: categoryData
+        }));
       });
-      setNewCategoryName("");
-      toast({ title: "Category Added", description: "Successfully added new category." });
-    } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: "Failed to add category." });
-    }
   };
 
   const handleDeleteCategory = async (id: string, name: string) => {
     if (!firestore) return;
-    try {
-      await deleteDoc(doc(firestore, "inventoryCategories", id));
-      toast({ title: "Category Deleted", description: `Category ${name} removed.` });
-    } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: "Failed to delete category." });
-    }
+    const categoryRef = doc(firestore, "inventoryCategories", id);
+    deleteDoc(categoryRef)
+      .then(() => {
+        toast({ title: "Category Deleted", description: `Category ${name} removed.` });
+      })
+      .catch(error => {
+        errorEmitter.emit("permission-error", new FirestorePermissionError({
+          path: categoryRef.path,
+          operation: "delete"
+        }));
+      });
   };
 
   const openEditDialog = (item: any) => {

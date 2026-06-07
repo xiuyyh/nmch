@@ -17,8 +17,10 @@ import {
 } from "@/components/ui/select";
 import { ChevronLeft, Package, Save } from "lucide-react";
 import { useCollection, useFirestore } from "@/firebase";
-import { collection, query, orderBy, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, query, orderBy, doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
+import { errorEmitter } from "@/firebase/error-emitter";
+import { FirestorePermissionError } from "@/firebase/errors";
 
 export default function AddInventoryItemPage() {
   const firestore = useFirestore();
@@ -43,32 +45,65 @@ export default function AddInventoryItemPage() {
     const category = selectedCategory;
     const isFood = category === "FOOD";
 
+    const name = formData.get("name") as string;
+    const stock = isFood ? 0 : Number(formData.get("stock"));
+    const min = isFood ? 0 : Number(formData.get("min"));
+    const price = Number(formData.get("price"));
+    const unit = isFood ? "N/A" : (formData.get("unit") as string);
+
     const newItem = {
-      name: formData.get("name") as string,
-      category: category,
-      stock: isFood ? 0 : Number(formData.get("stock")),
-      min: isFood ? 0 : Number(formData.get("min")),
-      price: Number(formData.get("price")),
-      unit: isFood ? "N/A" : (formData.get("unit") as string),
+      name,
+      category,
+      stock,
+      min,
+      price,
+      unit,
       lastUpdated: serverTimestamp()
     };
 
-    try {
-      await addDoc(collection(firestore, "inventory"), newItem);
-      toast({
-        title: "Item Added",
-        description: `${newItem.name} added successfully to inventory.`,
+    // Create a new document reference with a generated ID so we can use the same ID for mirroring
+    const inventoryCol = collection(firestore, "inventory");
+    const itemRef = doc(inventoryCol);
+
+    setDoc(itemRef, newItem)
+      .then(async () => {
+        // Mirror to Warehouse Inventory (unless it's Food)
+        if (!isFood) {
+          const warehouseRef = doc(firestore, "warehouseInventory", itemRef.id);
+          const warehouseData = {
+            name,
+            category,
+            unit,
+            stock: 0, // Starts at 0 until updated via Warehouse Intake
+            min: 5,   // Default warehouse threshold
+            lastUpdated: serverTimestamp()
+          };
+          
+          setDoc(warehouseRef, warehouseData).catch(error => {
+            errorEmitter.emit("permission-error", new FirestorePermissionError({
+              path: warehouseRef.path,
+              operation: "create",
+              requestResourceData: warehouseData
+            }));
+          });
+        }
+
+        toast({
+          title: "Item Added",
+          description: `${name} added to bar inventory and mirrored to warehouse.`,
+        });
+        router.push("/inventory");
+      })
+      .catch(error => {
+        errorEmitter.emit("permission-error", new FirestorePermissionError({
+          path: itemRef.path,
+          operation: "create",
+          requestResourceData: newItem
+        }));
+      })
+      .finally(() => {
+        setIsSubmitting(false);
       });
-      router.push("/inventory");
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to add inventory item.",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
   };
 
   return (

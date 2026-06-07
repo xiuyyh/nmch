@@ -40,7 +40,8 @@ import {
   Settings2, 
   Trash2,
   Tags,
-  AlertTriangle
+  AlertTriangle,
+  RefreshCw
 } from "lucide-react";
 import { useCollection, useFirestore } from "@/firebase";
 import { 
@@ -56,6 +57,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { errorEmitter } from "@/firebase/error-emitter";
+import { FirestorePermissionError } from "@/firebase/errors";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -98,52 +101,31 @@ export default function WarehouseStockPage() {
     return filteredItems.slice(start, start + ITEMS_PER_PAGE);
   }, [filteredItems, currentPage]);
 
-  const handleAddCategory = async () => {
-    if (!firestore || !newCategoryName.trim()) return;
-    try {
-      await addDoc(collection(firestore, "inventoryCategories"), {
-        name: newCategoryName.trim().toUpperCase()
-      });
-      setNewCategoryName("");
-      toast({ title: "Category Added", description: "Successfully added new category." });
-    } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: "Failed to add category." });
-    }
-  };
-
-  const handleDeleteCategory = async (id: string, name: string) => {
-    if (!firestore) return;
-    try {
-      await deleteDoc(doc(firestore, "inventoryCategories", id));
-      toast({ title: "Category Deleted", description: `Category ${name} removed.` });
-    } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: "Failed to delete category." });
-    }
-  };
-
   const handleUpdateItem = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!firestore || !editingItem) return;
 
     const formData = new FormData(e.currentTarget);
     const updatedData = {
-      name: formData.get("name") as string,
-      category: editCategory,
       stock: Number(formData.get("stock")),
       min: Number(formData.get("min")),
-      unit: formData.get("unit") as string,
       lastUpdated: serverTimestamp()
     };
 
-    try {
-      const itemRef = doc(firestore, "warehouseInventory", editingItem.id);
-      await updateDoc(itemRef, updatedData);
-      setIsEditOpen(false);
-      setEditingItem(null);
-      toast({ title: "Item Updated", description: `${updatedData.name} updated.` });
-    } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: "Update failed." });
-    }
+    const itemRef = doc(firestore, "warehouseInventory", editingItem.id);
+    updateDoc(itemRef, updatedData)
+      .then(() => {
+        setIsEditOpen(false);
+        setEditingItem(null);
+        toast({ title: "Stock Updated", description: `${editingItem.name} levels adjusted.` });
+      })
+      .catch(error => {
+        errorEmitter.emit("permission-error", new FirestorePermissionError({
+          path: itemRef.path,
+          operation: "update",
+          requestResourceData: updatedData
+        }));
+      });
   };
 
   const openEditDialog = (item: any) => {
@@ -157,60 +139,18 @@ export default function WarehouseStockPage() {
       <div className="flex flex-col gap-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-headline font-bold uppercase tracking-tight">Warehouse Stock</h1>
-            <p className="text-muted-foreground">Manage main store inventory and bulk stock levels.</p>
+            <h1 className="text-3xl font-headline font-bold uppercase tracking-tight text-white">Warehouse Stock</h1>
+            <p className="text-muted-foreground">Main store stock levels. Items are mirrored from Bar Inventory definitions.</p>
           </div>
           <div className="flex gap-2">
-            <Dialog open={isManageCategoriesOpen} onOpenChange={setIsManageCategoriesOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" className="gap-2 h-12 px-6 rounded-xl border-white/10">
-                  <Settings2 className="w-4 h-4" /> Manage Categories
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="glass-card border-white/10 max-w-md">
-                <DialogHeader>
-                  <DialogTitle className="text-xl font-headline flex items-center gap-2">
-                    <Tags className="w-5 h-5 text-primary" /> Shared Categories
-                  </DialogTitle>
-                </DialogHeader>
-                <div className="space-y-6 py-4">
-                  <div className="flex gap-2">
-                    <Input 
-                      placeholder="NEW CATEGORY..." 
-                      value={newCategoryName}
-                      onChange={(e) => setNewCategoryName(e.target.value)}
-                      className="bg-white/5 border-white/10 uppercase"
-                    />
-                    <Button onClick={handleAddCategory} className="bg-primary text-primary-foreground font-bold">
-                      Add
-                    </Button>
-                  </div>
-                  <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                    {categoriesLoading ? (
-                      <p className="text-xs text-muted-foreground animate-pulse">Loading...</p>
-                    ) : (
-                      categories?.filter(c => c.name !== "FOOD").map(cat => (
-                        <div key={cat.id} className="flex justify-between items-center p-3 bg-white/5 rounded-lg border border-white/5">
-                          <span className="font-bold text-sm">{cat.name}</span>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            onClick={() => handleDeleteCategory(cat.id, cat.name)}
-                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
-
+            <Button asChild variant="outline" className="gap-2 h-12 px-6 rounded-xl border-white/10">
+              <Link href="/inventory">
+                <RefreshCw className="w-4 h-4" /> Sync Definitions
+              </Link>
+            </Button>
             <Button asChild className="bg-primary text-primary-foreground gap-2 h-12 px-6 rounded-xl shadow-lg font-bold">
-              <Link href="/store/warehouse/add">
-                <Plus className="w-4 h-4" /> Add Warehouse Item
+              <Link href="/store/suppliers">
+                <Plus className="w-4 h-4" /> Process Intake
               </Link>
             </Button>
           </div>
@@ -237,7 +177,10 @@ export default function WarehouseStockPage() {
             {loading ? (
               <div className="py-20 text-center text-muted-foreground animate-pulse font-headline font-bold uppercase">Gathering warehouse data...</div>
             ) : filteredItems?.length === 0 ? (
-              <div className="py-20 text-center text-muted-foreground italic">No warehouse items found.</div>
+              <div className="py-20 text-center text-muted-foreground italic flex flex-col items-center gap-4">
+                <p>No warehouse items found.</p>
+                <p className="text-xs">Add items to the Bar Inventory first to see them appear here.</p>
+              </div>
             ) : (
               <div className="space-y-4">
                 <Table>
@@ -245,19 +188,19 @@ export default function WarehouseStockPage() {
                     <TableRow className="hover:bg-transparent border-white/5 h-12">
                       <TableHead className="font-bold text-[10px] uppercase tracking-widest">Name</TableHead>
                       <TableHead className="font-bold text-[10px] uppercase tracking-widest">Category</TableHead>
-                      <TableHead className="font-bold text-[10px] uppercase tracking-widest text-right">Stock Level</TableHead>
-                      <TableHead className="font-bold text-[10px] uppercase tracking-widest text-right">Min Threshold</TableHead>
+                      <TableHead className="font-bold text-[10px] uppercase tracking-widest text-right">Warehouse Stock</TableHead>
+                      <TableHead className="font-bold text-[10px] uppercase tracking-widest text-right">Warehouse Threshold</TableHead>
                       <TableHead className="font-bold text-[10px] uppercase tracking-widest text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {paginatedItems.map((item) => {
-                      const isLow = item.stock <= item.min;
+                      const isLow = item.stock <= (item.min || 0);
                       return (
                         <TableRow key={item.id} className="border-white/5 hover:bg-white/5 transition-colors">
                           <TableCell className="font-bold text-sm">{item.name}</TableCell>
                           <TableCell>
-                            <Badge variant="outline" className="bg-white/5 text-[10px] border-white/10">
+                            <Badge variant="outline" className="bg-white/5 text-[10px] border-white/10 uppercase">
                               {item.category}
                             </Badge>
                           </TableCell>
@@ -268,7 +211,7 @@ export default function WarehouseStockPage() {
                             <span className="text-[10px] text-muted-foreground ml-1 uppercase font-bold">{item.unit}</span>
                           </TableCell>
                           <TableCell className="text-right text-muted-foreground font-bold">
-                            {item.min}
+                            {item.min || 0}
                           </TableCell>
                           <TableCell className="text-right">
                             <Button variant="ghost" size="icon" onClick={() => openEditDialog(item)} className="hover:text-primary">
@@ -320,43 +263,27 @@ export default function WarehouseStockPage() {
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent className="glass-card border-white/10 max-w-lg">
           <DialogHeader>
-            <DialogTitle className="text-xl font-headline">Update Warehouse Item</DialogTitle>
+            <DialogTitle className="text-xl font-headline">Update Warehouse Stock</DialogTitle>
           </DialogHeader>
           {editingItem && (
-            <form onSubmit={handleUpdateItem} className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2 col-span-2">
-                  <Label htmlFor="edit-name">Item Name</Label>
-                  <Input id="edit-name" name="name" defaultValue={editingItem.name} required className="bg-white/5 h-12" />
-                </div>
-                <div className="space-y-2 col-span-2">
-                  <Label>Category</Label>
-                  <Select value={editCategory} onValueChange={setEditCategory} required>
-                    <SelectTrigger className="bg-white/5 h-12">
-                      <SelectValue placeholder="Select Category" />
-                    </SelectTrigger>
-                    <SelectContent className="glass-card">
-                      {categories?.filter(c => c.name !== "FOOD").map(cat => (
-                        <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+            <form onSubmit={handleUpdateItem} className="space-y-6 py-4">
+              <div className="space-y-1">
+                <p className="text-sm font-bold text-white uppercase tracking-widest">{editingItem.name}</p>
+                <p className="text-[10px] text-muted-foreground uppercase">{editingItem.category}</p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-6">
                 <div className="space-y-2">
-                  <Label htmlFor="edit-unit">Unit</Label>
-                  <Input id="edit-unit" name="unit" defaultValue={editingItem.unit} required className="bg-white/5 h-12" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-stock">Stock</Label>
+                  <Label htmlFor="edit-stock" className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Current Stock ({editingItem.unit})</Label>
                   <Input id="edit-stock" name="stock" type="number" defaultValue={editingItem.stock} required className="bg-white/5 h-12" />
                 </div>
-                <div className="space-y-2 col-span-2">
-                  <Label htmlFor="edit-min">Min Threshold</Label>
-                  <Input id="edit-min" name="min" type="number" defaultValue={editingItem.min} required className="bg-white/5 h-12" />
+                <div className="space-y-2">
+                  <Label htmlFor="edit-min" className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Warehouse Reorder Threshold</Label>
+                  <Input id="edit-min" name="min" type="number" defaultValue={editingItem.min || 5} required className="bg-white/5 h-12" />
                 </div>
               </div>
               <DialogFooter className="pt-4">
-                <Button type="submit" className="w-full h-12">Apply Updates</Button>
+                <Button type="submit" className="w-full h-12 font-bold uppercase tracking-widest text-xs">Apply Updates</Button>
               </DialogFooter>
             </form>
           )}
