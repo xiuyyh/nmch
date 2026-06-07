@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo } from "react";
@@ -18,7 +17,8 @@ import {
   Package,
   AlertTriangle,
   ChevronDown,
-  ArrowRight
+  ArrowRight,
+  Search
 } from "lucide-react";
 import { 
   Collapsible,
@@ -40,6 +40,7 @@ export default function BarRestockPage() {
   
   const [requestItems, setRequestItems] = useState<{ itemId: string; name: string; quantity: number }[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [inventorySearch, setInventorySearch] = useState("");
 
   // Fetch Inventory for selection
   const inventoryQuery = useMemo(() => {
@@ -59,6 +60,14 @@ export default function BarRestockPage() {
     if (!inventory) return [];
     return inventory.filter(item => item.stock <= item.min);
   }, [inventory]);
+
+  const filteredInventory = useMemo(() => {
+    if (!inventory) return [];
+    return inventory.filter(item => 
+      item.name?.toLowerCase().includes(inventorySearch.toLowerCase()) ||
+      item.category?.toLowerCase().includes(inventorySearch.toLowerCase())
+    );
+  }, [inventory, inventorySearch]);
 
   const addToRequest = (item: any) => {
     if (requestItems.find(i => i.itemId === item.id)) return;
@@ -190,20 +199,35 @@ export default function BarRestockPage() {
                   </div>
                 )}
               </CardContent>
-              <CardHeader className="border-t border-white/5 bg-white/[0.02]">
-                <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Select from Inventory</CardTitle>
-                <div className="flex flex-wrap gap-2 pt-2">
-                  {inventory?.map(item => (
-                    <Button 
-                      key={item.id} 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={() => addToRequest(item)}
-                      className="h-8 bg-white/5 border border-white/5 text-[10px] font-bold uppercase tracking-widest hover:border-primary/50"
-                    >
-                      {item.name}
-                    </Button>
-                  ))}
+              <CardHeader className="border-t border-white/5 bg-white/[0.02] space-y-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground shrink-0">Select from Inventory</CardTitle>
+                  <div className="relative w-full sm:w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input 
+                      placeholder="Search items..." 
+                      value={inventorySearch}
+                      onChange={(e) => setInventorySearch(e.target.value)}
+                      className="pl-9 h-8 bg-white/5 border-white/10 text-xs"
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2 pt-2 max-h-[300px] overflow-y-auto pr-2">
+                  {filteredInventory.length === 0 ? (
+                    <p className="text-xs text-muted-foreground italic py-4">No matching items found.</p>
+                  ) : (
+                    filteredInventory.map(item => (
+                      <Button 
+                        key={item.id} 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => addToRequest(item)}
+                        className="h-8 bg-white/5 border border-white/5 text-[10px] font-bold uppercase tracking-widest hover:border-primary/50"
+                      >
+                        {item.name}
+                      </Button>
+                    ))
+                  )}
                 </div>
               </CardHeader>
             </Card>
