@@ -158,7 +158,7 @@ export default function BarRestockPage() {
               </Card>
             )}
 
-            <Card className="glass-card">
+            <Card className="glass-card overflow-hidden">
               <CardHeader className="flex flex-row items-center justify-between border-b border-white/5 pb-4">
                 <CardTitle className="text-xl font-headline flex items-center gap-2">
                   <Plus className="text-primary w-5 h-5" /> New Request
@@ -169,16 +169,50 @@ export default function BarRestockPage() {
                   </Button>
                 )}
               </CardHeader>
+              
+              {/* Inventory Selection Section - Now at the top */}
+              <div className="border-b border-white/5 bg-white/[0.02] p-6 space-y-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <span className="text-sm font-bold uppercase tracking-widest text-muted-foreground shrink-0">Select from Inventory</span>
+                  <div className="relative w-full sm:w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input 
+                      placeholder="Search items..." 
+                      value={inventorySearch}
+                      onChange={(e) => setInventorySearch(e.target.value)}
+                      className="pl-9 h-10 bg-white/5 border-white/10 text-xs rounded-xl"
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2 pt-2 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
+                  {filteredInventory.length === 0 ? (
+                    <p className="text-xs text-muted-foreground italic py-4">No matching items found.</p>
+                  ) : (
+                    filteredInventory.map(item => (
+                      <Button 
+                        key={item.id} 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => addToRequest(item)}
+                        className="h-9 px-4 bg-white/5 border border-white/5 text-[10px] font-bold uppercase tracking-widest hover:border-primary/50 rounded-xl"
+                      >
+                        {item.name}
+                      </Button>
+                    ))
+                  )}
+                </div>
+              </div>
+
               <CardContent className="p-0">
                 {requestItems.length === 0 ? (
                   <div className="py-20 text-center flex flex-col items-center justify-center text-muted-foreground opacity-40">
                     <Package className="w-10 h-10 mb-4" />
-                    <p className="italic">Your request list is empty. Add items from inventory below.</p>
+                    <p className="italic">Your request list is empty. Add items from inventory above.</p>
                   </div>
                 ) : (
                   <div className="divide-y divide-white/5">
                     {requestItems.map(item => (
-                      <div key={item.itemId} className="p-4 flex items-center justify-between hover:bg-white/5">
+                      <div key={item.itemId} className="p-4 flex items-center justify-between hover:bg-white/5 transition-colors">
                         <span className="font-bold text-lg">{item.name}</span>
                         <div className="flex items-center gap-4">
                           <div className="flex items-center bg-white/5 rounded-xl border border-white/5 p-1">
@@ -199,37 +233,6 @@ export default function BarRestockPage() {
                   </div>
                 )}
               </CardContent>
-              <CardHeader className="border-t border-white/5 bg-white/[0.02] space-y-4">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                  <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground shrink-0">Select from Inventory</CardTitle>
-                  <div className="relative w-full sm:w-64">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input 
-                      placeholder="Search items..." 
-                      value={inventorySearch}
-                      onChange={(e) => setInventorySearch(e.target.value)}
-                      className="pl-9 h-8 bg-white/5 border-white/10 text-xs"
-                    />
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2 pt-2 max-h-[300px] overflow-y-auto pr-2">
-                  {filteredInventory.length === 0 ? (
-                    <p className="text-xs text-muted-foreground italic py-4">No matching items found.</p>
-                  ) : (
-                    filteredInventory.map(item => (
-                      <Button 
-                        key={item.id} 
-                        variant="ghost" 
-                        size="sm" 
-                        onClick={() => addToRequest(item)}
-                        className="h-8 bg-white/5 border border-white/5 text-[10px] font-bold uppercase tracking-widest hover:border-primary/50"
-                      >
-                        {item.name}
-                      </Button>
-                    ))
-                  )}
-                </div>
-              </CardHeader>
             </Card>
           </div>
 
