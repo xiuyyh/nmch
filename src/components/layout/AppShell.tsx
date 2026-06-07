@@ -17,7 +17,8 @@ import {
   Warehouse,
   UtensilsCrossed,
   Contact,
-  Sparkles
+  Sparkles,
+  Layers
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -53,9 +54,13 @@ const departments = [
     icon: Wine,
     items: [
       { name: "Sales & Tables", href: "/bar/sales", icon: ShoppingCart },
+    ],
+  },
+  {
+    title: "Bar Inventory",
+    icon: Layers,
+    items: [
       { name: "Inventory", href: "/inventory", icon: Package },
-      { name: "Menu Config", href: "/menu", icon: MenuIcon },
-      { name: "Sales Reports", href: "/reports", icon: BarChart3 },
     ],
   },
   {
