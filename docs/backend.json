@@ -36,7 +36,9 @@
         "total": { "type": "number" },
         "method": { "type": "string", "enum": ["Card", "Cash", "Transfer"] },
         "tableNumber": { "type": "string" },
-        "timestamp": { "type": "string", "format": "date-time" }
+        "timestamp": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["Completed", "Canceled"] },
+        "canceledAt": { "type": "string", "format": "date-time" }
       },
       "required": ["items", "total", "method", "timestamp"]
     },
@@ -61,6 +63,18 @@
         "lastUpdated": { "type": "string", "format": "date-time" }
       },
       "required": ["tableNumber", "items"]
+    },
+    "DailyClosing": {
+      "title": "Daily Settlement Record",
+      "description": "Marker for a day that has been settled and locked",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string" },
+        "settledAt": { "type": "string", "format": "date-time" },
+        "settledBy": { "type": "string" },
+        "totalRevenue": { "type": "number" }
+      },
+      "required": ["date", "settledAt"]
     }
   },
   "auth": {
@@ -78,6 +92,10 @@
     "/tableSessions/{tableNumber}": {
       "schema": "TableSession",
       "description": "Active tabs for tables"
+    },
+    "/dailyClosings/{dateString}": {
+      "schema": "DailyClosing",
+      "description": "Settlement records per day (format YYYY-MM-DD)"
     }
   }
 }

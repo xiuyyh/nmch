@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo } from "react";
@@ -20,15 +21,16 @@ import {
   ChevronRight, 
   Printer, 
   FileText,
-  Calendar,
   CreditCard,
   Banknote,
   ArrowLeftRight,
   ChevronDown,
-  ShoppingCart
+  ShoppingCart,
+  XCircle,
+  RotateCcw
 } from "lucide-react";
-import { useCollection, useFirestore } from "@/firebase";
-import { collection, query, orderBy } from "firebase/firestore";
+import { useCollection, useFirestore, useUser } from "@/firebase";
+import { collection, query, orderBy, doc, updateDoc, increment, serverTimestamp, getDoc } from "firebase/firestore";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { 
@@ -36,12 +38,25 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import Link from "next/link";
+import { useToast } from "@/hooks/use-toast";
 
 const ITEMS_PER_PAGE = 10;
 
 export default function SalesHistoryPage() {
   const firestore = useFirestore();
+  const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -66,6 +81,61 @@ export default function SalesHistoryPage() {
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
     return filteredSales.slice(start, start + ITEMS_PER_PAGE);
   }, [filteredSales, currentPage]);
+
+  const stats = useMemo(() => {
+    if (!sales) return { total: 0, count: 0 };
+    const activeSales = sales.filter(s => s.status !== "Canceled");
+    return {
+      total: activeSales.reduce((sum, s) => sum + (s.total || 0), 0),
+      count: activeSales.length
+    };
+  }, [sales]);
+
+  const handleCancelSale = async (sale: any) => {
+    if (!firestore) return;
+
+    // 1. Check if the day is settled
+    const dateStr = format(sale.timestamp.toDate(), "yyyy-MM-dd");
+    const closingRef = doc(firestore, "dailyClosings", dateStr);
+    const closingSnap = await getDoc(closingRef);
+
+    if (closingSnap.exists()) {
+      toast({
+        variant: "destructive",
+        title: "Cancellation Denied",
+        description: `The sales for ${dateStr} have been settled and locked.`,
+      });
+      return;
+    }
+
+    try {
+      // 2. Update sale status
+      await updateDoc(doc(firestore, "sales", sale.id), {
+        status: "Canceled",
+        canceledAt: serverTimestamp()
+      });
+
+      // 3. Restore inventory
+      for (const item of sale.items) {
+        const stockRef = doc(firestore, "inventory", item.itemId);
+        await updateDoc(stockRef, {
+          stock: increment(item.quantity),
+          lastUpdated: serverTimestamp()
+        });
+      }
+
+      toast({
+        title: "Sale Canceled",
+        description: `Inventory restored and transaction marked as canceled.`,
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Could not cancel sale. Check permissions.",
+      });
+    }
+  };
 
   const printDucket = (sale: any) => {
     const printWindow = window.open('', '_blank');
@@ -104,7 +174,7 @@ export default function SalesHistoryPage() {
         </head>
         <body>
           <div class="center header">NMCH BAR</div>
-          <div class="center subheader">Duplicate Ducket</div>
+          <div class="center subheader">${sale.status === 'Canceled' ? 'CANCELED DUCKET' : 'Duplicate Ducket'}</div>
           <div class="divider"></div>
           <div class="meta">DATE: ${dateStr}</div>
           <div class="meta">REC#: ${sale.id.slice(-8).toUpperCase()}</div>
@@ -117,7 +187,7 @@ export default function SalesHistoryPage() {
           </div>
           <div class="meta" style="margin-top: 8px; font-size: 16px;">PAYMENT: ${sale.method}</div>
           <div class="divider"></div>
-          <div class="center bold" style="margin-top: 15px; font-size: 16px;">*** DUPLICATE ***</div>
+          <div class="center bold" style="margin-top: 15px; font-size: 16px;">*** ${sale.status === 'Canceled' ? 'VOID' : 'DUPLICATE'} ***</div>
         </body>
       </html>
     `;
@@ -146,7 +216,7 @@ export default function SalesHistoryPage() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-headline font-bold uppercase tracking-tight">Sales History</h1>
-            <p className="text-muted-foreground">View past transactions and re-print duckets.</p>
+            <p className="text-muted-foreground">Audit transactions and manage cancellations.</p>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" className="gap-2 border-white/10" asChild>
@@ -157,27 +227,19 @@ export default function SalesHistoryPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card className="glass-card">
             <CardContent className="pt-6">
-              <div className="text-sm font-medium text-muted-foreground uppercase tracking-widest">Total Revenue</div>
+              <div className="text-sm font-medium text-muted-foreground uppercase tracking-widest">Total Valid Revenue</div>
               <div className="text-2xl font-bold font-headline mt-1 text-primary">
-                ₦{sales?.reduce((sum, s) => sum + (s.total || 0), 0).toLocaleString()}
+                ₦{stats.total.toLocaleString()}
               </div>
             </CardContent>
           </Card>
           <Card className="glass-card">
             <CardContent className="pt-6">
-              <div className="text-sm font-medium text-muted-foreground uppercase tracking-widest">Sales Count</div>
-              <div className="text-2xl font-bold font-headline mt-1">{sales?.length || 0}</div>
-            </CardContent>
-          </Card>
-          <Card className="glass-card">
-            <CardContent className="pt-6">
-              <div className="text-sm font-medium text-muted-foreground uppercase tracking-widest">Avg. Ticket</div>
-              <div className="text-2xl font-bold font-headline mt-1">
-                ₦{sales?.length ? (sales.reduce((sum, s) => sum + (s.total || 0), 0) / sales.length).toLocaleString(undefined, { maximumFractionDigits: 0 }) : 0}
-              </div>
+              <div className="text-sm font-medium text-muted-foreground uppercase tracking-widest">Successful Sales</div>
+              <div className="text-2xl font-bold font-headline mt-1">{stats.count}</div>
             </CardContent>
           </Card>
         </div>
@@ -191,7 +253,7 @@ export default function SalesHistoryPage() {
               <div className="relative w-full sm:w-80">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input 
-                  placeholder="Filter by table, item, or method..." 
+                  placeholder="Filter sales..." 
                   className="pl-10 h-10 bg-white/5 border-white/5" 
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
@@ -208,11 +270,19 @@ export default function SalesHistoryPage() {
               <div className="divide-y divide-white/5">
                 {paginatedSales.map((sale) => (
                   <Collapsible key={sale.id} className="group">
-                    <div className="p-4 flex items-center justify-between hover:bg-white/5 transition-colors">
+                    <div className={cn(
+                      "p-4 flex items-center justify-between hover:bg-white/5 transition-colors",
+                      sale.status === "Canceled" && "opacity-60 bg-red-500/[0.02]"
+                    )}>
                       <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-4 items-center">
                         <div className="flex flex-col">
                           <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none mb-1">Receipt</span>
-                          <span className="font-mono text-xs font-bold text-white">#{sale.id.slice(-8).toUpperCase()}</span>
+                          <span className="font-mono text-xs font-bold text-white flex items-center gap-2">
+                            #{sale.id.slice(-8).toUpperCase()}
+                            {sale.status === "Canceled" && (
+                              <Badge variant="destructive" className="h-4 text-[8px] uppercase px-1">Canceled</Badge>
+                            )}
+                          </span>
                         </div>
                         <div className="flex flex-col">
                           <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none mb-1">Time</span>
@@ -226,7 +296,10 @@ export default function SalesHistoryPage() {
                         </div>
                         <div className="flex flex-col items-end md:items-start">
                           <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none mb-1">Total</span>
-                          <span className="text-lg font-headline font-bold text-white">₦{sale.total.toLocaleString()}</span>
+                          <span className={cn(
+                            "text-lg font-headline font-bold text-white",
+                            sale.status === "Canceled" && "line-through text-muted-foreground"
+                          )}>₦{sale.total.toLocaleString()}</span>
                         </div>
                       </div>
                       
@@ -243,24 +316,52 @@ export default function SalesHistoryPage() {
                     </div>
                     
                     <CollapsibleContent className="bg-white/[0.02] px-6 py-4 border-t border-white/5">
-                      <div className="max-w-md space-y-3">
-                        <div className="flex justify-between text-xs font-bold text-muted-foreground uppercase tracking-[0.2em] border-b border-white/10 pb-2">
-                          <span>Items</span>
-                          <span>Subtotal</span>
-                        </div>
-                        {sale.items?.map((item: any, idx: number) => (
-                          <div key={idx} className="flex justify-between items-center text-sm">
-                            <span className="text-white/80">{item.name} <span className="text-muted-foreground">x{item.quantity}</span></span>
-                            <span className="font-headline font-bold">₦{(item.price * item.quantity).toLocaleString()}</span>
+                      <div className="max-w-md space-y-4">
+                        <div className="space-y-3">
+                          <div className="flex justify-between text-xs font-bold text-muted-foreground uppercase tracking-[0.2em] border-b border-white/10 pb-2">
+                            <span>Items</span>
+                            <span>Subtotal</span>
                           </div>
-                        ))}
+                          {sale.items?.map((item: any, idx: number) => (
+                            <div key={idx} className="flex justify-between items-center text-sm">
+                              <span className="text-white/80">{item.name} <span className="text-muted-foreground">x{item.quantity}</span></span>
+                              <span className="font-headline font-bold">₦{(item.price * item.quantity).toLocaleString()}</span>
+                            </div>
+                          ))}
+                        </div>
+                        
                         <div className="pt-3 flex items-center justify-between border-t border-white/5">
                           <Badge variant="outline" className="gap-1.5 border-white/10 text-[10px] uppercase font-bold py-1">
                             {getMethodIcon(sale.method)} {sale.method}
                           </Badge>
-                          <span className="text-xs text-muted-foreground">
-                            {sale.timestamp?.toDate ? format(sale.timestamp.toDate(), 'PPP p') : 'N/A'}
-                          </span>
+                          <div className="flex items-center gap-3">
+                            {sale.status !== "Canceled" && (
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="ghost" size="sm" className="h-8 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive">
+                                    <XCircle className="w-3.5 h-3.5 mr-1.5" /> Cancel Sale
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent className="glass-card border-white/10">
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Cancel Transaction?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      This will mark the sale as canceled and restore <strong>{sale.items.reduce((sum: number, i: any) => sum + i.quantity, 0)} items</strong> back to the inventory. This action is only allowed if the day hasn't been settled.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel className="bg-white/5 border-white/10">No, Keep</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleCancelSale(sale)} className="bg-destructive text-destructive-foreground">
+                                      Yes, Cancel & Restore Stock
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            )}
+                            <span className="text-xs text-muted-foreground">
+                              {sale.timestamp?.toDate ? format(sale.timestamp.toDate(), 'PPP p') : 'N/A'}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </CollapsibleContent>

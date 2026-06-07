@@ -11,7 +11,6 @@ import {
   ClipboardList, 
   LogOut,
   ChevronRight,
-  ChevronDown,
   Wine,
   Warehouse,
   UtensilsCrossed,
@@ -19,7 +18,8 @@ import {
   Sparkles,
   Menu,
   X,
-  History
+  History,
+  Lock
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -57,6 +57,7 @@ const departments = [
     items: [
       { name: "Bar Sales", href: "/bar/sales", icon: ShoppingCart },
       { name: "Sales History", href: "/bar/sales/history", icon: History },
+      { name: "End of Day", href: "/bar/end-of-day", icon: Lock },
       { name: "Bar Inventory", href: "/inventory", icon: Package },
     ],
   },
