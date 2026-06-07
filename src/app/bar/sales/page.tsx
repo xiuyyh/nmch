@@ -19,7 +19,9 @@ import {
   Clock,
   X,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  BookOpen,
+  ArrowRight
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCollection, useDoc, useFirestore } from "@/firebase";
@@ -31,15 +33,16 @@ import {
   deleteDoc, 
   serverTimestamp, 
   query, 
-  where,
+  orderBy,
   increment,
   updateDoc
 } from "firebase/firestore";
 import { errorEmitter } from "@/firebase/error-emitter";
 import { FirestorePermissionError } from "@/firebase/errors";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
 
-const ITEMS_PER_PAGE = 5;
+const ITEMS_PER_PAGE = 8;
 const TABLES = Array.from({ length: 20 }, (_, i) => `Table ${i + 1}`);
 
 export default function SalesPage() {
@@ -52,10 +55,10 @@ export default function SalesPage() {
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Fetch Menu
+  // Fetch Menu - Querying all menu items to ensure visibility
   const menuQuery = useMemo(() => {
     if (!firestore) return null;
-    return query(collection(firestore, "menu"), where("status", "==", "Active"));
+    return query(collection(firestore, "menu"), orderBy("name"));
   }, [firestore]);
   const { data: menuItems, loading: menuLoading } = useCollection(menuQuery);
 
@@ -189,7 +192,7 @@ export default function SalesPage() {
     setCurrentPage(1);
   }, [search]);
 
-  const totalPages = Math.ceil(filteredItems.length / ITEMS_PER_PAGE);
+  const totalPages = Math.max(1, Math.ceil(filteredItems.length / ITEMS_PER_PAGE));
   const paginatedItems = useMemo(() => {
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
     return filteredItems.slice(start, start + ITEMS_PER_PAGE);
@@ -210,14 +213,14 @@ export default function SalesPage() {
       <div className="flex flex-col gap-6 h-full max-w-[1600px] mx-auto">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-headline font-bold">BAR SALES</h1>
+            <h1 className="text-3xl font-headline font-bold uppercase tracking-tight">Bar Sales</h1>
           </div>
           <Tabs value={activeTab} onValueChange={(v: any) => setActiveTab(v)} className="w-full md:w-auto">
-            <TabsList className="bg-white/5 border border-white/10">
-              <TabsTrigger value="quick" className="gap-2 px-6">
+            <TabsList className="bg-white/5 border border-white/10 p-1">
+              <TabsTrigger value="quick" className="gap-2 px-6 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                 <ShoppingCart className="w-4 h-4" /> Quick Sale
               </TabsTrigger>
-              <TabsTrigger value="tables" className="gap-2 px-6">
+              <TabsTrigger value="tables" className="gap-2 px-6 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                 <LayoutGrid className="w-4 h-4" /> Table Service
               </TabsTrigger>
             </TabsList>
@@ -227,10 +230,10 @@ export default function SalesPage() {
         <div className="flex flex-col lg:flex-row gap-6">
           <div className="flex-1 space-y-6">
             {activeTab === "tables" && !selectedTable ? (
-              <Card className="glass-card">
+              <Card className="glass-card border-white/5">
                 <CardHeader>
                   <CardTitle className="text-xl font-headline flex items-center gap-2">
-                    <LayoutGrid className="text-primary w-5 h-5" /> Select Table
+                    <LayoutGrid className="text-primary w-5 h-5" /> Select Table to Begin
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -243,7 +246,7 @@ export default function SalesPage() {
                           variant="outline"
                           className={cn(
                             "h-24 flex flex-col gap-2 rounded-2xl border-white/5 transition-all",
-                            active ? "bg-primary/10 border-primary/30 text-primary shadow-[0_0_15px_rgba(var(--primary),0.1)]" : "hover:bg-white/5"
+                            active ? "bg-primary/10 border-primary/30 text-primary shadow-[0_0_15px_rgba(var(--primary),0.1)]" : "hover:bg-white/5 hover:border-white/10"
                           )}
                           onClick={() => {
                             setSelectedTable(table);
@@ -270,7 +273,7 @@ export default function SalesPage() {
                       <div className="p-2 bg-primary rounded-lg text-primary-foreground">
                         <LayoutGrid className="w-5 h-5" />
                       </div>
-                      <span className="font-headline font-bold text-lg">Serving {selectedTable}</span>
+                      <span className="font-headline font-bold text-lg text-white">Serving {selectedTable}</span>
                     </div>
                     <Button 
                       variant="ghost" 
@@ -300,7 +303,27 @@ export default function SalesPage() {
                   {menuLoading ? (
                     <div className="py-20 text-center text-muted-foreground animate-pulse">Gathering menu data...</div>
                   ) : filteredItems.length === 0 ? (
-                    <div className="py-20 text-center text-muted-foreground italic">No matching items found.</div>
+                    <Card className="glass-card border-dashed border-white/10 bg-transparent">
+                      <CardContent className="py-20 flex flex-col items-center text-center">
+                        <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mb-6">
+                          <BookOpen className="w-8 h-8 text-muted-foreground" />
+                        </div>
+                        <h3 className="text-xl font-headline font-bold mb-2">No items found</h3>
+                        <p className="text-muted-foreground max-w-sm mb-8">
+                          {search 
+                            ? `We couldn't find any menu items matching "${search}".`
+                            : "Your menu is currently empty. Inventory items don't show up here until they are added to the Menu Configuration."
+                          }
+                        </p>
+                        {!search && (
+                          <Button asChild className="gap-2">
+                            <Link href="/menu">
+                              Go to Menu Configuration <ArrowRight className="w-4 h-4" />
+                            </Link>
+                          </Button>
+                        )}
+                      </CardContent>
+                    </Card>
                   ) : (
                     <>
                       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -313,7 +336,7 @@ export default function SalesPage() {
                             <div className="h-1.5 w-full bg-primary/0 group-hover:bg-primary/40 transition-all" />
                             <CardContent className="p-5 flex flex-col gap-2">
                               <span className="text-xs uppercase tracking-widest text-muted-foreground font-bold">{item.category}</span>
-                              <span className="font-headline font-bold text-lg leading-tight">{item.name}</span>
+                              <span className="font-headline font-bold text-lg leading-tight text-white">{item.name}</span>
                               <div className="flex justify-between items-center mt-2">
                                 <span className="text-primary font-headline font-bold text-xl">${item.price.toFixed(2)}</span>
                                 <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-all">
@@ -363,10 +386,10 @@ export default function SalesPage() {
           </div>
 
           <div className="w-full lg:w-[400px]">
-            <Card className="glass-card flex flex-col h-[calc(100vh-280px)] sticky top-28">
+            <Card className="glass-card flex flex-col h-[calc(100vh-280px)] sticky top-28 border-white/5">
               <CardHeader className="p-6 border-b border-white/5 flex flex-row items-center justify-between">
                 <div>
-                  <CardTitle className="font-headline font-bold text-xl">
+                  <CardTitle className="font-headline font-bold text-xl text-white">
                     {selectedTable ? `Bill: ${selectedTable}` : "Quick Sale"}
                   </CardTitle>
                   <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold mt-1">
@@ -393,7 +416,7 @@ export default function SalesPage() {
                   cart.map(item => (
                     <div key={item.menuItemId} className="flex flex-col gap-3 p-4 bg-white/5 rounded-2xl border border-white/5">
                       <div className="flex justify-between items-start gap-4">
-                        <span className="font-headline font-bold text-base leading-tight">{item.name}</span>
+                        <span className="font-headline font-bold text-base leading-tight text-white">{item.name}</span>
                         <button onClick={() => removeFromCart(item.menuItemId)} className="text-muted-foreground hover:text-destructive transition-colors">
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -403,7 +426,7 @@ export default function SalesPage() {
                           <Button size="icon" variant="ghost" className="w-8 h-8 rounded-lg" onClick={() => updateQuantity(item.menuItemId, -1)}>
                             <Minus className="w-3 h-3" />
                           </Button>
-                          <span className="w-10 text-center font-headline font-bold">{item.quantity}</span>
+                          <span className="w-10 text-center font-headline font-bold text-white">{item.quantity}</span>
                           <Button size="icon" variant="ghost" className="w-8 h-8 rounded-lg" onClick={() => updateQuantity(item.menuItemId, 1)}>
                             <Plus className="w-3 h-3" />
                           </Button>
@@ -422,7 +445,7 @@ export default function SalesPage() {
                     <span>${total.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between items-center text-2xl font-bold">
-                    <span className="font-headline">Total</span>
+                    <span className="font-headline text-white">Total</span>
                     <span className="text-primary font-headline">${total.toFixed(2)}</span>
                   </div>
                 </div>
