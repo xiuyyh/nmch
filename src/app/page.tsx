@@ -90,6 +90,14 @@ export default function Dashboard() {
     })).reverse().slice(-7);
   }, [todaySales]);
 
+  // 6. Filter Recent Activity (Value >= 1000)
+  const recentHighValueSales = useMemo(() => {
+    if (!todaySales) return [];
+    return todaySales
+      .filter(sale => (sale.total || 0) >= 1000)
+      .slice(0, 7);
+  }, [todaySales]);
+
   const chartConfig = {
     sales: {
       label: "Sales (₦)",
@@ -174,7 +182,7 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
-                  {todaySales?.slice(0, 7).map((sale) => (
+                  {recentHighValueSales.map((sale) => (
                     <div key={sale.id} className="flex items-center justify-between border-b border-white/5 pb-3 last:border-0">
                       <div className="flex flex-col">
                         <span className="font-bold text-sm text-white">{sale.tableNumber}</span>
@@ -188,10 +196,10 @@ export default function Dashboard() {
                       </div>
                     </div>
                   ))}
-                  {(!todaySales || todaySales.length === 0) && (
+                  {recentHighValueSales.length === 0 && (
                     <div className="py-20 text-center flex flex-col items-center opacity-40">
                       <PackageCheck className="w-10 h-10 mb-2" />
-                      <p className="italic text-xs">No transactions today</p>
+                      <p className="italic text-xs">No significant transactions today</p>
                     </div>
                   )}
                 </div>
