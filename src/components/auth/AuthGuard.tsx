@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useMemo } from 'react';
@@ -6,6 +5,8 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useUser, useDoc, useFirestore } from '@/firebase';
 import { Loader2 } from 'lucide-react';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+
+const ROOT_ADMIN_EMAIL = "eahunanya116@gmail.com";
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, loading: authLoading } = useUser();
@@ -33,17 +34,27 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     }
   }, [user, authLoading, pathname, router]);
 
-  // Sync user record if it doesn't exist
-  // We only sync basic info. We NO LONGER assign a default role here.
+  // Sync user record and enforce Root Admin status
   useEffect(() => {
-    if (user && !recordLoading && !userRecord && firestore) {
-      const ref = doc(firestore, 'users', user.uid);
-      setDoc(ref, {
-        email: user.email,
-        displayName: user.displayName,
-        // Role is omitted so user stays "Unassigned" until an Admin acts
-        createdAt: serverTimestamp()
-      }, { merge: true });
+    if (user && !recordLoading && firestore) {
+      const isRoot = user.email === ROOT_ADMIN_EMAIL;
+      
+      // If root admin is missing or role is wrong, force update
+      if (!userRecord || (isRoot && userRecord.role !== 'admin')) {
+        const ref = doc(firestore, 'users', user.uid);
+        const updateData: any = {
+          email: user.email,
+          displayName: user.displayName,
+          createdAt: userRecord?.createdAt || serverTimestamp(),
+          lastModified: serverTimestamp()
+        };
+
+        if (isRoot) {
+          updateData.role = 'admin';
+        }
+
+        setDoc(ref, updateData, { merge: true });
+      }
     }
   }, [user, recordLoading, userRecord, firestore]);
 

