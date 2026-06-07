@@ -26,7 +26,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Search, Plus, Edit2, RefreshCw, ChevronLeft, ChevronRight, Package } from "lucide-react";
 import { useCollection, useFirestore } from "@/firebase";
-import { collection, query, orderBy, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, query, orderBy, addDoc, serverTimestamp, doc, updateDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
@@ -37,6 +37,8 @@ export default function InventoryPage() {
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(1);
 
   const inventoryQuery = useMemo(() => {
@@ -54,7 +56,6 @@ export default function InventoryPage() {
     );
   }, [stockItems, search]);
 
-  // Reset to first page when searching
   React.useEffect(() => {
     setCurrentPage(1);
   }, [search]);
@@ -92,7 +93,7 @@ export default function InventoryPage() {
       setIsAddOpen(false);
       toast({
         title: "Item Added",
-        description: `${newItem.name} has been added with a price of ₦${newItem.price.toLocaleString()}.`,
+        description: `${newItem.name} has been added successfully.`,
       });
     } catch (error) {
       toast({
@@ -101,6 +102,44 @@ export default function InventoryPage() {
         description: "Failed to add inventory item.",
       });
     }
+  };
+
+  const handleUpdateItem = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!firestore || !editingItem) return;
+
+    const formData = new FormData(e.currentTarget);
+    const updatedData = {
+      name: formData.get("name") as string,
+      category: formData.get("category") as string,
+      stock: Number(formData.get("stock")),
+      min: Number(formData.get("min")),
+      price: Number(formData.get("price")),
+      unit: formData.get("unit") as string,
+      lastUpdated: serverTimestamp()
+    };
+
+    try {
+      const itemRef = doc(firestore, "inventory", editingItem.id);
+      await updateDoc(itemRef, updatedData);
+      setIsEditOpen(false);
+      setEditingItem(null);
+      toast({
+        title: "Item Updated",
+        description: `${updatedData.name} has been updated successfully.`,
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to update inventory item.",
+      });
+    }
+  };
+
+  const openEditDialog = (item: any) => {
+    setEditingItem(item);
+    setIsEditOpen(true);
   };
 
   return (
@@ -239,7 +278,7 @@ export default function InventoryPage() {
                             )}
                           </TableCell>
                           <TableCell className="text-right">
-                            <Button variant="ghost" size="icon">
+                            <Button variant="ghost" size="icon" onClick={() => openEditDialog(item)}>
                               <Edit2 className="w-4 h-4" />
                             </Button>
                           </TableCell>
@@ -284,6 +323,47 @@ export default function InventoryPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="glass-card border-white/10">
+          <DialogHeader>
+            <DialogTitle>Edit Inventory Item</DialogTitle>
+          </DialogHeader>
+          {editingItem && (
+            <form onSubmit={handleUpdateItem} className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2 col-span-2">
+                  <Label htmlFor="edit-name">Item Name</Label>
+                  <Input id="edit-name" name="name" defaultValue={editingItem.name} required className="bg-white/5" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-category">Category</Label>
+                  <Input id="edit-category" name="category" defaultValue={editingItem.category} required className="bg-white/5" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-price">Sales Price (₦)</Label>
+                  <Input id="edit-price" name="price" type="number" step="0.01" defaultValue={editingItem.price} required className="bg-white/5" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-unit">Unit</Label>
+                  <Input id="edit-unit" name="unit" defaultValue={editingItem.unit} required className="bg-white/5" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-stock">Current Stock</Label>
+                  <Input id="edit-stock" name="stock" type="number" step="0.01" defaultValue={editingItem.stock} required className="bg-white/5" />
+                </div>
+                <div className="space-y-2 col-span-2">
+                  <Label htmlFor="edit-min">Min Threshold (for alerts)</Label>
+                  <Input id="edit-min" name="min" type="number" step="0.01" defaultValue={editingItem.min} required className="bg-white/5" />
+                </div>
+              </div>
+              <DialogFooter className="pt-4">
+                <Button type="submit" className="w-full">Update Item</Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }
