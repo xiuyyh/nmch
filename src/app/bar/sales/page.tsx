@@ -127,16 +127,22 @@ export default function SalesPage() {
     });
   };
 
-  const saveToTable = (items: any[]) => {
+  const saveToTable = async (items: any[]) => {
     if (!firestore || !selectedTable) return;
     const ref = doc(firestore, "tableSessions", selectedTable);
-    setDoc(ref, {
-      tableNumber: selectedTable,
-      items,
-      lastUpdated: serverTimestamp()
-    }, { merge: true }).catch(err => {
-      console.error("Error saving table session", err);
-    });
+    
+    if (items.length === 0) {
+      // If the cart is empty, remove the active session document entirely
+      await deleteDoc(ref).catch(err => console.error("Error clearing table session", err));
+    } else {
+      await setDoc(ref, {
+        tableNumber: selectedTable,
+        items,
+        lastUpdated: serverTimestamp()
+      }, { merge: true }).catch(err => {
+        console.error("Error saving table session", err);
+      });
+    }
   };
 
   const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
@@ -211,7 +217,7 @@ export default function SalesPage() {
   const { data: allActiveSessions } = useCollection(activeTablesQuery);
 
   const isTableActive = (table: string) => {
-    return allActiveSessions?.some(s => s.tableNumber === table);
+    return allActiveSessions?.some(s => s.tableNumber === table && (s.items?.length || 0) > 0);
   };
 
   const CartUI = () => (
