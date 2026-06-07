@@ -142,6 +142,8 @@ function AppSidebar() {
     return departments.filter(dept => dept.role === userRecord.role);
   }, [userRecord]);
 
+  const isAdmin = userRecord?.role === 'admin';
+
   return (
     <Sidebar collapsible="icon" className="border-r border-white/5 bg-background/50 backdrop-blur-3xl shadow-2xl">
       <SidebarHeader className="p-6">
@@ -162,27 +164,29 @@ function AppSidebar() {
       
       <SidebarContent className="px-4 py-6">
         <SidebarMenu className="gap-2">
-          <SidebarMenuItem>
-            <SidebarMenuButton 
-              asChild 
-              isActive={pathname === "/"}
-              tooltip="Overview"
-              className={cn(
-                "transition-all duration-300 h-12 rounded-xl group/btn overflow-hidden",
-                pathname === "/" 
-                  ? "bg-primary text-primary-foreground neon-glow-primary font-bold shadow-lg" 
-                  : "text-muted-foreground hover:bg-white/10 hover:text-white"
-              )}
-            >
-              <Link href="/">
-                <LayoutDashboard className={cn(
-                  "w-5 h-5 shrink-0 transition-transform duration-300 group-hover/btn:scale-110",
-                  pathname === "/" ? "text-primary-foreground" : "text-primary/70"
-                )} />
-                {!isCollapsed && <span className="font-medium">Overview</span>}
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
+          {isAdmin && (
+            <SidebarMenuItem>
+              <SidebarMenuButton 
+                asChild 
+                isActive={pathname === "/"}
+                tooltip="Overview"
+                className={cn(
+                  "transition-all duration-300 h-12 rounded-xl group/btn overflow-hidden",
+                  pathname === "/" 
+                    ? "bg-primary text-primary-foreground neon-glow-primary font-bold shadow-lg" 
+                    : "text-muted-foreground hover:bg-white/10 hover:text-white"
+                )}
+              >
+                <Link href="/">
+                  <LayoutDashboard className={cn(
+                    "w-5 h-5 shrink-0 transition-transform duration-300 group-hover/btn:scale-110",
+                    pathname === "/" ? "text-primary-foreground" : "text-primary/70"
+                  )} />
+                  {!isCollapsed && <span className="font-medium">Overview</span>}
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
 
           <div className="my-4 px-2">
             {!isCollapsed && (
@@ -317,6 +321,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return departments.filter(dept => dept.role === userRecord.role);
   }, [userRecord]);
 
+  const isAdmin = userRecord?.role === 'admin';
+
   const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
 
   return (
@@ -340,16 +346,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {isMobileMenuOpen && (
           <div className="md:hidden fixed inset-x-0 top-20 bottom-0 bg-background/95 backdrop-blur-3xl z-50 overflow-y-auto animate-in slide-in-from-top duration-300">
             <nav className="p-6 space-y-6">
-              <Link 
-                href="/" 
-                className={cn(
-                  "flex items-center gap-3 p-4 rounded-xl font-bold transition-all",
-                  pathname === "/" ? "bg-primary text-primary-foreground" : "text-white/70 hover:bg-white/5"
-                )}
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                <LayoutDashboard className="w-5 h-5" /> Overview
-              </Link>
+              {isAdmin && (
+                <Link 
+                  href="/" 
+                  className={cn(
+                    "flex items-center gap-3 p-4 rounded-xl font-bold transition-all",
+                    pathname === "/" ? "bg-primary text-primary-foreground" : "text-white/70 hover:bg-white/5"
+                  )}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <LayoutDashboard className="w-5 h-5" /> Overview
+                </Link>
+              )}
 
               <div className="space-y-4">
                 <p className="text-[10px] uppercase tracking-[0.3em] font-bold text-muted-foreground/40 px-4">Departments</p>
