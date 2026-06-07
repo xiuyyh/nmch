@@ -325,16 +325,6 @@ export default function UserManagementPage() {
             </Table>
           </CardContent>
         </Card>
-
-        <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex items-start gap-4">
-          <ShieldCheck className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-          <div className="space-y-1">
-            <p className="text-sm font-bold text-amber-500 uppercase tracking-widest">Root Protection Active</p>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              The Root Admin account is hidden and immutable. All other staff roles are strictly visible and manageable.
-            </p>
-          </div>
-        </div>
       </div>
     </AppShell>
   );
