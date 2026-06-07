@@ -5,7 +5,7 @@ import { useAuth } from '@/firebase';
 import { 
   signInWithEmailAndPassword 
 } from 'firebase/auth';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -83,11 +83,6 @@ export default function LoginPage() {
               </Button>
             </form>
           </CardContent>
-          <CardFooter className="flex justify-center border-t border-white/5 pt-6 mt-4">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">
-              Secure Terminal Access Only
-            </p>
-          </CardFooter>
         </Card>
       </div>
     </div>
