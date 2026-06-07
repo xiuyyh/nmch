@@ -13,11 +13,12 @@ import {
   LayoutGrid,
   ChefHat,
   CheckCircle2,
-  Undo2
+  Undo2,
+  Timer
 } from "lucide-react";
 import { useCollection, useFirestore } from "@/firebase";
 import { collection, query, orderBy, limit, doc, updateDoc, serverTimestamp } from "firebase/firestore";
-import { format } from "date-fns";
+import { format, formatDistanceStrict } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { errorEmitter } from "@/firebase/error-emitter";
@@ -108,6 +109,10 @@ export default function KitchenOrdersPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {orders?.map((order) => {
               const isDelivered = order.status === "Delivered";
+              const timeTaken = isDelivered && order.deliveredAt && order.timestamp 
+                ? formatDistanceStrict(order.timestamp.toDate(), order.deliveredAt.toDate())
+                : null;
+
               return (
                 <Card 
                   key={order.id} 
@@ -132,17 +137,24 @@ export default function KitchenOrdersPage() {
                           </span>
                         </div>
                       </div>
-                      <Badge 
-                        variant="outline" 
-                        className={cn(
-                          "font-bold px-2 py-0.5 transition-colors",
-                          isDelivered 
-                            ? "bg-muted text-muted-foreground border-muted-foreground/20" 
-                            : "bg-primary/10 text-primary border-primary/20"
+                      <div className="flex flex-col items-end gap-2">
+                        <Badge 
+                          variant="outline" 
+                          className={cn(
+                            "font-bold px-2 py-0.5 transition-colors",
+                            isDelivered 
+                              ? "bg-muted text-muted-foreground border-muted-foreground/20" 
+                              : "bg-primary/10 text-primary border-primary/20"
+                          )}
+                        >
+                          {order.status || "Pending"}
+                        </Badge>
+                        {timeTaken && (
+                          <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-500 uppercase tracking-widest">
+                            <Timer className="w-3 h-3" /> {timeTaken}
+                          </div>
                         )}
-                      >
-                        {order.status || "Pending"}
-                      </Badge>
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent className="py-6 space-y-4">
