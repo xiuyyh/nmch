@@ -15,13 +15,25 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogTrigger,
+  DialogFooter
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { Search, Plus, Edit2, AlertTriangle, RefreshCw } from "lucide-react";
 import { useCollection, useFirestore } from "@/firebase";
-import { collection, query, orderBy } from "firebase/firestore";
+import { collection, query, orderBy, addDoc, serverTimestamp } from "firebase/firestore";
+import { useToast } from "@/hooks/use-toast";
 
 export default function InventoryPage() {
   const firestore = useFirestore();
+  const { toast } = useToast();
   const [search, setSearch] = useState("");
+  const [isAddOpen, setIsAddOpen] = useState(false);
 
   const inventoryQuery = useMemo(() => {
     if (!firestore) return null;
@@ -45,23 +57,88 @@ export default function InventoryPage() {
     };
   }, [stockItems]);
 
+  const handleAddItem = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!firestore) return;
+
+    const formData = new FormData(e.currentTarget);
+    const newItem = {
+      name: formData.get("name") as string,
+      category: formData.get("category") as string,
+      stock: Number(formData.get("stock")),
+      min: Number(formData.get("min")),
+      unit: formData.get("unit") as string,
+      lastUpdated: serverTimestamp()
+    };
+
+    try {
+      await addDoc(collection(firestore, "inventory"), newItem);
+      setIsAddOpen(false);
+      toast({
+        title: "Item Added",
+        description: `${newItem.name} has been added to inventory.`,
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to add inventory item.",
+      });
+    }
+  };
+
   return (
     <AppShell>
       <div className="flex flex-col gap-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-headline font-bold">Inventory</h1>
-            <p className="text-muted-foreground">Manage and track your bar stock levels.</p>
+            <h1 className="text-3xl font-headline font-bold">Bar Inventory</h1>
+            <p className="text-muted-foreground">Manage and track your bar stock levels in real-time.</p>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" className="gap-2">
-              <RefreshCw className="w-4 h-4" />
-              Sync
+              <RefreshCw className="w-4 h-4" /> Sync
             </Button>
-            <Button className="bg-primary text-primary-foreground gap-2">
-              <Plus className="w-4 h-4" />
-              Add Item
-            </Button>
+            
+            <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-primary text-primary-foreground gap-2">
+                  <Plus className="w-4 h-4" /> Add Stock Item
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="glass-card border-white/10">
+                <DialogHeader>
+                  <DialogTitle>Add New Inventory Item</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleAddItem} className="space-y-4 py-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2 col-span-2">
+                      <Label htmlFor="name">Item Name</Label>
+                      <Input id="name" name="name" placeholder="e.g. Tito's Vodka" required className="bg-white/5" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="category">Category</Label>
+                      <Input id="category" name="category" placeholder="Spirits" required className="bg-white/5" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="unit">Unit</Label>
+                      <Input id="unit" name="unit" placeholder="Bottles/ml" required className="bg-white/5" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="stock">Initial Stock</Label>
+                      <Input id="stock" name="stock" type="number" step="0.01" required className="bg-white/5" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="min">Min Threshold</Label>
+                      <Input id="min" name="min" type="number" step="0.01" required className="bg-white/5" />
+                    </div>
+                  </div>
+                  <DialogFooter className="pt-4">
+                    <Button type="submit" className="w-full">Save Item</Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
 
@@ -87,7 +164,7 @@ export default function InventoryPage() {
               <CardTitle className="text-sm font-medium text-muted-foreground">Status</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-primary font-headline">Live</div>
+              <div className="text-2xl font-bold text-primary font-headline">Live Tracking</div>
             </CardContent>
           </Card>
         </div>
@@ -100,7 +177,7 @@ export default function InventoryPage() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input 
                   placeholder="Filter stock..." 
-                  className="pl-10 h-9 bg-background/50" 
+                  className="pl-10 h-9 bg-background/50 border-white/5" 
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
@@ -110,14 +187,16 @@ export default function InventoryPage() {
           <CardContent>
             {loading ? (
               <div className="py-10 text-center text-muted-foreground">Loading stock data...</div>
+            ) : stockItems?.length === 0 ? (
+              <div className="py-20 text-center text-muted-foreground italic">No inventory items found. Add your first item to begin tracking.</div>
             ) : (
               <Table>
                 <TableHeader>
-                  <TableRow className="hover:bg-transparent border-border">
+                  <TableRow className="hover:bg-transparent border-white/5">
                     <TableHead className="font-bold">Item Name</TableHead>
                     <TableHead className="font-bold">Category</TableHead>
                     <TableHead className="font-bold">Current Stock</TableHead>
-                    <TableHead className="font-bold">Minimum Threshold</TableHead>
+                    <TableHead className="font-bold">Threshold</TableHead>
                     <TableHead className="font-bold">Status</TableHead>
                     <TableHead className="font-bold text-right">Actions</TableHead>
                   </TableRow>
@@ -126,16 +205,16 @@ export default function InventoryPage() {
                   {filteredItems.map((item) => {
                     const isLow = item.stock <= item.min;
                     return (
-                      <TableRow key={item.id} className="border-border hover:bg-white/5">
+                      <TableRow key={item.id} className="border-white/5 hover:bg-white/5">
                         <TableCell className="font-medium">{item.name}</TableCell>
                         <TableCell className="text-muted-foreground">{item.category}</TableCell>
                         <TableCell>
-                          <span className="font-headline font-bold">{item.stock}</span> {item.unit}
+                          <span className={cn("font-headline font-bold", isLow && "text-destructive")}>{item.stock.toFixed(2)}</span> {item.unit}
                         </TableCell>
                         <TableCell className="text-muted-foreground">{item.min} {item.unit}</TableCell>
                         <TableCell>
                           {isLow ? (
-                            <Badge variant="destructive" className="gap-1">
+                            <Badge variant="destructive" className="gap-1 animate-pulse">
                               <AlertTriangle className="w-3 h-3" />
                               Low Stock
                             </Badge>

@@ -16,9 +16,7 @@ import {
   Banknote, 
   ShoppingCart,
   LayoutGrid,
-  History,
   Clock,
-  User,
   X
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -31,8 +29,9 @@ import {
   deleteDoc, 
   serverTimestamp, 
   query, 
-  where, 
-  orderBy 
+  where,
+  increment,
+  updateDoc
 } from "firebase/firestore";
 import { errorEmitter } from "@/firebase/error-emitter";
 import { FirestorePermissionError } from "@/firebase/errors";
@@ -55,7 +54,7 @@ export default function SalesPage() {
     if (!firestore) return null;
     return query(collection(firestore, "menu"), where("status", "==", "Active"));
   }, [firestore]);
-  const { data: menuItems, loading: menuLoading } = useCollection(menuItemsQueryStab(menuQuery));
+  const { data: menuItems, loading: menuLoading } = useCollection(menuQuery);
 
   // Fetch Active Table Order if any
   const tableRef = useMemo(() => {
@@ -73,8 +72,6 @@ export default function SalesPage() {
     }
   }, [selectedTable, tableSession]);
 
-  function menuItemsQueryStab(q: any) { return q; }
-
   const addToCart = (item: any) => {
     setCart(prev => {
       const existing = prev.find(i => i.menuItemId === item.id);
@@ -85,7 +82,6 @@ export default function SalesPage() {
         newCart = [...prev, { menuItemId: item.id, name: item.name, price: item.price, quantity: 1 }];
       }
 
-      // If we are in table mode, save to table session automatically
       if (selectedTable && firestore) {
         saveToTable(newCart);
       }
@@ -130,7 +126,7 @@ export default function SalesPage() {
 
   const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
-  const handleCheckout = (method: string) => {
+  const handleCheckout = async (method: string) => {
     if (!firestore) return;
 
     const saleData = {
@@ -141,29 +137,44 @@ export default function SalesPage() {
       timestamp: serverTimestamp()
     };
 
-    addDoc(collection(firestore, "sales"), saleData)
-      .then(() => {
-        toast({
-          title: "Sale Recorded",
-          description: `Successfully processed ${method} payment of $${total.toFixed(2)}`,
-        });
-        
-        // Clear table session if active
-        if (selectedTable) {
-          deleteDoc(doc(firestore, "tableSessions", selectedTable));
-          setSelectedTable(null);
+    try {
+      // 1. Record the Sale
+      await addDoc(collection(firestore, "sales"), saleData);
+
+      // 2. Decrement Inventory based on menu item ingredients
+      for (const cartItem of cart) {
+        const fullMenuItem = menuItems?.find(m => m.id === cartItem.menuItemId);
+        if (fullMenuItem?.ingredients && Array.isArray(fullMenuItem.ingredients)) {
+          for (const ingredient of fullMenuItem.ingredients) {
+            const stockRef = doc(firestore, "inventory", ingredient.stockItemId);
+            // Decrement stock: quantity in cart * amount per item
+            updateDoc(stockRef, {
+              stock: increment(-(ingredient.amount * cartItem.quantity)),
+              lastUpdated: serverTimestamp()
+            });
+          }
         }
-        
-        setCart([]);
-      })
-      .catch(async (error) => {
-        const permissionError = new FirestorePermissionError({
-          path: "sales",
-          operation: "create",
-          requestResourceData: saleData,
-        });
-        errorEmitter.emit("permission-error", permissionError);
+      }
+
+      toast({
+        title: "Sale Recorded",
+        description: `Successfully processed ${method} payment. Inventory updated.`,
       });
+      
+      if (selectedTable) {
+        deleteDoc(doc(firestore, "tableSessions", selectedTable));
+        setSelectedTable(null);
+      }
+      
+      setCart([]);
+    } catch (error: any) {
+      const permissionError = new FirestorePermissionError({
+        path: "sales",
+        operation: "create",
+        requestResourceData: saleData,
+      });
+      errorEmitter.emit("permission-error", permissionError);
+    }
   };
 
   const filteredItems = useMemo(() => {
@@ -173,7 +184,6 @@ export default function SalesPage() {
     );
   }, [menuItems, search]);
 
-  // Active table listener (for badges)
   const activeTablesQuery = useMemo(() => {
     if (!firestore) return null;
     return collection(firestore, "tableSessions");
@@ -187,7 +197,6 @@ export default function SalesPage() {
   return (
     <AppShell>
       <div className="flex flex-col gap-6 h-full max-w-[1600px] mx-auto">
-        {/* Header Toggle */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h1 className="text-3xl font-headline font-bold">Bar Operations</h1>
@@ -206,7 +215,6 @@ export default function SalesPage() {
         </div>
 
         <div className="flex flex-col lg:flex-row gap-6">
-          {/* Main Work Area */}
           <div className="flex-1 space-y-6">
             {activeTab === "tables" && !selectedTable ? (
               <Card className="glass-card">
@@ -229,7 +237,7 @@ export default function SalesPage() {
                           )}
                           onClick={() => {
                             setSelectedTable(table);
-                            setActiveTab("quick"); // Switch to menu selection for this table
+                            setActiveTab("quick");
                           }}
                         >
                           <span className="font-headline font-bold text-lg">{table.split(' ')[1]}</span>
@@ -329,7 +337,6 @@ export default function SalesPage() {
             )}
           </div>
 
-          {/* Cart Sidebar */}
           <div className="w-full lg:w-[400px]">
             <Card className="glass-card flex flex-col h-[calc(100vh-280px)] sticky top-28">
               <CardHeader className="p-6 border-b border-white/5 flex flex-row items-center justify-between">

@@ -23,7 +23,16 @@
         "name": { "type": "string" },
         "price": { "type": "number" },
         "category": { "type": "string" },
-        "ingredients": { "type": "number" },
+        "ingredients": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "stockItemId": { "type": "string" },
+              "amount": { "type": "number" }
+            }
+          }
+        },
         "status": { "type": "string", "enum": ["Active", "Seasonal", "Archived"] }
       },
       "required": ["name", "price", "status"]
