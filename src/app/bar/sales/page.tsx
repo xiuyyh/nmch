@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo } from "react";
@@ -381,87 +380,87 @@ export default function SalesPage() {
           </div>
 
           <div className="w-full lg:w-[400px]">
-            <Card className="glass-card flex flex-col h-[calc(100vh-280px)] sticky top-28 border-white/5">
-              <CardHeader className="p-6 border-b border-white/5 flex flex-row items-center justify-between">
+            <Card className="glass-card flex flex-col h-[calc(100vh-220px)] sticky top-28 border-white/5">
+              <CardHeader className="p-4 border-b border-white/5 flex flex-row items-center justify-between shrink-0">
                 <div>
-                  <CardTitle className="font-headline font-bold text-xl text-white">
+                  <CardTitle className="font-headline font-bold text-lg text-white">
                     {selectedTable ? `Bill: ${selectedTable}` : "Quick Sale"}
                   </CardTitle>
-                  <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold mt-1">
-                    {cart.length} items selected
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold mt-0.5">
+                    {cart.length} items
                   </p>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => {
+                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive" onClick={() => {
                   setCart([]);
                   if(selectedTable) saveToTable([]);
-                }} disabled={cart.length === 0} className="hover:bg-destructive/10 hover:text-destructive">
-                  <Trash2 className="w-5 h-5" />
+                }} disabled={cart.length === 0}>
+                  <Trash2 className="w-4 h-4" />
                 </Button>
               </CardHeader>
               
-              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              <div className="flex-1 overflow-y-auto p-4 space-y-3">
                 {cart.length === 0 ? (
-                  <div className="h-full flex flex-col items-center justify-center text-muted-foreground opacity-30 text-center p-8">
-                    <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mb-6">
-                      <ShoppingCart className="w-8 h-8" />
+                  <div className="h-full flex flex-col items-center justify-center text-muted-foreground opacity-30 text-center p-4">
+                    <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center mb-4">
+                      <ShoppingCart className="w-6 h-6" />
                     </div>
-                    <p className="font-medium italic">Your cart is empty.<br/>Select items to begin order.</p>
+                    <p className="text-sm font-medium italic">Empty cart.</p>
                   </div>
                 ) : (
                   cart.map(item => (
-                    <div key={item.itemId} className="flex flex-col gap-3 p-4 bg-white/5 rounded-2xl border border-white/5">
-                      <div className="flex justify-between items-start gap-4">
-                        <span className="font-headline font-bold text-base leading-tight text-white">{item.name}</span>
+                    <div key={item.itemId} className="flex flex-col gap-2 p-3 bg-white/5 rounded-xl border border-white/5">
+                      <div className="flex justify-between items-start gap-2">
+                        <span className="font-headline font-bold text-sm leading-tight text-white line-clamp-2">{item.name}</span>
                         <button onClick={() => removeFromCart(item.itemId)} className="text-muted-foreground hover:text-destructive transition-colors">
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                       <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-1 bg-black/20 rounded-xl p-1">
-                          <Button size="icon" variant="ghost" className="w-8 h-8 rounded-lg" onClick={() => updateQuantity(item.itemId, -1)}>
-                            <Minus className="w-3 h-3" />
+                        <div className="flex items-center gap-1 bg-black/20 rounded-lg p-0.5">
+                          <Button size="icon" variant="ghost" className="w-6 h-6 rounded-md" onClick={() => updateQuantity(item.itemId, -1)}>
+                            <Minus className="w-2.5 h-2.5" />
                           </Button>
-                          <span className="w-10 text-center font-headline font-bold text-white">{item.quantity}</span>
-                          <Button size="icon" variant="ghost" className="w-8 h-8 rounded-lg" onClick={() => updateQuantity(item.itemId, 1)}>
-                            <Plus className="w-3 h-3" />
+                          <span className="w-6 text-center text-xs font-headline font-bold text-white">{item.quantity}</span>
+                          <Button size="icon" variant="ghost" className="w-6 h-6 rounded-md" onClick={() => updateQuantity(item.itemId, 1)}>
+                            <Plus className="w-2.5 h-2.5" />
                           </Button>
                         </div>
-                        <span className="font-headline font-bold text-primary text-lg">₦{(item.price * item.quantity).toLocaleString()}</span>
+                        <span className="font-headline font-bold text-primary text-sm">₦{(item.price * item.quantity).toLocaleString()}</span>
                       </div>
                     </div>
                   ))
                 )}
               </div>
 
-              <div className="p-8 bg-black/40 border-t border-white/5 space-y-6">
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center text-muted-foreground font-medium">
+              <div className="p-4 bg-black/40 border-t border-white/5 space-y-4 shrink-0">
+                <div className="space-y-1">
+                  <div className="flex justify-between items-center text-xs text-muted-foreground font-medium">
                     <span>Subtotal</span>
                     <span>₦{total.toLocaleString()}</span>
                   </div>
-                  <div className="flex justify-between items-center text-2xl font-bold">
+                  <div className="flex justify-between items-center text-lg font-bold">
                     <span className="font-headline text-white">Total</span>
                     <span className="text-primary font-headline">₦{total.toLocaleString()}</span>
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3">
                   <Button 
-                    size="lg"
-                    className="bg-primary text-primary-foreground neon-glow-primary hover:opacity-90 font-bold h-14 rounded-2xl shadow-xl"
+                    size="sm"
+                    className="bg-primary text-primary-foreground font-bold h-11 rounded-xl"
                     disabled={cart.length === 0}
                     onClick={() => handleCheckout('Card')}
                   >
-                    <CreditCard className="w-5 h-5 mr-2" />
+                    <CreditCard className="w-4 h-4 mr-2" />
                     Card
                   </Button>
                   <Button 
-                    size="lg"
-                    className="bg-secondary text-secondary-foreground neon-glow-secondary hover:opacity-90 font-bold h-14 rounded-2xl shadow-xl"
+                    size="sm"
+                    className="bg-secondary text-secondary-foreground font-bold h-11 rounded-xl"
                     disabled={cart.length === 0}
                     onClick={() => handleCheckout('Cash')}
                   >
-                    <Banknote className="w-5 h-5 mr-2" />
+                    <Banknote className="w-4 h-4 mr-2" />
                     Cash
                   </Button>
                 </div>
