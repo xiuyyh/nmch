@@ -261,39 +261,54 @@ export default function SalesHistoryPage() {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    const fromDate = dateFrom ? format(parseISO(dateFrom), "PPP") : "N/A";
-    const toDate = dateTo ? format(parseISO(dateTo), "PPP") : "N/A";
+    const fromDate = dateFrom ? format(parseISO(dateFrom), "dd/MM/yy") : "N/A";
+    const toDate = dateTo ? format(parseISO(dateTo), "dd/MM/yy") : "N/A";
     
-    const itemsHtml = paginatedSales.map((sale: any) => `
-      <tr style="border-bottom: 1px solid #eee;">
-        <td style="padding: 8px 0;">${sale.timestamp?.toDate ? format(sale.timestamp.toDate(), 'dd/MM/yy HH:mm') : 'N/A'}</td>
-        <td style="padding: 8px 0;">${sale.tableNumber}</td>
-        <td style="padding: 8px 0;">${sale.items?.map((i:any) => i.name + ' x' + i.quantity).join(', ')}</td>
-        <td style="padding: 8px 0; text-align: right;">₦${sale.total.toLocaleString()}</td>
+    const itemsHtml = filteredSales.map((sale: any) => `
+      <tr style="border-bottom: 1px dashed #000;">
+        <td style="padding: 4px 0;">${sale.timestamp?.toDate ? format(sale.timestamp.toDate(), 'HH:mm') : 'N/A'}<br/>${sale.tableNumber}</td>
+        <td style="padding: 4px 0;">${sale.items?.map((i:any) => i.name + ' x' + i.quantity).join('<br/>')}</td>
+        <td style="padding: 4px 0; text-align: right;">₦${sale.total.toLocaleString()}</td>
       </tr>
     `).join('');
 
     const html = `
       <html>
         <head>
-          <title>Sales Report: ${fromDate} - ${toDate}</title>
+          <title>Sales Audit Report</title>
           <style>
-            body { font-family: 'Arial', sans-serif; padding: 20px; color: #333; }
-            .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 20px; margin-bottom: 20px; }
-            .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
-            .metric-box { padding: 15px; border: 1px solid #ddd; border-radius: 8px; }
-            .metric-label { font-size: 12px; color: #666; text-transform: uppercase; font-weight: bold; }
-            .metric-value { font-size: 24px; font-weight: bold; margin-top: 5px; }
-            table { width: 100%; border-collapse: collapse; }
-            th { text-align: left; border-bottom: 2px solid #333; padding: 10px 0; font-size: 13px; }
-            .footer { margin-top: 40px; text-align: center; font-size: 12px; color: #999; }
+            @page { size: 80mm auto; margin: 0; }
+            body { 
+              font-family: 'Arial', sans-serif; 
+              width: 80mm; 
+              padding: 5mm; 
+              color: #000; 
+              font-size: 11px; 
+              line-height: 1.3;
+              margin: 0 auto;
+            }
+            .center { text-align: center; }
+            .bold { font-weight: bold; }
+            .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 10px; }
+            .header h1 { font-size: 16px; margin: 0; text-transform: uppercase; }
+            .header h2 { font-size: 12px; margin: 4px 0; text-transform: uppercase; }
+            .header p { font-size: 10px; margin: 2px 0; }
+            .metrics { display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px; }
+            .metric-box { padding: 8px; border: 1px solid #000; border-radius: 2px; }
+            .metric-label { font-size: 9px; text-transform: uppercase; font-weight: bold; }
+            .metric-value { font-size: 14px; font-weight: bold; margin-top: 2px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            th { text-align: left; border-bottom: 1px solid #000; padding: 4px 0; font-size: 9px; text-transform: uppercase; }
+            td { font-size: 9px; vertical-align: top; }
+            .divider { border-bottom: 1px solid #000; margin: 10px 0; }
+            .footer { margin-top: 15px; text-align: center; font-size: 8px; border-top: 1px dashed #000; padding-top: 8px; }
           </style>
         </head>
         <body>
           <div class="header">
             <h1>NIGHTINGALE HOTEL</h1>
             <h2>Sales Audit Report</h2>
-            <p>Period: ${fromDate} to ${toDate}</p>
+            <p>Period: ${fromDate} - ${toDate}</p>
             ${search ? `<p>Filter: "${search}"</p>` : ''}
           </div>
           
@@ -318,12 +333,11 @@ export default function SalesHistoryPage() {
             ` : ''}
           </div>
 
-          <h3>Transaction Breakdown</h3>
+          <div class="bold center" style="text-transform: uppercase; font-size: 10px;">Transaction Log</div>
           <table>
             <thead>
               <tr>
-                <th>Date/Time</th>
-                <th>Table</th>
+                <th>Time/Loc</th>
                 <th>Items</th>
                 <th style="text-align: right;">Total</th>
               </tr>
@@ -334,7 +348,7 @@ export default function SalesHistoryPage() {
           </table>
 
           <div class="footer">
-            Report generated on ${format(new Date(), "PPP p")} by NMCH POS
+            Generated on ${format(new Date(), "dd/MM/yy HH:mm")}
           </div>
         </body>
       </html>
