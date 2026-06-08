@@ -15,7 +15,8 @@ import {
   History,
   CheckCircle2,
   ChevronDown,
-  ArrowRight
+  ArrowRight,
+  ExternalLink
 } from "lucide-react";
 import { 
   Collapsible,
@@ -29,6 +30,7 @@ import { useToast } from "@/hooks/use-toast";
 import { errorEmitter } from "@/firebase/error-emitter";
 import { FirestorePermissionError } from "@/firebase/errors";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
 
 export default function ShiftManagementPage() {
   const firestore = useFirestore();
@@ -96,6 +98,7 @@ export default function ShiftManagementPage() {
       .map(item => ({
         itemId: item.id,
         name: item.name,
+        category: item.category,
         quantity: item.stock
       }));
 
@@ -177,7 +180,7 @@ export default function ShiftManagementPage() {
                   </div>
                   <div className="space-y-2">
                     <h3 className="text-xl font-headline font-bold">Ready to take over?</h3>
-                    <p className="text-muted-foreground max-w-sm mx-auto">
+                    <p className="text-muted-foreground max-sm mx-auto">
                       Starting your shift will take a snapshot of the current bar inventory as your **Opening Stock**. This ensures accurate sales tracking during your duty.
                     </p>
                   </div>
@@ -225,15 +228,24 @@ export default function ShiftManagementPage() {
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Opening Stock Snapshot</span>
-                      <span className="text-[10px] text-muted-foreground italic">Recorded at start of shift</span>
+                      <Button asChild variant="link" className="h-auto p-0 text-[10px] uppercase font-bold text-primary gap-1">
+                        <Link href={`/bar/shift/${myActiveShift.id}`}>
+                          See Full List <ExternalLink className="w-3 h-3" />
+                        </Link>
+                      </Button>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                      {myActiveShift.openingStock?.map((item: any, idx: number) => (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {myActiveShift.openingStock?.slice(0, 10).map((item: any, idx: number) => (
                         <div key={idx} className="flex justify-between items-center p-3 bg-white/5 rounded-xl border border-white/5">
                           <span className="text-sm font-medium">{item.name}</span>
                           <span className="font-headline font-bold text-primary">{item.quantity}</span>
                         </div>
                       ))}
+                      {myActiveShift.openingStock?.length > 10 && (
+                        <div className="sm:col-span-2 text-center py-2 text-[10px] text-muted-foreground font-bold uppercase tracking-widest opacity-50">
+                          ... and {myActiveShift.openingStock.length - 10} more items
+                        </div>
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -284,13 +296,19 @@ export default function ShiftManagementPage() {
                               <span>Opening Item</span>
                               <span>Qty</span>
                             </div>
-                            {shift.openingStock?.slice(0, 8).map((item: any, i: number) => (
+                            {shift.openingStock?.slice(0, 10).map((item: any, i: number) => (
                               <div key={i} className="flex justify-between text-[10px] border-b border-white/5 pb-1">
                                 <span className="text-muted-foreground">{item.name}</span>
                                 <span className="font-bold text-white">{item.quantity}</span>
                               </div>
                             ))}
-                            {shift.openingStock?.length > 8 && <span className="text-[8px] text-muted-foreground italic">+{shift.openingStock.length - 8} more items recorded...</span>}
+                            <div className="pt-2 text-center">
+                              <Button asChild variant="link" className="h-auto p-0 text-[10px] font-bold uppercase text-primary gap-1">
+                                <Link href={`/bar/shift/${shift.id}`}>
+                                  See Full Report <ExternalLink className="w-3 h-3" />
+                                </Link>
+                              </Button>
+                            </div>
                           </CollapsibleContent>
                         </Collapsible>
                       ))
