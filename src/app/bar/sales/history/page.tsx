@@ -32,7 +32,7 @@ import {
   CheckCircle2,
   AlertCircle
 } from "lucide-react";
-import { useCollection, useFirestore } from "@/firebase";
+import { useCollection, useFirestore, useUser, useDoc } from "@/firebase";
 import { collection, query, orderBy, doc, updateDoc, increment, serverTimestamp, getDoc } from "firebase/firestore";
 import { format, isWithinInterval, startOfDay, endOfDay, parseISO } from "date-fns";
 import { cn, formatNigeriaTime } from "@/lib/utils";
@@ -61,10 +61,19 @@ const ITEMS_PER_PAGE = 10;
 
 export default function SalesHistoryPage() {
   const firestore = useFirestore();
+  const { user } = useUser();
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   
+  // Get current user role
+  const userRef = useMemo(() => {
+    if (!firestore || !user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
+  const { data: userRecord } = useDoc(userRef);
+  const isAdmin = userRecord?.role === 'admin';
+
   // Manual Date State
   const [dateFrom, setDateFrom] = useState<string>(format(new Date(), "yyyy-MM-dd"));
   const [dateTo, setDateTo] = useState<string>(format(new Date(), "yyyy-MM-dd"));
@@ -150,6 +159,7 @@ export default function SalesHistoryPage() {
   }, [filteredSales, currentPage]);
 
   const checkShiftStatus = async (shiftId: string) => {
+    if (shiftId === "admin-override") return false; // Admin overrides never locked
     if (!firestore || !shiftId) return true;
     const shiftRef = doc(firestore, "shifts", shiftId);
     const shiftSnap = await getDoc(shiftRef);
@@ -161,7 +171,7 @@ export default function SalesHistoryPage() {
     if (!firestore) return;
 
     const isClosed = await checkShiftStatus(sale.shiftId);
-    if (isClosed) {
+    if (isClosed && !isAdmin) {
       toast({
         variant: "destructive",
         title: "Action Restricted",
@@ -194,7 +204,7 @@ export default function SalesHistoryPage() {
     if (!firestore) return;
 
     const isClosed = await checkShiftStatus(sale.shiftId);
-    if (isClosed) {
+    if (isClosed && !isAdmin) {
       toast({
         variant: "destructive",
         title: "Action Restricted",
@@ -243,7 +253,7 @@ export default function SalesHistoryPage() {
     if (!firestore) return;
 
     const isClosed = await checkShiftStatus(sale.shiftId);
-    if (isClosed) {
+    if (isClosed && !isAdmin) {
       toast({
         variant: "destructive",
         title: "Action Restricted",
@@ -692,7 +702,7 @@ export default function SalesHistoryPage() {
                                   search && item.name.toLowerCase().includes(search.toLowerCase()) && "text-primary font-bold"
                                 )}>
                                   {item.name} <span className="text-muted-foreground">x{item.quantity}</span>
-                                  {sale.status !== "Canceled" && (
+                                  {(sale.status !== "Canceled" && (isAdmin || !sale.shiftId || sale.shiftId === "admin-override")) && (
                                     <button 
                                       onClick={() => handleVoidItem(sale, idx)}
                                       className="ml-2 text-destructive opacity-0 group-hover/item:opacity-100 transition-opacity"
@@ -712,7 +722,7 @@ export default function SalesHistoryPage() {
                               {getMethodIcon(sale.method)} {sale.method}
                             </Badge>
                             <div className="flex items-center gap-3">
-                              {sale.status !== "Canceled" && (
+                              {sale.status !== "Canceled" && (isAdmin || !sale.shiftId || sale.shiftId === "admin-override") && (
                                 <AlertDialog>
                                   <AlertDialogTrigger asChild>
                                     <Button variant="ghost" size="sm" className="h-8 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive">

@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
@@ -82,6 +81,14 @@ export default function SalesPage() {
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
   const [shouldPrintDucket, setShouldPrintDucket] = useState(true);
 
+  // Get current user role
+  const userRef = useMemo(() => {
+    if (!firestore || !user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
+  const { data: userRecord } = useDoc(userRef);
+  const isAdmin = userRecord?.role === 'admin';
+
   // Check for active shift
   const shiftQuery = useMemo(() => {
     if (!firestore || !user) return null;
@@ -140,7 +147,7 @@ export default function SalesPage() {
   };
 
   const addToCart = (item: any) => {
-    if (!activeShift) {
+    if (!activeShift && !isAdmin) {
       toast({ variant: "destructive", title: "Shift Not Started", description: "Please start your shift before taking orders." });
       return;
     }
@@ -239,7 +246,7 @@ export default function SalesPage() {
       return;
     }
 
-    if (!activeShift) {
+    if (!activeShift && !isAdmin) {
       toast({ variant: "destructive", title: "Shift Required", description: "You must have an active shift to process orders." });
       return;
     }
@@ -254,7 +261,7 @@ export default function SalesPage() {
       localTimestamp: now.toISOString(),
       status: "Unsettled",
       staffName: user?.displayName || user?.email || "Bar Staff",
-      shiftId: activeShift.id
+      shiftId: activeShift?.id || "admin-override"
     };
 
     // We pass the local 'now' date to the print function so it doesn't show N/A
@@ -397,7 +404,7 @@ export default function SalesPage() {
 
   if (shiftLoading) return <AppShell><div className="flex h-[60vh] items-center justify-center animate-pulse text-muted-foreground">Checking Shift Status...</div></AppShell>;
 
-  if (!activeShift) {
+  if (!activeShift && !isAdmin) {
     return (
       <AppShell>
         <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-6">
@@ -406,7 +413,7 @@ export default function SalesPage() {
           </div>
           <div className="space-y-2">
             <h2 className="text-3xl font-headline font-bold">Shift Not Started</h2>
-            <p className="text-muted-foreground max-w-md mx-auto">
+            <p className="text-muted-foreground max-md mx-auto">
               You must record your opening stock and start your shift before you can process sales.
             </p>
           </div>
@@ -506,7 +513,11 @@ export default function SalesPage() {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div className="flex flex-col">
               <h1 className="text-3xl font-headline font-bold uppercase tracking-tight">BAR SALES</h1>
-              <span className="text-xs text-muted-foreground font-bold uppercase tracking-widest">Active Shift: {activeShift.staffName}</span>
+              {isAdmin && !activeShift ? (
+                <span className="text-xs text-primary font-bold uppercase tracking-widest">Administrator Override Mode</span>
+              ) : activeShift ? (
+                <span className="text-xs text-muted-foreground font-bold uppercase tracking-widest">Active Shift: {activeShift.staffName}</span>
+              ) : null}
             </div>
             <Tabs value={activeTab} onValueChange={(v: any) => setActiveTab(v)} className="w-full md:w-auto">
               <TabsList className="bg-white/5 border border-white/10 p-1 w-full sm:w-auto h-12">

@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -22,7 +21,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { useCollection, useFirestore, useUser } from "@/firebase";
+import { useCollection, useFirestore, useUser, useDoc } from "@/firebase";
 import { collection, query, where, orderBy, addDoc, serverTimestamp, doc, updateDoc, limit } from "firebase/firestore";
 import { startOfDay, endOfDay } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -36,6 +35,14 @@ export default function ShiftManagementPage() {
   const { user } = useUser();
   const { toast } = useToast();
   const [isStarting, setIsStarting] = useState(false);
+
+  // Get current user role
+  const userRef = useMemo(() => {
+    if (!firestore || !user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
+  const { data: userRecord } = useDoc(userRef);
+  const isAdmin = userRecord?.role === 'admin';
 
   // Fetch Inventory for snapshot
   const inventoryQuery = useMemo(() => {
@@ -80,7 +87,8 @@ export default function ShiftManagementPage() {
   const handleStartShift = async () => {
     if (!firestore || !user || !inventory) return;
     
-    if (otherActiveShift) {
+    // Admins are not blocked by other active shifts
+    if (otherActiveShift && !isAdmin) {
       toast({
         variant: "destructive",
         title: "Session Conflict",
@@ -189,10 +197,10 @@ export default function ShiftManagementPage() {
                 <CardFooter>
                   <Button 
                     onClick={handleStartShift} 
-                    disabled={isStarting || !!otherActiveShift} 
+                    disabled={isStarting || (!!otherActiveShift && !isAdmin)} 
                     className="w-full h-14 bg-amber-600 hover:bg-amber-700 text-white font-bold text-lg rounded-2xl shadow-xl transition-all"
                   >
-                    {isStarting ? "Processing..." : otherActiveShift ? "Wait for Handover" : <><Play className="w-5 h-5 mr-2" /> Start Shift & Record Stock</>}
+                    {isStarting ? "Processing..." : (otherActiveShift && !isAdmin) ? "Wait for Handover" : <><Play className="w-5 h-5 mr-2" /> Start Shift & Record Stock</>}
                   </Button>
                 </CardFooter>
               </Card>
