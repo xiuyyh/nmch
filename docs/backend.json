@@ -110,7 +110,9 @@
         "tableNumber": { "type": "string" },
         "timestamp": { "type": "string", "format": "date-time" },
         "status": { "type": "string", "enum": ["Completed", "Canceled"] },
-        "canceledAt": { "type": "string", "format": "date-time" }
+        "canceledAt": { "type": "string", "format": "date-time" },
+        "staffName": { "type": "string" },
+        "shiftId": { "type": "string" }
       },
       "required": ["items", "total", "method", "timestamp"]
     },
@@ -195,6 +197,30 @@
         "deliveredAt": { "type": "string", "format": "date-time" }
       },
       "required": ["tableNumber", "items", "timestamp"]
+    },
+    "Shift": {
+      "title": "Shift Record",
+      "description": "Record of a staff member's shift including opening stock",
+      "type": "object",
+      "properties": {
+        "staffId": { "type": "string" },
+        "staffName": { "type": "string" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "endTime": { "type": "string", "format": "date-time" },
+        "openingStock": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "itemId": { "type": "string" },
+              "name": { "type": "string" },
+              "quantity": { "type": "number" }
+            }
+          }
+        },
+        "status": { "type": "string", "enum": ["active", "closed"] }
+      },
+      "required": ["staffId", "staffName", "startTime", "openingStock", "status"]
     }
   },
   "auth": {
@@ -248,6 +274,10 @@
     "/kitchenOrders/{orderId}": {
       "schema": "KitchenOrder",
       "description": "Orders currently being processed by the kitchen"
+    },
+    "/shifts/{shiftId}": {
+      "schema": "Shift",
+      "description": "History of staff shifts and opening stock"
     }
   }
 }

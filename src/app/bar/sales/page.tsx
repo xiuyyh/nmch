@@ -35,7 +35,8 @@ import {
   ArrowLeftRight,
   Printer,
   CheckCircle2,
-  Receipt
+  Receipt,
+  AlertTriangle
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCollection, useDoc, useFirestore, useUser } from "@/firebase";
@@ -49,11 +50,14 @@ import {
   query, 
   orderBy,
   increment,
-  updateDoc
+  updateDoc,
+  where,
+  limit
 } from "firebase/firestore";
 import { errorEmitter } from "@/firebase/error-emitter";
 import { FirestorePermissionError } from "@/firebase/errors";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
 
 const ITEMS_PER_PAGE = 8;
 const TABLES = Array.from({ length: 20 }, (_, i) => `Table ${i + 1}`);
@@ -80,6 +84,19 @@ export default function SalesPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
   const [shouldPrintDucket, setShouldPrintDucket] = useState(true);
+
+  // Check for active shift
+  const shiftQuery = useMemo(() => {
+    if (!firestore || !user) return null;
+    return query(
+      collection(firestore, "shifts"),
+      where("staffId", "==", user.uid),
+      where("status", "==", "active"),
+      limit(1)
+    );
+  }, [firestore, user]);
+  const { data: activeShifts, loading: shiftLoading } = useCollection(shiftQuery);
+  const activeShift = activeShifts?.[0];
 
   // Fetch Inventory
   const inventoryQuery = useMemo(() => {
@@ -111,7 +128,6 @@ export default function SalesPage() {
     if (items.length === 0) {
       deleteDoc(ref).catch(() => {});
     } else {
-      // NON-BLOCKING for offline use
       setDoc(ref, {
         tableNumber: selectedTable,
         items,
@@ -127,6 +143,10 @@ export default function SalesPage() {
   };
 
   const addToCart = (item: any) => {
+    if (!activeShift) {
+      toast({ variant: "destructive", title: "Shift Not Started", description: "Please start your shift before taking orders." });
+      return;
+    }
     setCart(prev => {
       const existing = prev.find(i => i.itemId === item.id);
       let newCart;
@@ -192,7 +212,6 @@ export default function SalesPage() {
       status: "Pending"
     };
 
-    // NON-BLOCKING for offline use
     addDoc(collection(firestore, "kitchenOrders"), kitchenOrderData)
       .then(() => {
         toast({ title: "Order Sent to Kitchen", description: `${item.name} x${quantityToFire} sent.` });
@@ -223,19 +242,24 @@ export default function SalesPage() {
       return;
     }
 
+    if (!activeShift) {
+      toast({ variant: "destructive", title: "Shift Required", description: "You must have an active shift to checkout." });
+      return;
+    }
+
     const saleData = {
       items: cart,
       total,
       method,
       tableNumber: selectedTable || "Counter",
       timestamp: serverTimestamp(),
-      status: "Completed"
+      status: "Completed",
+      staffName: user?.displayName || user?.email || "Bar Staff",
+      shiftId: activeShift.id
     };
 
-    // NON-BLOCKING: This resolves immediately to local cache if offline
     addDoc(collection(firestore, "sales"), saleData)
       .then((docRef) => {
-        // Print ducket IMMEDIATELY using the local reference ID
         if (shouldPrintDucket) printDucket({ ...saleData, id: docRef.id });
       })
       .catch((error: any) => {
@@ -246,7 +270,6 @@ export default function SalesPage() {
         }));
       });
 
-    // Handle remaining unsent FOOD items based on lastSentQuantity
     const foodItemsToFire = cart
       .filter(item => item.category === "FOOD" && item.quantity > (item.lastSentQuantity || 0))
       .map(item => ({
@@ -262,11 +285,9 @@ export default function SalesPage() {
         staffName: user?.displayName || user?.email || "Bar Staff",
         status: "Pending"
       };
-      // NON-BLOCKING
       addDoc(collection(firestore, "kitchenOrders"), kitchenOrderData).catch(() => {});
     }
 
-    // Update Stock - NON-BLOCKING
     for (const cartItem of cart) {
       if (cartItem.category === "FOOD") continue;
       const stockRef = doc(firestore, "inventory", cartItem.itemId);
@@ -318,6 +339,7 @@ export default function SalesPage() {
           <div class="meta">DATE: ${new Date().toLocaleString()}</div>
           <div class="meta">REC#: ${sale.id.slice(-8).toUpperCase()}</div>
           <div class="meta">SERV: ${sale.tableNumber}</div>
+          <div class="meta">STAFF: ${sale.staffName || user?.displayName || user?.email}</div>
           <div class="divider"></div>
           ${itemsHtml}
           <div class="total" style="display: flex; justify-content: space-between;">
@@ -359,6 +381,29 @@ export default function SalesPage() {
     const session = allActiveSessions?.find(s => s.tableNumber === table);
     return session?.items?.length || 0;
   };
+
+  if (shiftLoading) return <AppShell><div className="flex h-[60vh] items-center justify-center animate-pulse text-muted-foreground">Checking Shift Status...</div></AppShell>;
+
+  if (!activeShift) {
+    return (
+      <AppShell>
+        <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-6">
+          <div className="w-20 h-20 bg-amber-500/10 rounded-full flex items-center justify-center">
+            <AlertTriangle className="w-10 h-10 text-amber-500" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-3xl font-headline font-bold">Shift Not Started</h2>
+            <p className="text-muted-foreground max-w-md mx-auto">
+              You must record your opening stock and start your shift before you can process sales.
+            </p>
+          </div>
+          <Button asChild className="bg-primary text-primary-foreground font-bold h-14 px-8 rounded-2xl shadow-xl text-lg">
+            <Link href="/bar/shift">Go to Shift Management</Link>
+          </Button>
+        </div>
+      </AppShell>
+    );
+  }
 
   const CartUI = () => (
     <div className="flex flex-col h-full overflow-hidden">
@@ -450,7 +495,10 @@ export default function SalesPage() {
       <AppShell>
         <div className="flex flex-col gap-6 h-full max-w-[1600px] mx-auto pb-32 lg:pb-0">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <h1 className="text-3xl font-headline font-bold uppercase tracking-tight">BAR SALES</h1>
+            <div className="flex flex-col">
+              <h1 className="text-3xl font-headline font-bold uppercase tracking-tight">BAR SALES</h1>
+              <span className="text-xs text-muted-foreground font-bold uppercase tracking-widest">Active Shift: {activeShift.staffName}</span>
+            </div>
             <Tabs value={activeTab} onValueChange={(v: any) => setActiveTab(v)} className="w-full md:w-auto">
               <TabsList className="bg-white/5 border border-white/10 p-1 w-full sm:w-auto h-12">
                 <TabsTrigger value="quick" className="flex-1 sm:flex-none gap-2 px-6 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">

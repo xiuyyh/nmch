@@ -27,7 +27,8 @@ import {
   ShieldCheck,
   Wifi,
   WifiOff,
-  CloudUpload
+  CloudUpload,
+  Clock
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -67,6 +68,7 @@ const departments = [
     role: "bar",
     items: [
       { name: "Bar Sales", href: "/bar/sales", icon: ShoppingCart },
+      { name: "Shift Management", href: "/bar/shift", icon: Clock },
       { name: "Sales History", href: "/bar/sales/history", icon: HistoryIcon },
       { name: "Restock", href: "/bar/restock", icon: RefreshCw },
       { name: "End of Day", href: "/bar/end-of-day", icon: Lock },
