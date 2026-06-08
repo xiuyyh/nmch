@@ -264,13 +264,27 @@ export default function SalesHistoryPage() {
     const fromDate = dateFrom ? format(parseISO(dateFrom), "dd/MM/yy") : "N/A";
     const toDate = dateTo ? format(parseISO(dateTo), "dd/MM/yy") : "N/A";
     
-    const itemsHtml = filteredSales.map((sale: any) => `
-      <tr style="border-bottom: 1px dashed #000;">
-        <td style="padding: 4px 0;">${sale.timestamp?.toDate ? format(sale.timestamp.toDate(), 'HH:mm') : 'N/A'}<br/>${sale.tableNumber}</td>
-        <td style="padding: 4px 0;">${sale.items?.map((i:any) => i.name + ' x' + i.quantity).join('<br/>')}</td>
-        <td style="padding: 4px 0; text-align: right;">₦${sale.total.toLocaleString()}</td>
-      </tr>
-    `).join('');
+    // Aggregation Logic for Itemized Summary
+    const itemTotals: Record<string, { qty: number; revenue: number }> = {};
+    filteredSales.filter(s => s.status !== "Canceled").forEach(sale => {
+      sale.items?.forEach((item: any) => {
+        if (!itemTotals[item.name]) {
+          itemTotals[item.name] = { qty: 0, revenue: 0 };
+        }
+        itemTotals[item.name].qty += item.quantity;
+        itemTotals[item.name].revenue += (item.price * item.quantity);
+      });
+    });
+
+    const itemsHtml = Object.entries(itemTotals)
+      .sort((a, b) => b[1].qty - a[1].qty) // Sort by most sold
+      .map(([name, data]) => `
+        <tr style="border-bottom: 1px dashed #000;">
+          <td style="padding: 6px 0;">${name}</td>
+          <td style="padding: 6px 0; text-align: center;">${data.qty}</td>
+          <td style="padding: 6px 0; text-align: right;">₦${data.revenue.toLocaleString()}</td>
+        </tr>
+      `).join('');
 
     const html = `
       <html>
@@ -299,7 +313,7 @@ export default function SalesHistoryPage() {
             .metric-value { font-size: 14px; font-weight: bold; margin-top: 2px; }
             table { width: 100%; border-collapse: collapse; margin-top: 10px; }
             th { text-align: left; border-bottom: 1px solid #000; padding: 4px 0; font-size: 9px; text-transform: uppercase; }
-            td { font-size: 9px; vertical-align: top; }
+            td { font-size: 10px; vertical-align: top; }
             .divider { border-bottom: 1px solid #000; margin: 10px 0; }
             .footer { margin-top: 15px; text-align: center; font-size: 8px; border-top: 1px dashed #000; padding-top: 8px; }
           </style>
@@ -321,24 +335,14 @@ export default function SalesHistoryPage() {
               <div class="metric-label">Transactions</div>
               <div class="metric-value">${reportMetrics.count}</div>
             </div>
-            ${reportMetrics.isSearchingItem ? `
-              <div class="metric-box">
-                <div class="metric-label">Qty of "${search}"</div>
-                <div class="metric-value">${reportMetrics.itemQty}</div>
-              </div>
-              <div class="metric-box">
-                <div class="metric-label">Revenue from "${search}"</div>
-                <div class="metric-value">₦${reportMetrics.itemRevenue.toLocaleString()}</div>
-              </div>
-            ` : ''}
           </div>
 
-          <div class="bold center" style="text-transform: uppercase; font-size: 10px;">Transaction Log</div>
+          <div class="bold center" style="text-transform: uppercase; font-size: 10px;">Itemized Sales Summary</div>
           <table>
             <thead>
               <tr>
-                <th>Time/Loc</th>
-                <th>Items</th>
+                <th>Item</th>
+                <th style="text-align: center;">Qty</th>
                 <th style="text-align: right;">Total</th>
               </tr>
             </thead>
@@ -386,7 +390,7 @@ export default function SalesHistoryPage() {
               width: 80mm; 
               padding: 10mm; 
               font-size: 14px; 
-              color: #000;
+              color: #000; 
               line-height: 1.4;
             }
             .center { text-align: center; }
