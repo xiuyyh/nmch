@@ -106,10 +106,10 @@
           }
         },
         "total": { "type": "number" },
-        "method": { "type": "string", "enum": ["Card", "Cash", "Transfer"] },
+        "method": { "type": "string", "enum": ["Card", "Cash", "Transfer", "Unsettled"] },
         "tableNumber": { "type": "string" },
         "timestamp": { "type": "string", "format": "date-time" },
-        "status": { "type": "string", "enum": ["Completed", "Canceled"] },
+        "status": { "type": "string", "enum": ["Completed", "Canceled", "Unsettled"] },
         "canceledAt": { "type": "string", "format": "date-time" },
         "staffName": { "type": "string" },
         "shiftId": { "type": "string" }

@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo } from "react";
@@ -32,7 +33,9 @@ import {
   Calendar as CalendarIcon,
   Download,
   Filter,
-  BarChart3
+  BarChart3,
+  CheckCircle2,
+  AlertCircle
 } from "lucide-react";
 import { useCollection, useFirestore } from "@/firebase";
 import { collection, query, orderBy, doc, updateDoc, increment, serverTimestamp, getDoc } from "firebase/firestore";
@@ -109,6 +112,9 @@ export default function SalesHistoryPage() {
   // Aggregated Report Metrics
   const reportMetrics = useMemo(() => {
     const activeSales = filteredSales.filter(s => s.status !== "Canceled");
+    const settledSales = activeSales.filter(s => s.status === "Completed");
+    const unsettledSales = activeSales.filter(s => s.status === "Unsettled");
+
     let totalItemQty = 0;
     let totalItemRevenue = 0;
     const isSearchingItem = search.length > 2;
@@ -124,7 +130,11 @@ export default function SalesHistoryPage() {
 
     return {
       totalRevenue: activeSales.reduce((sum, s) => sum + (s.total || 0), 0),
+      settledRevenue: settledSales.reduce((sum, s) => sum + (s.total || 0), 0),
+      unsettledRevenue: unsettledSales.reduce((sum, s) => sum + (s.total || 0), 0),
       count: activeSales.length,
+      settledCount: settledSales.length,
+      unsettledCount: unsettledSales.length,
       itemQty: totalItemQty,
       itemRevenue: totalItemRevenue,
       isSearchingItem
@@ -143,6 +153,39 @@ export default function SalesHistoryPage() {
     const closingRef = doc(firestore, "dailyClosings", dateStr);
     const closingSnap = await getDoc(closingRef);
     return closingSnap.exists();
+  };
+
+  const handleSettleSale = async (sale: any, method: string) => {
+    if (!firestore) return;
+
+    const isLocked = await checkSettlement(sale.timestamp);
+    if (isLocked) {
+      toast({
+        variant: "destructive",
+        title: "Settlement Denied",
+        description: `The sales for this day have been settled and locked.`,
+      });
+      return;
+    }
+
+    const saleRef = doc(firestore, "sales", sale.id);
+    const updateData = {
+      status: "Completed",
+      method: method,
+      settledAt: serverTimestamp()
+    };
+
+    updateDoc(saleRef, updateData)
+      .then(() => {
+        toast({ title: "Sale Settled", description: `Transaction recorded via ${method}.` });
+      })
+      .catch(async (error) => {
+        errorEmitter.emit("permission-error", new FirestorePermissionError({
+          path: saleRef.path,
+          operation: "update",
+          requestResourceData: updateData
+        }));
+      });
   };
 
   const handleCancelSale = async (sale: any) => {
@@ -332,8 +375,8 @@ export default function SalesHistoryPage() {
               <div class="metric-value">₦${reportMetrics.totalRevenue.toLocaleString()}</div>
             </div>
             <div class="metric-box">
-              <div class="metric-label">Transactions</div>
-              <div class="metric-value">${reportMetrics.count}</div>
+              <div class="metric-label">Transactions (Settled/Unsettled)</div>
+              <div class="metric-value">${reportMetrics.settledCount} / ${reportMetrics.unsettledCount}</div>
             </div>
           </div>
 
@@ -415,9 +458,11 @@ export default function SalesHistoryPage() {
             <span>TOTAL:</span>
             <span>₦${sale.total.toLocaleString()}</span>
           </div>
-          <div class="meta" style="margin-top: 8px; font-size: 16px;">PAYMENT: ${sale.method}</div>
+          <div class="meta" style="margin-top: 8px; font-size: 16px;">PAYMENT: ${sale.method.toUpperCase()}</div>
           <div class="divider"></div>
-          <div class="center bold" style="margin-top: 15px; font-size: 16px;">*** ${sale.status === 'Canceled' ? 'VOID' : 'DUPLICATE'} ***</div>
+          <div class="center bold" style="margin-top: 15px; font-size: 16px;">
+            ${sale.status === 'Canceled' ? '*** VOID ***' : sale.status === 'Unsettled' ? '*** UNSETTLED ***' : '*** DUPLICATE ***'}
+          </div>
         </body>
       </html>
     `;
@@ -436,6 +481,7 @@ export default function SalesHistoryPage() {
       case 'Card': return <CreditCard className="w-3 h-3" />;
       case 'Cash': return <Banknote className="w-3 h-3" />;
       case 'Transfer': return <ArrowLeftRight className="w-3 h-3" />;
+      case 'Unsettled': return <AlertCircle className="w-3 h-3 text-amber-500" />;
       default: return null;
     }
   };
@@ -464,16 +510,24 @@ export default function SalesHistoryPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card className="glass-card">
             <CardContent className="pt-6">
-              <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-none mb-2">Period Revenue</div>
-              <div className="text-2xl font-bold font-headline text-primary">
-                ₦{reportMetrics.totalRevenue.toLocaleString()}
+              <div className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest leading-none mb-2 flex items-center gap-2">
+                <CheckCircle2 className="w-3 h-3" /> Settled Revenue
               </div>
+              <div className="text-2xl font-bold font-headline text-white">
+                ₦{reportMetrics.settledRevenue.toLocaleString()}
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1">{reportMetrics.settledCount} Transactions</p>
             </CardContent>
           </Card>
-          <Card className="glass-card">
+          <Card className="glass-card border-l-4 border-l-amber-500">
             <CardContent className="pt-6">
-              <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-none mb-2">Transactions</div>
-              <div className="text-2xl font-bold font-headline">{reportMetrics.count}</div>
+              <div className="text-[10px] font-bold text-amber-500 uppercase tracking-widest leading-none mb-2 flex items-center gap-2">
+                <AlertCircle className="w-3 h-3" /> Unsettled (Pending)
+              </div>
+              <div className="text-2xl font-bold font-headline text-white">
+                ₦{reportMetrics.unsettledRevenue.toLocaleString()}
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1">{reportMetrics.unsettledCount} Transactions</p>
             </CardContent>
           </Card>
           
@@ -529,7 +583,7 @@ export default function SalesHistoryPage() {
                 <div className="relative w-full sm:w-80">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input 
-                    placeholder="Search table, item, or method..." 
+                    placeholder="Search table, item, or status..." 
                     className="pl-10 h-10 bg-white/5 border-white/10 rounded-xl" 
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
@@ -552,15 +606,20 @@ export default function SalesHistoryPage() {
                   <Collapsible key={sale.id} className="group">
                     <div className={cn(
                       "p-4 flex items-center justify-between hover:bg-white/5 transition-colors",
-                      sale.status === "Canceled" && "opacity-60 bg-red-500/[0.02]"
+                      sale.status === "Canceled" && "opacity-60 bg-red-500/[0.02]",
+                      sale.status === "Unsettled" && "bg-amber-500/[0.03]"
                     )}>
                       <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-4 items-center">
                         <div className="flex flex-col">
                           <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none mb-1">Receipt</span>
                           <span className="font-mono text-xs font-bold text-white flex items-center gap-2">
                             #{sale.id.slice(-8).toUpperCase()}
-                            {sale.status === "Canceled" && (
+                            {sale.status === "Canceled" ? (
                               <Badge variant="destructive" className="h-4 text-[8px] uppercase px-1">Canceled</Badge>
+                            ) : sale.status === "Unsettled" ? (
+                              <Badge variant="outline" className="h-4 text-[8px] uppercase px-1 border-amber-500/50 text-amber-500">Unsettled</Badge>
+                            ) : (
+                              <Badge variant="outline" className="h-4 text-[8px] uppercase px-1 border-emerald-500/50 text-emerald-500">Settled</Badge>
                             )}
                           </span>
                         </div>
@@ -596,7 +655,28 @@ export default function SalesHistoryPage() {
                     </div>
                     
                     <CollapsibleContent className="bg-white/[0.02] px-6 py-4 border-t border-white/5">
-                      <div className="max-w-md space-y-4">
+                      <div className="max-w-md space-y-6">
+                        {/* Settlement Section */}
+                        {sale.status === "Unsettled" && (
+                          <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl space-y-4">
+                            <div className="flex items-center gap-2">
+                              <AlertCircle className="w-4 h-4 text-amber-500" />
+                              <span className="text-xs font-bold text-amber-500 uppercase tracking-widest">Complete Settlement</span>
+                            </div>
+                            <div className="grid grid-cols-3 gap-2">
+                              <Button size="sm" className="bg-primary text-primary-foreground font-bold h-10" onClick={() => handleSettleSale(sale, "Card")}>
+                                <CreditCard className="w-3.5 h-3.5 mr-1" /> Card
+                              </Button>
+                              <Button size="sm" variant="outline" className="border-primary/30 text-primary font-bold h-10" onClick={() => handleSettleSale(sale, "Transfer")}>
+                                <ArrowLeftRight className="w-3.5 h-3.5 mr-1" /> Trans
+                              </Button>
+                              <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-10" onClick={() => handleSettleSale(sale, "Cash")}>
+                                <Banknote className="w-3.5 h-3.5 mr-1" /> Cash
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+
                         <div className="space-y-3">
                           <div className="flex justify-between text-xs font-bold text-muted-foreground uppercase tracking-[0.2em] border-b border-white/10 pb-2">
                             <span>Itemized List</span>

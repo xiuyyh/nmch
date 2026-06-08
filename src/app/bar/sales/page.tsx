@@ -36,7 +36,8 @@ import {
   Printer,
   CheckCircle2,
   Receipt,
-  AlertTriangle
+  AlertTriangle,
+  FileText
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCollection, useDoc, useFirestore, useUser } from "@/firebase";
@@ -236,24 +237,24 @@ export default function SalesPage() {
 
   const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
-  const handleCheckout = async (method: string) => {
+  const handleUnsettledCheckout = async () => {
     if (!firestore || cart.length === 0) {
-      toast({ variant: "destructive", title: "Empty Cart", description: "Please add items before checking out." });
+      toast({ variant: "destructive", title: "Empty Cart", description: "Please add items before printing." });
       return;
     }
 
     if (!activeShift) {
-      toast({ variant: "destructive", title: "Shift Required", description: "You must have an active shift to checkout." });
+      toast({ variant: "destructive", title: "Shift Required", description: "You must have an active shift to process orders." });
       return;
     }
 
     const saleData = {
       items: cart,
       total,
-      method,
+      method: "Unsettled",
       tableNumber: selectedTable || "Counter",
       timestamp: serverTimestamp(),
-      status: "Completed",
+      status: "Unsettled",
       staffName: user?.displayName || user?.email || "Bar Staff",
       shiftId: activeShift.id
     };
@@ -270,6 +271,7 @@ export default function SalesPage() {
         }));
       });
 
+    // Fire food items if any
     const foodItemsToFire = cart
       .filter(item => item.category === "FOOD" && item.quantity > (item.lastSentQuantity || 0))
       .map(item => ({
@@ -288,6 +290,7 @@ export default function SalesPage() {
       addDoc(collection(firestore, "kitchenOrders"), kitchenOrderData).catch(() => {});
     }
 
+    // Deduct stock immediately
     for (const cartItem of cart) {
       if (cartItem.category === "FOOD") continue;
       const stockRef = doc(firestore, "inventory", cartItem.itemId);
@@ -297,7 +300,7 @@ export default function SalesPage() {
       }).catch(() => {});
     }
 
-    toast({ title: "Sale Recorded", description: `Processed ₦${total.toLocaleString()} via ${method}.` });
+    toast({ title: "Order Logged", description: `Bill generated for ₦${total.toLocaleString()}. Settle later in History.` });
     
     if (selectedTable) {
       deleteDoc(doc(firestore, "tableSessions", selectedTable));
@@ -346,9 +349,11 @@ export default function SalesPage() {
             <span>TOTAL:</span>
             <span>₦${sale.total.toLocaleString()}</span>
           </div>
-          <div class="meta" style="margin-top: 8px; font-size: 16px;">PAYMENT: ${sale.method}</div>
+          <div class="meta" style="margin-top: 8px; font-size: 16px;">PAYMENT: ${sale.method.toUpperCase()}</div>
           <div class="divider"></div>
-          <div class="center bold" style="margin-top: 15px; font-size: 16px;">*** THANK YOU ***</div>
+          <div class="center bold" style="margin-top: 15px; font-size: 16px;">
+            ${sale.status === 'Unsettled' ? '*** UNSETTLED ***' : '*** THANK YOU ***'}
+          </div>
         </body>
       </html>
     `;
@@ -475,17 +480,13 @@ export default function SalesPage() {
             <span className="text-2xl font-headline font-bold text-primary leading-tight">₦{total.toLocaleString()}</span>
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-2">
-          <Button className="bg-primary text-primary-foreground font-bold h-12 rounded-xl text-[10px] sm:text-xs" onClick={() => handleCheckout('Card')}>
-            <CreditCard className="w-4 h-4 mr-1.5" /> Card
-          </Button>
-          <Button variant="outline" className="border-primary/30 text-primary font-bold h-12 rounded-xl text-[10px] sm:text-xs" onClick={() => handleCheckout('Transfer')}>
-            <ArrowLeftRight className="w-4 h-4 mr-1.5" /> Trans
-          </Button>
-          <Button className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-12 rounded-xl text-[10px] sm:text-xs" onClick={() => handleCheckout('Cash')}>
-            <Banknote className="w-4 h-4 mr-1.5" /> Cash
-          </Button>
-        </div>
+        <Button 
+          className="w-full h-14 bg-primary text-primary-foreground font-bold text-lg rounded-2xl shadow-xl hover:opacity-90 active:scale-95 transition-all"
+          onClick={handleUnsettledCheckout}
+          disabled={cart.length === 0}
+        >
+          <FileText className="w-5 h-5 mr-2" /> UNSETTLE & PRINT
+        </Button>
       </div>
     </div>
   );
