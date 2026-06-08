@@ -473,7 +473,7 @@ export default function SalesHistoryPage() {
             </CardContent>
           </Card>
           
-          {reportMetrics.isSearchingItem ? (
+          {reportMetrics.isSearchingItem && (
             <>
               <Card className="glass-card border-l-4 border-l-primary animate-in fade-in slide-in-from-right-4">
                 <CardContent className="pt-6">
@@ -488,12 +488,6 @@ export default function SalesHistoryPage() {
                 </CardContent>
               </Card>
             </>
-          ) : (
-            <div className="md:col-span-2 p-6 flex items-center justify-center bg-white/5 rounded-xl border border-dashed border-white/10">
-              <p className="text-xs text-muted-foreground italic flex items-center gap-2">
-                <Search className="w-3 h-3" /> Type an item name to see specific sales analytics
-              </p>
-            </div>
           )}
         </div>
 
