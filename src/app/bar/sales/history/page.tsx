@@ -14,6 +14,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import { 
   Search, 
   ChevronLeft, 
@@ -53,12 +54,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
 import { errorEmitter } from "@/firebase/error-emitter";
@@ -71,10 +66,10 @@ export default function SalesHistoryPage() {
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
-    from: startOfDay(new Date()),
-    to: endOfDay(new Date())
-  });
+  
+  // Manual Date State
+  const [dateFrom, setDateFrom] = useState<string>(format(new Date(), "yyyy-MM-dd"));
+  const [dateTo, setDateTo] = useState<string>(format(new Date(), "yyyy-MM-dd"));
 
   const salesQuery = useMemo(() => {
     if (!firestore) return null;
@@ -88,10 +83,16 @@ export default function SalesHistoryPage() {
     return sales.filter(sale => {
       const saleDate = sale.timestamp?.toDate ? sale.timestamp.toDate() : null;
       
-      // Date Range Filter
-      if (dateRange.from && dateRange.to && saleDate) {
-        if (!isWithinInterval(saleDate, { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to) })) {
-          return false;
+      // Manual Date Range Filter
+      if (dateFrom && dateTo && saleDate) {
+        try {
+          const start = startOfDay(parseISO(dateFrom));
+          const end = endOfDay(parseISO(dateTo));
+          if (!isWithinInterval(saleDate, { start, end })) {
+            return false;
+          }
+        } catch (e) {
+          // If parsing fails, don't filter by date
         }
       }
 
@@ -103,7 +104,7 @@ export default function SalesHistoryPage() {
 
       return searchMatch;
     });
-  }, [sales, search, dateRange]);
+  }, [sales, search, dateFrom, dateTo]);
 
   // Aggregated Report Metrics
   const reportMetrics = useMemo(() => {
@@ -260,8 +261,8 @@ export default function SalesHistoryPage() {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    const fromDate = dateRange.from ? format(dateRange.from, "PPP") : "N/A";
-    const toDate = dateRange.to ? format(dateRange.to, "PPP") : "N/A";
+    const fromDate = dateFrom ? format(parseISO(dateFrom), "PPP") : "N/A";
+    const toDate = dateTo ? format(parseISO(dateTo), "PPP") : "N/A";
     
     const itemsHtml = paginatedSales.map((sale: any) => `
       <tr style="border-bottom: 1px solid #eee;">
@@ -490,35 +491,28 @@ export default function SalesHistoryPage() {
               </CardTitle>
               
               <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full sm:w-[240px] justify-start text-left font-normal bg-white/5 border-white/10 h-10">
-                      <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
-                      {dateRange.from ? (
-                        dateRange.to ? (
-                          <>
-                            {format(dateRange.from, "LLL dd")} -{" "}
-                            {format(dateRange.to, "LLL dd")}
-                          </>
-                        ) : (
-                          format(dateRange.from, "LLL dd, y")
-                        )
-                      ) : (
-                        <span>Pick a date range</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0 glass-card" align="end">
-                    <Calendar
-                      initialFocus
-                      mode="range"
-                      defaultMonth={dateRange.from}
-                      selected={{ from: dateRange.from, to: dateRange.to }}
-                      onSelect={(range: any) => setDateRange({ from: range?.from, to: range?.to })}
-                      numberOfMonths={2}
+                {/* Manual Date Input Range */}
+                <div className="flex items-center gap-2 bg-white/5 border border-white/10 px-3 py-1 rounded-xl w-full sm:w-auto h-10">
+                  <div className="flex flex-col">
+                    <Label className="text-[8px] font-bold text-primary/50 uppercase leading-none mb-0.5">From</Label>
+                    <input 
+                      type="date" 
+                      className="bg-transparent border-none text-xs font-bold text-white outline-none w-28 [color-scheme:dark]" 
+                      value={dateFrom}
+                      onChange={(e) => setDateFrom(e.target.value)}
                     />
-                  </PopoverContent>
-                </Popover>
+                  </div>
+                  <div className="w-px h-6 bg-white/10" />
+                  <div className="flex flex-col">
+                    <Label className="text-[8px] font-bold text-primary/50 uppercase leading-none mb-0.5">To</Label>
+                    <input 
+                      type="date" 
+                      className="bg-transparent border-none text-xs font-bold text-white outline-none w-28 [color-scheme:dark]" 
+                      value={dateTo}
+                      onChange={(e) => setDateTo(e.target.value)}
+                    />
+                  </div>
+                </div>
 
                 <div className="relative w-full sm:w-80">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
