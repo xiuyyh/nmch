@@ -104,13 +104,14 @@ export default function SalesPage() {
     }
   }, [selectedTable, tableSession, sessionLoading]);
 
-  const saveToTable = async (items: any[]) => {
+  const saveToTable = (items: any[]) => {
     if (!firestore || !selectedTable) return;
     const ref = doc(firestore, "tableSessions", selectedTable);
     
     if (items.length === 0) {
       deleteDoc(ref).catch(() => {});
     } else {
+      // NON-BLOCKING for offline use
       setDoc(ref, {
         tableNumber: selectedTable,
         items,
@@ -191,6 +192,7 @@ export default function SalesPage() {
       status: "Pending"
     };
 
+    // NON-BLOCKING for offline use
     addDoc(collection(firestore, "kitchenOrders"), kitchenOrderData)
       .then(() => {
         toast({ title: "Order Sent to Kitchen", description: `${item.name} x${quantityToFire} sent.` });
@@ -230,11 +232,13 @@ export default function SalesPage() {
       status: "Completed"
     };
 
+    // NON-BLOCKING: This resolves immediately to local cache if offline
     addDoc(collection(firestore, "sales"), saleData)
       .then((docRef) => {
+        // Print ducket IMMEDIATELY using the local reference ID
         if (shouldPrintDucket) printDucket({ ...saleData, id: docRef.id });
       })
-      .catch(async (error: any) => {
+      .catch((error: any) => {
         errorEmitter.emit("permission-error", new FirestorePermissionError({
           path: "sales",
           operation: "create",
@@ -258,10 +262,11 @@ export default function SalesPage() {
         staffName: user?.displayName || user?.email || "Bar Staff",
         status: "Pending"
       };
+      // NON-BLOCKING
       addDoc(collection(firestore, "kitchenOrders"), kitchenOrderData).catch(() => {});
     }
 
-    // Update Stock
+    // Update Stock - NON-BLOCKING
     for (const cartItem of cart) {
       if (cartItem.category === "FOOD") continue;
       const stockRef = doc(firestore, "inventory", cartItem.itemId);

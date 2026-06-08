@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { 
@@ -24,7 +24,10 @@ import {
   PackagePlus,
   CookingPot,
   Users as UsersIcon,
-  ShieldCheck
+  ShieldCheck,
+  Wifi,
+  WifiOff,
+  CloudUpload
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -303,10 +306,23 @@ function AppSidebar() {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
   const pathname = usePathname();
   const { user } = useUser();
   const auth = useAuth();
   const firestore = useFirestore();
+
+  useEffect(() => {
+    setIsOnline(navigator.onLine);
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const userRef = useMemo(() => {
     if (!firestore || !user) return null;
@@ -337,9 +353,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
             <span className="font-headline font-bold text-xl tracking-tighter text-white">NMCH</span>
           </div>
-          <Button variant="ghost" size="icon" className="text-white" onClick={toggleMobileMenu}>
-            {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </Button>
+          <div className="flex items-center gap-3">
+            {!isOnline && (
+              <Badge variant="destructive" className="animate-pulse px-2 h-7 gap-1">
+                <WifiOff className="w-3 h-3" /> Offline
+              </Badge>
+            )}
+            <Button variant="ghost" size="icon" className="text-white" onClick={toggleMobileMenu}>
+              {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </Button>
+          </div>
         </header>
 
         {/* Mobile Dropdown Menu Overlay */}
@@ -412,6 +435,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               {userRecord?.role === 'admin' && (
                 <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 gap-1.5 px-3 py-1">
                   <ShieldCheck className="w-3.5 h-3.5" /> ADMIN MODE
+                </Badge>
+              )}
+              {!isOnline && (
+                <Badge variant="destructive" className="animate-pulse bg-destructive/10 text-destructive border-destructive/20 gap-1.5 px-3 py-1 uppercase tracking-widest font-bold text-[10px]">
+                  <WifiOff className="w-3.5 h-3.5" /> Offline Mode
+                </Badge>
+              )}
+              {isOnline && (
+                 <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 gap-1.5 px-3 py-1 uppercase tracking-widest font-bold text-[10px]">
+                  <Wifi className="w-3.5 h-3.5" /> Connected
                 </Badge>
               )}
             </div>
