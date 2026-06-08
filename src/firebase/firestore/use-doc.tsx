@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -28,7 +27,8 @@ export function useDoc<T = DocumentData>(ref: DocumentReference<T> | null) {
       ref,
       (snapshot: DocumentSnapshot<T>) => {
         if (snapshot.exists()) {
-          setData({ ...snapshot.data()!, id: snapshot.id });
+          // Use serverTimestamps: 'estimate' for offline resilience
+          setData({ ...snapshot.data({ serverTimestamps: 'estimate' })!, id: snapshot.id } as (T & { id: string }));
         } else {
           setData(null);
         }

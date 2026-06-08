@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -27,11 +26,13 @@ export function useCollection<T = DocumentData>(query: Query<T> | null) {
     const unsubscribe = onSnapshot(
       query,
       (snapshot: QuerySnapshot<T>) => {
+        // Use serverTimestamps: 'estimate' to ensure pending local writes 
+        // return a timestamp value instead of null.
         const items = snapshot.docs.map((doc) => ({
-          ...doc.data(),
+          ...doc.data({ serverTimestamps: 'estimate' }),
           id: doc.id,
         }));
-        setData(items);
+        setData(items as (T & { id: string })[]);
         setLoading(false);
       },
       async (serverError: FirestoreError) => {

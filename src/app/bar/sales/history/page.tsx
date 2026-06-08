@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo } from "react";
@@ -80,7 +79,7 @@ export default function SalesHistoryPage() {
   const filteredSales = useMemo(() => {
     if (!sales) return [];
     return sales.filter(sale => {
-      // Use localTimestamp fallback for offline records
+      // Logic for determining sale date with offline fallback
       const saleDate = sale.timestamp?.toDate ? sale.timestamp.toDate() : (sale.localTimestamp ? new Date(sale.localTimestamp) : null);
       
       // Manual Date Range Filter
@@ -305,8 +304,9 @@ export default function SalesHistoryPage() {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    const fromDate = dateFrom ? format(parseISO(dateFrom), "dd/MM/yy") : "N/A";
-    const toDate = dateTo ? format(parseISO(dateTo), "dd/MM/yy") : "N/A";
+    // Standardize WAT format for headers
+    const fromDate = dateFrom ? formatNigeriaTime(parseISO(dateFrom)) : "N/A";
+    const toDate = dateTo ? formatNigeriaTime(parseISO(dateTo)) : "N/A";
     
     const itemTotals: Record<string, { qty: number; revenue: number }> = {};
     const isSearching = search.length > 2;
@@ -398,7 +398,7 @@ export default function SalesHistoryPage() {
           </table>
 
           <div class="footer">
-            Generated on ${formatNigeriaTime(new Date())}
+            Generated on ${formatNigeriaTime(new Date(), true)}
           </div>
         </body>
       </html>
