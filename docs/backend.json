@@ -139,18 +139,6 @@
       },
       "required": ["tableNumber", "items"]
     },
-    "DailyClosing": {
-      "title": "Daily Settlement Record",
-      "description": "Marker for a day that has been settled and locked",
-      "type": "object",
-      "properties": {
-        "date": { "type": "string" },
-        "settledAt": { "type": "string", "format": "date-time" },
-        "settledBy": { "type": "string" },
-        "totalRevenue": { "type": "number" }
-      },
-      "required": ["date", "settledAt"]
-    },
     "RestockRequest": {
       "title": "Restock Request",
       "description": "A request for more stock from the bar to the store",
@@ -262,10 +250,6 @@
     "/tableSessions/{tableNumber}": {
       "schema": "TableSession",
       "description": "Active tabs for tables"
-    },
-    "/dailyClosings/{dateString}": {
-      "schema": "DailyClosing",
-      "description": "Settlement records per day (format YYYY-MM-DD)"
     },
     "/restockRequests/{requestId}": {
       "schema": "RestockRequest",

@@ -35,7 +35,8 @@ import {
   Filter,
   BarChart3,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Lock
 } from "lucide-react";
 import { useCollection, useFirestore } from "@/firebase";
 import { collection, query, orderBy, doc, updateDoc, increment, serverTimestamp, getDoc } from "firebase/firestore";
@@ -147,23 +148,23 @@ export default function SalesHistoryPage() {
     return filteredSales.slice(start, start + ITEMS_PER_PAGE);
   }, [filteredSales, currentPage]);
 
-  const checkSettlement = async (timestamp: any) => {
-    if (!firestore || !timestamp) return false;
-    const dateStr = format(timestamp.toDate(), "yyyy-MM-dd");
-    const closingRef = doc(firestore, "dailyClosings", dateStr);
-    const closingSnap = await getDoc(closingRef);
-    return closingSnap.exists();
+  const checkShiftStatus = async (shiftId: string) => {
+    if (!firestore || !shiftId) return true; // Lock if no shift ID found
+    const shiftRef = doc(firestore, "shifts", shiftId);
+    const shiftSnap = await getDoc(shiftRef);
+    if (!shiftSnap.exists()) return true;
+    return shiftSnap.data().status !== "active";
   };
 
   const handleSettleSale = async (sale: any, method: string) => {
     if (!firestore) return;
 
-    const isLocked = await checkSettlement(sale.timestamp);
-    if (isLocked) {
+    const isClosed = await checkShiftStatus(sale.shiftId);
+    if (isClosed) {
       toast({
         variant: "destructive",
-        title: "Settlement Denied",
-        description: `The sales for this day have been settled and locked.`,
+        title: "Action Restricted",
+        description: `This transaction belongs to a closed shift and cannot be modified.`,
       });
       return;
     }
@@ -191,12 +192,12 @@ export default function SalesHistoryPage() {
   const handleCancelSale = async (sale: any) => {
     if (!firestore) return;
 
-    const isSettled = await checkSettlement(sale.timestamp);
-    if (isSettled) {
+    const isClosed = await checkShiftStatus(sale.shiftId);
+    if (isClosed) {
       toast({
         variant: "destructive",
-        title: "Cancellation Denied",
-        description: `The sales for this day have been settled and locked.`,
+        title: "Action Restricted",
+        description: `This transaction belongs to a closed shift and cannot be canceled.`,
       });
       return;
     }
@@ -241,12 +242,12 @@ export default function SalesHistoryPage() {
   const handleVoidItem = async (sale: any, itemIndex: number) => {
     if (!firestore) return;
 
-    const isSettled = await checkSettlement(sale.timestamp);
-    if (isSettled) {
+    const isClosed = await checkShiftStatus(sale.shiftId);
+    if (isClosed) {
       toast({
         variant: "destructive",
-        title: "Action Denied",
-        description: `The sales for this day are already settled.`,
+        title: "Action Restricted",
+        description: `This transaction belongs to a closed shift and cannot be edited.`,
       });
       return;
     }
@@ -634,7 +635,7 @@ export default function SalesHistoryPage() {
                           <span className="text-sm font-medium text-primary">{sale.tableNumber}</span>
                         </div>
                         <div className="flex flex-col items-end md:items-start">
-                          <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none mb-1">Grand Total</span>
+                          <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest font-bold leading-none mb-1">Grand Total</span>
                           <span className={cn(
                             "text-lg font-headline font-bold text-white",
                             sale.status === "Canceled" && "line-through text-muted-foreground"
@@ -720,7 +721,7 @@ export default function SalesHistoryPage() {
                                   <AlertDialogHeader>
                                     <AlertDialogTitle>Void Transaction?</AlertDialogTitle>
                                     <AlertDialogDescription>
-                                      This will mark the entire sale as canceled and restore <strong>all items</strong> back to the inventory. This action is only allowed if the day hasn't been settled.
+                                      This will mark the entire sale as canceled and restore <strong>all items</strong> back to the inventory. This action is only allowed if the associated shift is still active.
                                     </AlertDialogDescription>
                                   </AlertDialogHeader>
                                   <AlertDialogFooter>

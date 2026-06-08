@@ -71,7 +71,6 @@ const departments = [
       { name: "Shift Management", href: "/bar/shift", icon: Clock },
       { name: "Sales History", href: "/bar/sales/history", icon: HistoryIcon },
       { name: "Restock", href: "/bar/restock", icon: RefreshCw },
-      { name: "End of Day", href: "/bar/end-of-day", icon: Lock },
     ],
   },
   {
