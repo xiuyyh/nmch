@@ -15,7 +15,6 @@ import {
   History,
   CheckCircle2,
   ChevronDown,
-  ArrowRight,
   ExternalLink
 } from "lucide-react";
 import { 
@@ -25,11 +24,11 @@ import {
 } from "@/components/ui/collapsible";
 import { useCollection, useFirestore, useUser } from "@/firebase";
 import { collection, query, where, orderBy, addDoc, serverTimestamp, doc, updateDoc, limit } from "firebase/firestore";
-import { format, startOfDay, endOfDay } from "date-fns";
+import { startOfDay, endOfDay } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { errorEmitter } from "@/firebase/error-emitter";
 import { FirestorePermissionError } from "@/firebase/errors";
-import { cn } from "@/lib/utils";
+import { cn, formatNigeriaTime } from "@/lib/utils";
 import Link from "next/link";
 
 export default function ShiftManagementPage() {
@@ -45,7 +44,7 @@ export default function ShiftManagementPage() {
   }, [firestore]);
   const { data: inventory, loading: inventoryLoading } = useCollection(inventoryQuery);
 
-  // Check for ANY active shift (to see if someone else is logged in)
+  // Check for ANY active shift
   const allActiveShiftsQuery = useMemo(() => {
     if (!firestore) return null;
     return query(
@@ -64,7 +63,7 @@ export default function ShiftManagementPage() {
     return allActiveShifts?.find(s => s.staffId !== user?.uid);
   }, [allActiveShifts, user]);
 
-  // Fetch today's shift history for this staff
+  // Fetch today's shift history
   const historyQuery = useMemo(() => {
     if (!firestore || !user) return null;
     const start = startOfDay(new Date());
@@ -85,14 +84,14 @@ export default function ShiftManagementPage() {
       toast({
         variant: "destructive",
         title: "Session Conflict",
-        description: `${otherActiveShift.staffName} is currently signed into a shift. They must end their session before you can take over.`
+        description: `${otherActiveShift.staffName} is currently signed into a shift.`
       });
       return;
     }
 
     setIsStarting(true);
+    const now = new Date();
 
-    // Snapshot all bar inventory except FOOD
     const openingStock = inventory
       .filter(item => item.category !== "FOOD")
       .map(item => ({
@@ -106,13 +105,14 @@ export default function ShiftManagementPage() {
       staffId: user.uid,
       staffName: user.displayName || user.email,
       startTime: serverTimestamp(),
+      localStartTime: now.toISOString(),
       openingStock,
       status: "active"
     };
 
     addDoc(collection(firestore, "shifts"), shiftData)
       .then(() => {
-        toast({ title: "Shift Started", description: "Opening stock recorded. You are now the active staff on duty." });
+        toast({ title: "Shift Started", description: "Opening stock recorded in West Africa Time." });
       })
       .catch(error => {
         errorEmitter.emit("permission-error", new FirestorePermissionError({
@@ -130,9 +130,10 @@ export default function ShiftManagementPage() {
     const shiftRef = doc(firestore, "shifts", myActiveShift.id);
     updateDoc(shiftRef, {
       status: "closed",
-      endTime: serverTimestamp()
+      endTime: serverTimestamp(),
+      localEndTime: new Date().toISOString()
     }).then(() => {
-      toast({ title: "Shift Ended", description: "Your session has been closed. Please handover to the next staff." });
+      toast({ title: "Shift Ended", description: "Session closed successfully." });
     });
   };
 
@@ -150,7 +151,7 @@ export default function ShiftManagementPage() {
         <div className="max-w-4xl mx-auto space-y-8">
           <div>
             <h1 className="text-3xl font-headline font-bold uppercase tracking-tight">Shift Management</h1>
-            <p className="text-muted-foreground mt-1">Record opening stock and manage your active session for accurate handover.</p>
+            <p className="text-muted-foreground mt-1">West Africa Time (WAT) Audit Trail.</p>
           </div>
 
           {!myActiveShift ? (
@@ -181,7 +182,7 @@ export default function ShiftManagementPage() {
                   <div className="space-y-2">
                     <h3 className="text-xl font-headline font-bold">Ready to take over?</h3>
                     <p className="text-muted-foreground max-sm mx-auto">
-                      Starting your shift will take a snapshot of the current bar inventory as your **Opening Stock**. This ensures accurate sales tracking during your duty.
+                      Starting your shift will record the current inventory as **Opening Stock**.
                     </p>
                   </div>
                 </CardContent>
@@ -212,16 +213,10 @@ export default function ShiftManagementPage() {
                 <CardContent className="py-6 space-y-6">
                   <div className="flex flex-col md:flex-row gap-8">
                     <div className="flex flex-col gap-1">
-                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Shift Started</span>
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Shift Started (WAT)</span>
                       <span className="font-headline font-bold text-lg">
-                        {myActiveShift.startTime?.toDate ? format(myActiveShift.startTime.toDate(), "PPP HH:mm") : "Just now"}
+                        {formatNigeriaTime(myActiveShift.startTime?.toDate ? myActiveShift.startTime.toDate() : new Date(myActiveShift.localStartTime))}
                       </span>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Duty Personnel</span>
-                      <div className="flex items-center gap-2 font-bold text-lg">
-                        <User className="w-4 h-4 text-primary" /> {myActiveShift.staffName}
-                      </div>
                     </div>
                   </div>
 
@@ -241,11 +236,6 @@ export default function ShiftManagementPage() {
                           <span className="font-headline font-bold text-primary">{item.quantity}</span>
                         </div>
                       ))}
-                      {myActiveShift.openingStock?.length > 10 && (
-                        <div className="sm:col-span-2 text-center py-2 text-[10px] text-muted-foreground font-bold uppercase tracking-widest opacity-50">
-                          ... and {myActiveShift.openingStock.length - 10} more items
-                        </div>
-                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -267,7 +257,7 @@ export default function ShiftManagementPage() {
                     {historyLoading ? (
                       <div className="p-10 text-center animate-pulse text-xs text-muted-foreground uppercase font-bold tracking-widest">Loading...</div>
                     ) : shiftHistory?.length === 0 ? (
-                      <div className="p-10 text-center text-xs text-muted-foreground italic">No shifts recorded today.</div>
+                      <div className="p-10 text-center text-xs text-muted-foreground italic">No shifts recorded.</div>
                     ) : (
                       shiftHistory?.map(shift => (
                         <Collapsible key={shift.id} className="group border-b border-white/5 last:border-0">
@@ -280,28 +270,16 @@ export default function ShiftManagementPage() {
                                 )}>
                                   {shift.status === 'active' ? 'Current' : 'Closed'}
                                 </span>
-                                <ChevronDown className="w-3 h-3 text-muted-foreground group-data-[state=open]:rotate-180 transition-transform" />
                               </div>
                               <div className="flex flex-col">
                                 <span className="text-sm font-bold text-white">{shift.staffName}</span>
                                 <span className="text-[10px] uppercase font-bold text-muted-foreground/60">
-                                  {shift.startTime?.toDate ? format(shift.startTime.toDate(), "HH:mm") : "-"} 
-                                  {shift.endTime ? ` to ${format(shift.endTime.toDate(), "HH:mm")}` : " - Active"}
+                                  {formatNigeriaTime(shift.startTime?.toDate ? shift.startTime.toDate() : new Date(shift.localStartTime))}
                                 </span>
                               </div>
                             </div>
                           </CollapsibleTrigger>
                           <CollapsibleContent className="p-4 bg-white/5 space-y-3">
-                            <div className="flex justify-between text-[10px] font-bold text-primary uppercase tracking-widest border-b border-primary/20 pb-1">
-                              <span>Opening Item</span>
-                              <span>Qty</span>
-                            </div>
-                            {shift.openingStock?.slice(0, 10).map((item: any, i: number) => (
-                              <div key={i} className="flex justify-between text-[10px] border-b border-white/5 pb-1">
-                                <span className="text-muted-foreground">{item.name}</span>
-                                <span className="font-bold text-white">{item.quantity}</span>
-                              </div>
-                            ))}
                             <div className="pt-2 text-center">
                               <Button asChild variant="link" className="h-auto p-0 text-[10px] font-bold uppercase text-primary gap-1">
                                 <Link href={`/bar/shift/${shift.id}`}>

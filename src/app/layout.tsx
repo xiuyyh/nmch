@@ -1,4 +1,4 @@
-import type {Metadata} from 'next';
+import type {Metadata, Viewport} from 'next';
 import './globals.css';
 import { FirebaseClientProvider } from '@/firebase';
 import { AuthGuard } from '@/components/auth/AuthGuard';
@@ -7,6 +7,20 @@ import { Toaster } from '@/components/ui/toaster';
 export const metadata: Metadata = {
   title: 'NMCH Bar Operations',
   description: 'Streamlined bar sales and inventory management',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'NMCH Bar',
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: '#0a0a0c',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({

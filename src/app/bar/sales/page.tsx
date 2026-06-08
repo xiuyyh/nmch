@@ -23,16 +23,12 @@ import {
   Plus, 
   Minus, 
   Trash2, 
-  CreditCard, 
-  Banknote, 
   ShoppingCart,
   LayoutGrid,
   Clock,
   X,
   ChevronLeft,
   ChevronRight,
-  Package,
-  ArrowLeftRight,
   Printer,
   CheckCircle2,
   Receipt,
@@ -57,7 +53,7 @@ import {
 } from "firebase/firestore";
 import { errorEmitter } from "@/firebase/error-emitter";
 import { FirestorePermissionError } from "@/firebase/errors";
-import { cn } from "@/lib/utils";
+import { cn, formatNigeriaTime } from "@/lib/utils";
 import Link from "next/link";
 
 const ITEMS_PER_PAGE = 8;
@@ -248,20 +244,28 @@ export default function SalesPage() {
       return;
     }
 
+    const now = new Date();
     const saleData = {
       items: cart,
       total,
       method: "Unsettled",
       tableNumber: selectedTable || "Counter",
       timestamp: serverTimestamp(),
+      localTimestamp: now.toISOString(),
       status: "Unsettled",
       staffName: user?.displayName || user?.email || "Bar Staff",
       shiftId: activeShift.id
     };
 
+    // We pass the local 'now' date to the print function so it doesn't show N/A
+    const printFriendlySale = {
+      ...saleData,
+      timestamp: { toDate: () => now }
+    };
+
     addDoc(collection(firestore, "sales"), saleData)
       .then((docRef) => {
-        if (shouldPrintDucket) printDucket({ ...saleData, id: docRef.id });
+        if (shouldPrintDucket) printDucket({ ...printFriendlySale, id: docRef.id });
       })
       .catch((error: any) => {
         errorEmitter.emit("permission-error", new FirestorePermissionError({
@@ -313,6 +317,10 @@ export default function SalesPage() {
   const printDucket = (sale: any) => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
+
+    // Use the explicit Nigeria time helper
+    const dateStr = formatNigeriaTime(sale.timestamp?.toDate ? sale.timestamp.toDate() : new Date());
+
     const itemsHtml = sale.items.map((item: any) => `
       <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-weight: 800; font-size: 16px;">
         <span>${item.name} x ${item.quantity}</span>
@@ -322,7 +330,7 @@ export default function SalesPage() {
     const html = `
       <html>
         <head>
-          <title>Ducket #${sale.id.slice(-6)}</title>
+          <title>Ducket #${sale.id?.slice(-6) || 'TEMP'}</title>
           <style>
             @page { size: 80mm auto; margin: 0; }
             body { font-family: 'Arial', sans-serif; width: 80mm; padding: 10mm; font-size: 14px; color: #000; line-height: 1.4; }
@@ -339,8 +347,8 @@ export default function SalesPage() {
           <div class="center header">NIGHTINGALE HOTEL</div>
           <div class="center subheader">Sales Ducket</div>
           <div class="divider"></div>
-          <div class="meta">DATE: ${new Date().toLocaleString()}</div>
-          <div class="meta">REC#: ${sale.id.slice(-8).toUpperCase()}</div>
+          <div class="meta">DATE: ${dateStr}</div>
+          <div class="meta">REC#: ${sale.id?.slice(-8).toUpperCase() || 'OFFLINE'}</div>
           <div class="meta">SERV: ${sale.tableNumber}</div>
           <div class="meta">STAFF: ${sale.staffName || user?.displayName || user?.email}</div>
           <div class="divider"></div>

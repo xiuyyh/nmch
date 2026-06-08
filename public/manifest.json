@@ -1,0 +1,22 @@
+{
+  "name": "NMCH Bar Operations",
+  "short_name": "NMCH Bar",
+  "description": "Streamlined bar sales and inventory management",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0c",
+  "theme_color": "#d4af37",
+  "icons": [
+    {
+      "src": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQw8oatrplLFy0o-ghLuTFtu1gKQqYtgfXw0A&s",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQw8oatrplLFy0o-ghLuTFtu1gKQqYtgfXw0A&s",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

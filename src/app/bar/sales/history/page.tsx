@@ -28,20 +28,15 @@ import {
   ChevronDown,
   ShoppingCart,
   XCircle,
-  History as HistoryIcon,
   MinusCircle,
-  Calendar as CalendarIcon,
-  Download,
-  Filter,
   BarChart3,
   CheckCircle2,
-  AlertCircle,
-  Lock
+  AlertCircle
 } from "lucide-react";
 import { useCollection, useFirestore } from "@/firebase";
 import { collection, query, orderBy, doc, updateDoc, increment, serverTimestamp, getDoc } from "firebase/firestore";
 import { format, isWithinInterval, startOfDay, endOfDay, parseISO } from "date-fns";
-import { cn } from "@/lib/utils";
+import { cn, formatNigeriaTime } from "@/lib/utils";
 import { 
   Collapsible,
   CollapsibleContent,
@@ -85,7 +80,8 @@ export default function SalesHistoryPage() {
   const filteredSales = useMemo(() => {
     if (!sales) return [];
     return sales.filter(sale => {
-      const saleDate = sale.timestamp?.toDate ? sale.timestamp.toDate() : null;
+      // Use localTimestamp fallback for offline records
+      const saleDate = sale.timestamp?.toDate ? sale.timestamp.toDate() : (sale.localTimestamp ? new Date(sale.localTimestamp) : null);
       
       // Manual Date Range Filter
       if (dateFrom && dateTo && saleDate) {
@@ -129,17 +125,15 @@ export default function SalesHistoryPage() {
       });
     });
 
-    // If searching, we show the searched item revenue specifically. 
-    // If not searching, we show the receipt totals.
     const revenueToDisplay = isSearchingItem ? totalItemRevenue : activeSales.reduce((sum, s) => sum + (s.total || 0), 0);
 
     return {
       totalRevenue: revenueToDisplay,
       settledRevenue: isSearchingItem 
-        ? totalItemRevenue // For item search, we usually care about the total value of that item sold
+        ? totalItemRevenue 
         : settledSales.reduce((sum, s) => sum + (s.total || 0), 0),
       unsettledRevenue: isSearchingItem 
-        ? 0 // Logic gets complex if splitting item revenue by unsettled receipts, so we keep it simple for item search
+        ? 0 
         : unsettledSales.reduce((sum, s) => sum + (s.total || 0), 0),
       count: activeSales.length,
       settledCount: settledSales.length,
@@ -157,7 +151,7 @@ export default function SalesHistoryPage() {
   }, [filteredSales, currentPage]);
 
   const checkShiftStatus = async (shiftId: string) => {
-    if (!firestore || !shiftId) return true; // Lock if no shift ID found
+    if (!firestore || !shiftId) return true;
     const shiftRef = doc(firestore, "shifts", shiftId);
     const shiftSnap = await getDoc(shiftRef);
     if (!shiftSnap.exists()) return true;
@@ -224,7 +218,6 @@ export default function SalesHistoryPage() {
       }));
     });
 
-    // Restock all items
     for (const item of sale.items) {
       const stockRef = doc(firestore, "inventory", item.itemId);
       const stockUpdate = {
@@ -288,7 +281,6 @@ export default function SalesHistoryPage() {
       }));
     });
 
-    // Restock the specific item
     const stockRef = doc(firestore, "inventory", itemToVoid.itemId);
     const stockUpdate = {
       stock: increment(itemToVoid.quantity),
@@ -316,13 +308,11 @@ export default function SalesHistoryPage() {
     const fromDate = dateFrom ? format(parseISO(dateFrom), "dd/MM/yy") : "N/A";
     const toDate = dateTo ? format(parseISO(dateTo), "dd/MM/yy") : "N/A";
     
-    // Aggregation Logic for Itemized Summary
     const itemTotals: Record<string, { qty: number; revenue: number }> = {};
     const isSearching = search.length > 2;
 
     filteredSales.filter(s => s.status !== "Canceled").forEach(sale => {
       sale.items?.forEach((item: any) => {
-        // STRICT FILTER: Only include items matching the search if a search is active
         if (!isSearching || item.name.toLowerCase().includes(search.toLowerCase())) {
           if (!itemTotals[item.name]) {
             itemTotals[item.name] = { qty: 0, revenue: 0 };
@@ -334,7 +324,7 @@ export default function SalesHistoryPage() {
     });
 
     const itemsHtml = Object.entries(itemTotals)
-      .sort((a, b) => b[1].qty - a[1].qty) // Sort by most sold
+      .sort((a, b) => b[1].qty - a[1].qty)
       .map(([name, data]) => `
         <tr style="border-bottom: 1px dashed #000;">
           <td style="padding: 6px 0;">${name}</td>
@@ -371,7 +361,6 @@ export default function SalesHistoryPage() {
             table { width: 100%; border-collapse: collapse; margin-top: 10px; }
             th { text-align: left; border-bottom: 1px solid #000; padding: 4px 0; font-size: 9px; text-transform: uppercase; }
             td { font-size: 10px; vertical-align: top; }
-            .divider { border-bottom: 1px solid #000; margin: 10px 0; }
             .footer { margin-top: 15px; text-align: center; font-size: 8px; border-top: 1px dashed #000; padding-top: 8px; }
           </style>
         </head>
@@ -409,7 +398,7 @@ export default function SalesHistoryPage() {
           </table>
 
           <div class="footer">
-            Generated on ${format(new Date(), "dd/MM/yy HH:mm")}
+            Generated on ${formatNigeriaTime(new Date())}
           </div>
         </body>
       </html>
@@ -428,7 +417,8 @@ export default function SalesHistoryPage() {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    const dateStr = sale.timestamp?.toDate ? format(sale.timestamp.toDate(), 'PPP p') : 'N/A';
+    const dateStr = formatNigeriaTime(sale.timestamp?.toDate ? sale.timestamp.toDate() : (sale.localTimestamp ? new Date(sale.localTimestamp) : new Date()));
+    
     const itemsHtml = sale.items.map((item: any) => `
       <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-weight: 800; font-size: 16px;">
         <span>${item.name} x ${item.quantity}</span>
@@ -506,7 +496,7 @@ export default function SalesHistoryPage() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-headline font-bold uppercase tracking-tight">Sales Audit & Reports</h1>
-            <p className="text-muted-foreground">Detailed history with advanced item and date filtering.</p>
+            <p className="text-muted-foreground">Detailed history with West Africa Time logging.</p>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" className="gap-2 border-white/10" onClick={printSalesReport}>
@@ -520,7 +510,6 @@ export default function SalesHistoryPage() {
           </div>
         </div>
 
-        {/* Reporting Mode Summary */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card className="glass-card">
             <CardContent className="pt-6">
@@ -571,7 +560,6 @@ export default function SalesHistoryPage() {
               </CardTitle>
               
               <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
-                {/* Manual Date Input Range */}
                 <div className="flex items-center gap-2 bg-white/5 border border-white/10 px-3 py-1 rounded-xl w-full sm:w-auto h-10">
                   <div className="flex flex-col">
                     <Label className="text-[8px] font-bold text-primary/50 uppercase leading-none mb-0.5">From</Label>
@@ -612,149 +600,151 @@ export default function SalesHistoryPage() {
             ) : filteredSales.length === 0 ? (
               <div className="py-20 text-center flex flex-col items-center justify-center gap-4 text-muted-foreground opacity-40">
                 <BarChart3 className="w-12 h-12" />
-                <p className="italic">No transactions found for the selected criteria.</p>
+                <p className="italic">No transactions found.</p>
               </div>
             ) : (
               <div className="divide-y divide-white/5">
-                {paginatedSales.map((sale) => (
-                  <Collapsible key={sale.id} className="group">
-                    <div className={cn(
-                      "p-4 flex items-center justify-between hover:bg-white/5 transition-colors",
-                      sale.status === "Canceled" && "opacity-60 bg-red-500/[0.02]",
-                      sale.status === "Unsettled" && "bg-amber-500/[0.03]"
-                    )}>
-                      <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-4 items-center">
-                        <div className="flex flex-col">
-                          <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none mb-1">Receipt</span>
-                          <span className="font-mono text-xs font-bold text-white flex items-center gap-2">
-                            #{sale.id.slice(-8).toUpperCase()}
-                            {sale.status === "Canceled" ? (
-                              <Badge variant="destructive" className="h-4 text-[8px] uppercase px-1">Canceled</Badge>
-                            ) : sale.status === "Unsettled" ? (
-                              <Badge variant="outline" className="h-4 text-[8px] uppercase px-1 border-amber-500/50 text-amber-500">Unsettled</Badge>
-                            ) : (
-                              <Badge variant="outline" className="h-4 text-[8px] uppercase px-1 border-emerald-500/50 text-emerald-500">Settled</Badge>
-                            )}
-                          </span>
+                {paginatedSales.map((sale) => {
+                  const saleDate = sale.timestamp?.toDate ? sale.timestamp.toDate() : (sale.localTimestamp ? new Date(sale.localTimestamp) : null);
+                  return (
+                    <Collapsible key={sale.id} className="group">
+                      <div className={cn(
+                        "p-4 flex items-center justify-between hover:bg-white/5 transition-colors",
+                        sale.status === "Canceled" && "opacity-60 bg-red-500/[0.02]",
+                        sale.status === "Unsettled" && "bg-amber-500/[0.03]"
+                      )}>
+                        <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-4 items-center">
+                          <div className="flex flex-col">
+                            <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none mb-1">Receipt</span>
+                            <span className="font-mono text-xs font-bold text-white flex items-center gap-2">
+                              #{sale.id.slice(-8).toUpperCase()}
+                              {sale.status === "Canceled" ? (
+                                <Badge variant="destructive" className="h-4 text-[8px] uppercase px-1">Canceled</Badge>
+                              ) : sale.status === "Unsettled" ? (
+                                <Badge variant="outline" className="h-4 text-[8px] uppercase px-1 border-amber-500/50 text-amber-500">Unsettled</Badge>
+                              ) : (
+                                <Badge variant="outline" className="h-4 text-[8px] uppercase px-1 border-emerald-500/50 text-emerald-500">Settled</Badge>
+                              )}
+                            </span>
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none mb-1">Date & Time (WAT)</span>
+                            <span className="text-sm font-medium">
+                              {formatNigeriaTime(saleDate)}
+                            </span>
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none mb-1">Service Point</span>
+                            <span className="text-sm font-medium text-primary">{sale.tableNumber}</span>
+                          </div>
+                          <div className="flex flex-col items-end md:items-start">
+                            <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none mb-1">Grand Total</span>
+                            <span className={cn(
+                              "text-lg font-headline font-bold text-white",
+                              sale.status === "Canceled" && "line-through text-muted-foreground"
+                            )}>₦{sale.total.toLocaleString()}</span>
+                          </div>
                         </div>
-                        <div className="flex flex-col">
-                          <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none mb-1">Date & Time</span>
-                          <span className="text-sm font-medium">
-                            {sale.timestamp?.toDate ? format(sale.timestamp.toDate(), 'dd/MM/yy HH:mm') : 'N/A'}
-                          </span>
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none mb-1">Service Point</span>
-                          <span className="text-sm font-medium text-primary">{sale.tableNumber}</span>
-                        </div>
-                        <div className="flex flex-col items-end md:items-start">
-                          <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest font-bold leading-none mb-1">Grand Total</span>
-                          <span className={cn(
-                            "text-lg font-headline font-bold text-white",
-                            sale.status === "Canceled" && "line-through text-muted-foreground"
-                          )}>₦{sale.total.toLocaleString()}</span>
+                        
+                        <div className="flex items-center gap-2 ml-4">
+                          <Button variant="ghost" size="icon" className="h-10 w-10 text-muted-foreground hover:text-primary" onClick={() => printDucket(sale)}>
+                            <Printer className="w-4 h-4" />
+                          </Button>
+                          <CollapsibleTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-10 w-10">
+                              <ChevronDown className="w-4 h-4 transition-transform group-data-[state=open]:rotate-180" />
+                            </Button>
+                          </CollapsibleTrigger>
                         </div>
                       </div>
                       
-                      <div className="flex items-center gap-2 ml-4">
-                        <Button variant="ghost" size="icon" className="h-10 w-10 text-muted-foreground hover:text-primary" onClick={() => printDucket(sale)}>
-                          <Printer className="w-4 h-4" />
-                        </Button>
-                        <CollapsibleTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-10 w-10">
-                            <ChevronDown className="w-4 h-4 transition-transform group-data-[state=open]:rotate-180" />
-                          </Button>
-                        </CollapsibleTrigger>
-                      </div>
-                    </div>
-                    
-                    <CollapsibleContent className="bg-white/[0.02] px-6 py-4 border-t border-white/5">
-                      <div className="max-w-md space-y-6">
-                        {/* Settlement Section */}
-                        {sale.status === "Unsettled" && (
-                          <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl space-y-4">
-                            <div className="flex items-center gap-2">
-                              <AlertCircle className="w-4 h-4 text-amber-500" />
-                              <span className="text-xs font-bold text-amber-500 uppercase tracking-widest">Complete Settlement</span>
+                      <CollapsibleContent className="bg-white/[0.02] px-6 py-4 border-t border-white/5">
+                        <div className="max-w-md space-y-6">
+                          {sale.status === "Unsettled" && (
+                            <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl space-y-4">
+                              <div className="flex items-center gap-2">
+                                <AlertCircle className="w-4 h-4 text-amber-500" />
+                                <span className="text-xs font-bold text-amber-500 uppercase tracking-widest">Complete Settlement</span>
+                              </div>
+                              <div className="grid grid-cols-3 gap-2">
+                                <Button size="sm" className="bg-primary text-primary-foreground font-bold h-10" onClick={() => handleSettleSale(sale, "Card")}>
+                                  <CreditCard className="w-3.5 h-3.5 mr-1" /> Card
+                                </Button>
+                                <Button size="sm" variant="outline" className="border-primary/30 text-primary font-bold h-10" onClick={() => handleSettleSale(sale, "Transfer")}>
+                                  <ArrowLeftRight className="w-3.5 h-3.5 mr-1" /> Trans
+                                </Button>
+                                <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-10" onClick={() => handleSettleSale(sale, "Cash")}>
+                                  <Banknote className="w-3.5 h-3.5 mr-1" /> Cash
+                                </Button>
+                              </div>
                             </div>
-                            <div className="grid grid-cols-3 gap-2">
-                              <Button size="sm" className="bg-primary text-primary-foreground font-bold h-10" onClick={() => handleSettleSale(sale, "Card")}>
-                                <CreditCard className="w-3.5 h-3.5 mr-1" /> Card
-                              </Button>
-                              <Button size="sm" variant="outline" className="border-primary/30 text-primary font-bold h-10" onClick={() => handleSettleSale(sale, "Transfer")}>
-                                <ArrowLeftRight className="w-3.5 h-3.5 mr-1" /> Trans
-                              </Button>
-                              <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-10" onClick={() => handleSettleSale(sale, "Cash")}>
-                                <Banknote className="w-3.5 h-3.5 mr-1" /> Cash
-                              </Button>
-                            </div>
-                          </div>
-                        )}
+                          )}
 
-                        <div className="space-y-3">
-                          <div className="flex justify-between text-xs font-bold text-muted-foreground uppercase tracking-[0.2em] border-b border-white/10 pb-2">
-                            <span>Itemized List</span>
-                            <span>Line Total</span>
-                          </div>
-                          {sale.items?.map((item: any, idx: number) => (
-                            <div key={idx} className="flex justify-between items-center text-sm group/item">
-                              <span className={cn(
-                                "text-white/80",
-                                search && item.name.toLowerCase().includes(search.toLowerCase()) && "text-primary font-bold"
-                              )}>
-                                {item.name} <span className="text-muted-foreground">x{item.quantity}</span>
-                                {sale.status !== "Canceled" && (
-                                  <button 
-                                    onClick={() => handleVoidItem(sale, idx)}
-                                    className="ml-2 text-destructive opacity-0 group-hover/item:opacity-100 transition-opacity"
-                                    title="Void this item"
-                                  >
-                                    <MinusCircle className="w-3.5 h-3.5 inline" />
-                                  </button>
-                                )}
-                              </span>
-                              <span className="font-headline font-bold">₦{(item.price * item.quantity).toLocaleString()}</span>
+                          <div className="space-y-3">
+                            <div className="flex justify-between text-xs font-bold text-muted-foreground uppercase tracking-[0.2em] border-b border-white/10 pb-2">
+                              <span>Itemized List</span>
+                              <span>Line Total</span>
                             </div>
-                          ))}
-                        </div>
-                        
-                        <div className="pt-3 flex items-center justify-between border-t border-white/5">
-                          <Badge variant="outline" className="gap-1.5 border-white/10 text-[10px] uppercase font-bold py-1">
-                            {getMethodIcon(sale.method)} {sale.method}
-                          </Badge>
-                          <div className="flex items-center gap-3">
-                            {sale.status !== "Canceled" && (
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button variant="ghost" size="sm" className="h-8 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive">
-                                    <XCircle className="w-3.5 h-3.5 mr-1.5" /> Void Entire Sale
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent className="glass-card border-white/10">
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Void Transaction?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      This will mark the entire sale as canceled and restore <strong>all items</strong> back to the inventory. This action is only allowed if the associated shift is still active.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel className="bg-white/5 border-white/10">No, Keep</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleCancelSale(sale)} className="bg-destructive text-destructive-foreground">
-                                      Yes, Void & Restore Stock
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            )}
-                            <span className="text-xs text-muted-foreground">
-                              {sale.timestamp?.toDate ? format(sale.timestamp.toDate(), 'PPP p') : 'N/A'}
-                            </span>
+                            {sale.items?.map((item: any, idx: number) => (
+                              <div key={idx} className="flex justify-between items-center text-sm group/item">
+                                <span className={cn(
+                                  "text-white/80",
+                                  search && item.name.toLowerCase().includes(search.toLowerCase()) && "text-primary font-bold"
+                                )}>
+                                  {item.name} <span className="text-muted-foreground">x{item.quantity}</span>
+                                  {sale.status !== "Canceled" && (
+                                    <button 
+                                      onClick={() => handleVoidItem(sale, idx)}
+                                      className="ml-2 text-destructive opacity-0 group-hover/item:opacity-100 transition-opacity"
+                                      title="Void this item"
+                                    >
+                                      <MinusCircle className="w-3.5 h-3.5 inline" />
+                                    </button>
+                                  )}
+                                </span>
+                                <span className="font-headline font-bold">₦{(item.price * item.quantity).toLocaleString()}</span>
+                              </div>
+                            ))}
+                          </div>
+                          
+                          <div className="pt-3 flex items-center justify-between border-t border-white/5">
+                            <Badge variant="outline" className="gap-1.5 border-white/10 text-[10px] uppercase font-bold py-1">
+                              {getMethodIcon(sale.method)} {sale.method}
+                            </Badge>
+                            <div className="flex items-center gap-3">
+                              {sale.status !== "Canceled" && (
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="sm" className="h-8 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive">
+                                      <XCircle className="w-3.5 h-3.5 mr-1.5" /> Void Entire Sale
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent className="glass-card border-white/10">
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Void Transaction?</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        This will mark the entire sale as canceled and restore <strong>all items</strong> back to the inventory.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel className="bg-white/5 border-white/10">No, Keep</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => handleCancelSale(sale)} className="bg-destructive text-destructive-foreground">
+                                        Yes, Void & Restore Stock
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              )}
+                              <span className="text-xs text-muted-foreground">
+                                {formatNigeriaTime(saleDate)}
+                              </span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </CollapsibleContent>
-                  </Collapsible>
-                ))}
+                      </CollapsibleContent>
+                    </Collapsible>
+                  );
+                })}
               </div>
             )}
           </CardContent>
@@ -762,7 +752,7 @@ export default function SalesHistoryPage() {
             {totalPages > 1 && (
               <div className="flex items-center justify-between">
                 <p className="text-xs text-muted-foreground">
-                  Showing {paginatedSales.length} of {filteredSales.length} transactions
+                  Showing {paginatedSales.length} transactions
                 </p>
                 <div className="flex gap-2">
                   <Button
