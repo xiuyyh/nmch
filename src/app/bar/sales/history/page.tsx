@@ -129,10 +129,18 @@ export default function SalesHistoryPage() {
       });
     });
 
+    // If searching, we show the searched item revenue specifically. 
+    // If not searching, we show the receipt totals.
+    const revenueToDisplay = isSearchingItem ? totalItemRevenue : activeSales.reduce((sum, s) => sum + (s.total || 0), 0);
+
     return {
-      totalRevenue: activeSales.reduce((sum, s) => sum + (s.total || 0), 0),
-      settledRevenue: settledSales.reduce((sum, s) => sum + (s.total || 0), 0),
-      unsettledRevenue: unsettledSales.reduce((sum, s) => sum + (s.total || 0), 0),
+      totalRevenue: revenueToDisplay,
+      settledRevenue: isSearchingItem 
+        ? totalItemRevenue // For item search, we usually care about the total value of that item sold
+        : settledSales.reduce((sum, s) => sum + (s.total || 0), 0),
+      unsettledRevenue: isSearchingItem 
+        ? 0 // Logic gets complex if splitting item revenue by unsettled receipts, so we keep it simple for item search
+        : unsettledSales.reduce((sum, s) => sum + (s.total || 0), 0),
       count: activeSales.length,
       settledCount: settledSales.length,
       unsettledCount: unsettledSales.length,
@@ -310,13 +318,18 @@ export default function SalesHistoryPage() {
     
     // Aggregation Logic for Itemized Summary
     const itemTotals: Record<string, { qty: number; revenue: number }> = {};
+    const isSearching = search.length > 2;
+
     filteredSales.filter(s => s.status !== "Canceled").forEach(sale => {
       sale.items?.forEach((item: any) => {
-        if (!itemTotals[item.name]) {
-          itemTotals[item.name] = { qty: 0, revenue: 0 };
+        // STRICT FILTER: Only include items matching the search if a search is active
+        if (!isSearching || item.name.toLowerCase().includes(search.toLowerCase())) {
+          if (!itemTotals[item.name]) {
+            itemTotals[item.name] = { qty: 0, revenue: 0 };
+          }
+          itemTotals[item.name].qty += item.quantity;
+          itemTotals[item.name].revenue += (item.price * item.quantity);
         }
-        itemTotals[item.name].qty += item.quantity;
-        itemTotals[item.name].revenue += (item.price * item.quantity);
       });
     });
 
@@ -365,23 +378,23 @@ export default function SalesHistoryPage() {
         <body>
           <div class="header">
             <h1>NIGHTINGALE HOTEL</h1>
-            <h2>Sales Audit Report</h2>
+            <h2>${isSearching ? 'Item Performance Report' : 'Sales Audit Report'}</h2>
             <p>Period: ${fromDate} - ${toDate}</p>
-            ${search ? `<p>Filter: "${search}"</p>` : ''}
+            ${isSearching ? `<p class="bold">Filter: "${search.toUpperCase()}"</p>` : ''}
           </div>
           
           <div class="metrics">
             <div class="metric-box">
-              <div class="metric-label">Total Period Revenue</div>
+              <div class="metric-label">${isSearching ? 'Filtered Item Revenue' : 'Total Period Revenue'}</div>
               <div class="metric-value">₦${reportMetrics.totalRevenue.toLocaleString()}</div>
             </div>
             <div class="metric-box">
-              <div class="metric-label">Transactions (Settled/Unsettled)</div>
-              <div class="metric-value">${reportMetrics.settledCount} / ${reportMetrics.unsettledCount}</div>
+              <div class="metric-label">Matching Transactions</div>
+              <div class="metric-value">${reportMetrics.count}</div>
             </div>
           </div>
 
-          <div class="bold center" style="text-transform: uppercase; font-size: 10px;">Itemized Sales Summary</div>
+          <div class="bold center" style="text-transform: uppercase; font-size: 10px;">Itemized Summary</div>
           <table>
             <thead>
               <tr>
@@ -512,23 +525,23 @@ export default function SalesHistoryPage() {
           <Card className="glass-card">
             <CardContent className="pt-6">
               <div className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest leading-none mb-2 flex items-center gap-2">
-                <CheckCircle2 className="w-3 h-3" /> Settled Revenue
+                <CheckCircle2 className="w-3 h-3" /> {reportMetrics.isSearchingItem ? `"${search}" Settled` : 'Settled Revenue'}
               </div>
               <div className="text-2xl font-bold font-headline text-white">
                 ₦{reportMetrics.settledRevenue.toLocaleString()}
               </div>
-              <p className="text-[10px] text-muted-foreground mt-1">{reportMetrics.settledCount} Transactions</p>
+              {!reportMetrics.isSearchingItem && <p className="text-[10px] text-muted-foreground mt-1">{reportMetrics.settledCount} Transactions</p>}
             </CardContent>
           </Card>
           <Card className="glass-card border-l-4 border-l-amber-500">
             <CardContent className="pt-6">
               <div className="text-[10px] font-bold text-amber-500 uppercase tracking-widest leading-none mb-2 flex items-center gap-2">
-                <AlertCircle className="w-3 h-3" /> Unsettled (Pending)
+                <AlertCircle className="w-3 h-3" /> {reportMetrics.isSearchingItem ? `"${search}" Pending` : 'Unsettled (Pending)'}
               </div>
               <div className="text-2xl font-bold font-headline text-white">
                 ₦{reportMetrics.unsettledRevenue.toLocaleString()}
               </div>
-              <p className="text-[10px] text-muted-foreground mt-1">{reportMetrics.unsettledCount} Transactions</p>
+              {!reportMetrics.isSearchingItem && <p className="text-[10px] text-muted-foreground mt-1">{reportMetrics.unsettledCount} Transactions</p>}
             </CardContent>
           </Card>
           
@@ -536,14 +549,14 @@ export default function SalesHistoryPage() {
             <>
               <Card className="glass-card border-l-4 border-l-primary animate-in fade-in slide-in-from-right-4">
                 <CardContent className="pt-6">
-                  <div className="text-[10px] font-bold text-primary uppercase tracking-widest leading-none mb-2">"{search}" Qty</div>
+                  <div className="text-[10px] font-bold text-primary uppercase tracking-widest leading-none mb-2">"{search}" Qty Sold</div>
                   <div className="text-2xl font-bold font-headline text-white">{reportMetrics.itemQty}</div>
                 </CardContent>
               </Card>
               <Card className="glass-card border-l-4 border-l-primary animate-in fade-in slide-in-from-right-4">
                 <CardContent className="pt-6">
-                  <div className="text-[10px] font-bold text-primary uppercase tracking-widest leading-none mb-2">"{search}" Value</div>
-                  <div className="text-2xl font-bold font-headline text-white">₦{reportMetrics.itemRevenue.toLocaleString()}</div>
+                  <div className="text-[10px] font-bold text-primary uppercase tracking-widest leading-none mb-2">Transactions count</div>
+                  <div className="text-2xl font-bold font-headline text-white">{reportMetrics.count}</div>
                 </CardContent>
               </Card>
             </>
