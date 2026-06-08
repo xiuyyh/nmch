@@ -27,11 +27,15 @@ import {
   ShoppingCart,
   XCircle,
   History as HistoryIcon,
-  MinusCircle
+  MinusCircle,
+  Calendar as CalendarIcon,
+  Download,
+  Filter,
+  BarChart3
 } from "lucide-react";
 import { useCollection, useFirestore } from "@/firebase";
 import { collection, query, orderBy, doc, updateDoc, increment, serverTimestamp, getDoc } from "firebase/firestore";
-import { format } from "date-fns";
+import { format, isWithinInterval, startOfDay, endOfDay, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 import { 
   Collapsible,
@@ -49,6 +53,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
 import { errorEmitter } from "@/firebase/error-emitter";
@@ -61,6 +71,10 @@ export default function SalesHistoryPage() {
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
+    from: startOfDay(new Date()),
+    to: endOfDay(new Date())
+  });
 
   const salesQuery = useMemo(() => {
     if (!firestore) return null;
@@ -71,27 +85,56 @@ export default function SalesHistoryPage() {
 
   const filteredSales = useMemo(() => {
     if (!sales) return [];
-    return sales.filter(sale => 
-      sale.tableNumber?.toLowerCase().includes(search.toLowerCase()) || 
-      sale.method?.toLowerCase().includes(search.toLowerCase()) ||
-      sale.items?.some((i: any) => i.name?.toLowerCase().includes(search.toLowerCase()))
-    );
-  }, [sales, search]);
+    return sales.filter(sale => {
+      const saleDate = sale.timestamp?.toDate ? sale.timestamp.toDate() : null;
+      
+      // Date Range Filter
+      if (dateRange.from && dateRange.to && saleDate) {
+        if (!isWithinInterval(saleDate, { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to) })) {
+          return false;
+        }
+      }
+
+      // Search Filter
+      const searchMatch = 
+        sale.tableNumber?.toLowerCase().includes(search.toLowerCase()) || 
+        sale.method?.toLowerCase().includes(search.toLowerCase()) ||
+        sale.items?.some((i: any) => i.name?.toLowerCase().includes(search.toLowerCase()));
+
+      return searchMatch;
+    });
+  }, [sales, search, dateRange]);
+
+  // Aggregated Report Metrics
+  const reportMetrics = useMemo(() => {
+    const activeSales = filteredSales.filter(s => s.status !== "Canceled");
+    let totalItemQty = 0;
+    let totalItemRevenue = 0;
+    const isSearchingItem = search.length > 2;
+
+    activeSales.forEach(sale => {
+      sale.items?.forEach((item: any) => {
+        if (!isSearchingItem || item.name.toLowerCase().includes(search.toLowerCase())) {
+          totalItemQty += item.quantity;
+          totalItemRevenue += (item.price * item.quantity);
+        }
+      });
+    });
+
+    return {
+      totalRevenue: activeSales.reduce((sum, s) => sum + (s.total || 0), 0),
+      count: activeSales.length,
+      itemQty: totalItemQty,
+      itemRevenue: totalItemRevenue,
+      isSearchingItem
+    };
+  }, [filteredSales, search]);
 
   const totalPages = Math.max(1, Math.ceil(filteredSales.length / ITEMS_PER_PAGE));
   const paginatedSales = useMemo(() => {
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
     return filteredSales.slice(start, start + ITEMS_PER_PAGE);
   }, [filteredSales, currentPage]);
-
-  const stats = useMemo(() => {
-    if (!sales) return { total: 0, count: 0 };
-    const activeSales = sales.filter(s => s.status !== "Canceled");
-    return {
-      total: activeSales.reduce((sum, s) => sum + (s.total || 0), 0),
-      count: activeSales.length
-    };
-  }, [sales]);
 
   const checkSettlement = async (timestamp: any) => {
     if (!firestore || !timestamp) return false;
@@ -213,6 +256,98 @@ export default function SalesHistoryPage() {
     });
   };
 
+  const printSalesReport = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const fromDate = dateRange.from ? format(dateRange.from, "PPP") : "N/A";
+    const toDate = dateRange.to ? format(dateRange.to, "PPP") : "N/A";
+    
+    const itemsHtml = paginatedSales.map((sale: any) => `
+      <tr style="border-bottom: 1px solid #eee;">
+        <td style="padding: 8px 0;">${sale.timestamp?.toDate ? format(sale.timestamp.toDate(), 'dd/MM/yy HH:mm') : 'N/A'}</td>
+        <td style="padding: 8px 0;">${sale.tableNumber}</td>
+        <td style="padding: 8px 0;">${sale.items?.map((i:any) => i.name + ' x' + i.quantity).join(', ')}</td>
+        <td style="padding: 8px 0; text-align: right;">₦${sale.total.toLocaleString()}</td>
+      </tr>
+    `).join('');
+
+    const html = `
+      <html>
+        <head>
+          <title>Sales Report: ${fromDate} - ${toDate}</title>
+          <style>
+            body { font-family: 'Arial', sans-serif; padding: 20px; color: #333; }
+            .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 20px; margin-bottom: 20px; }
+            .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
+            .metric-box { padding: 15px; border: 1px solid #ddd; border-radius: 8px; }
+            .metric-label { font-size: 12px; color: #666; text-transform: uppercase; font-weight: bold; }
+            .metric-value { font-size: 24px; font-weight: bold; margin-top: 5px; }
+            table { width: 100%; border-collapse: collapse; }
+            th { text-align: left; border-bottom: 2px solid #333; padding: 10px 0; font-size: 13px; }
+            .footer { margin-top: 40px; text-align: center; font-size: 12px; color: #999; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>NIGHTINGALE HOTEL</h1>
+            <h2>Sales Audit Report</h2>
+            <p>Period: ${fromDate} to ${toDate}</p>
+            ${search ? `<p>Filter: "${search}"</p>` : ''}
+          </div>
+          
+          <div class="metrics">
+            <div class="metric-box">
+              <div class="metric-label">Total Period Revenue</div>
+              <div class="metric-value">₦${reportMetrics.totalRevenue.toLocaleString()}</div>
+            </div>
+            <div class="metric-box">
+              <div class="metric-label">Transactions</div>
+              <div class="metric-value">${reportMetrics.count}</div>
+            </div>
+            ${reportMetrics.isSearchingItem ? `
+              <div class="metric-box">
+                <div class="metric-label">Qty of "${search}"</div>
+                <div class="metric-value">${reportMetrics.itemQty}</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-label">Revenue from "${search}"</div>
+                <div class="metric-value">₦${reportMetrics.itemRevenue.toLocaleString()}</div>
+              </div>
+            ` : ''}
+          </div>
+
+          <h3>Transaction Breakdown</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Date/Time</th>
+                <th>Table</th>
+                <th>Items</th>
+                <th style="text-align: right;">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsHtml}
+            </tbody>
+          </table>
+
+          <div class="footer">
+            Report generated on ${format(new Date(), "PPP p")} by NMCH POS
+          </div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 500);
+  };
+
   const printDucket = (sale: any) => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
@@ -291,10 +426,13 @@ export default function SalesHistoryPage() {
       <div className="flex flex-col gap-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-headline font-bold uppercase tracking-tight">Sales History</h1>
-            <p className="text-muted-foreground">Audit transactions and manage cancellations.</p>
+            <h1 className="text-3xl font-headline font-bold uppercase tracking-tight">Sales Audit & Reports</h1>
+            <p className="text-muted-foreground">Detailed history with advanced item and date filtering.</p>
           </div>
           <div className="flex gap-2">
+            <Button variant="outline" className="gap-2 border-white/10" onClick={printSalesReport}>
+              <Printer className="w-4 h-4" /> Print Report
+            </Button>
             <Button variant="outline" className="gap-2 border-white/10" asChild>
               <Link href="/bar/sales">
                 <ShoppingCart className="w-4 h-4" /> New Sale
@@ -303,37 +441,94 @@ export default function SalesHistoryPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Reporting Mode Summary */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card className="glass-card">
             <CardContent className="pt-6">
-              <div className="text-sm font-medium text-muted-foreground uppercase tracking-widest">Total Valid Revenue</div>
-              <div className="text-2xl font-bold font-headline mt-1 text-primary">
-                ₦{stats.total.toLocaleString()}
+              <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-none mb-2">Period Revenue</div>
+              <div className="text-2xl font-bold font-headline text-primary">
+                ₦{reportMetrics.totalRevenue.toLocaleString()}
               </div>
             </CardContent>
           </Card>
           <Card className="glass-card">
             <CardContent className="pt-6">
-              <div className="text-sm font-medium text-muted-foreground uppercase tracking-widest">Successful Sales</div>
-              <div className="text-2xl font-bold font-headline mt-1">{stats.count}</div>
+              <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-none mb-2">Transactions</div>
+              <div className="text-2xl font-bold font-headline">{reportMetrics.count}</div>
             </CardContent>
           </Card>
+          
+          {reportMetrics.isSearchingItem ? (
+            <>
+              <Card className="glass-card border-l-4 border-l-primary animate-in fade-in slide-in-from-right-4">
+                <CardContent className="pt-6">
+                  <div className="text-[10px] font-bold text-primary uppercase tracking-widest leading-none mb-2">"{search}" Qty</div>
+                  <div className="text-2xl font-bold font-headline text-white">{reportMetrics.itemQty}</div>
+                </CardContent>
+              </Card>
+              <Card className="glass-card border-l-4 border-l-primary animate-in fade-in slide-in-from-right-4">
+                <CardContent className="pt-6">
+                  <div className="text-[10px] font-bold text-primary uppercase tracking-widest leading-none mb-2">"{search}" Value</div>
+                  <div className="text-2xl font-bold font-headline text-white">₦{reportMetrics.itemRevenue.toLocaleString()}</div>
+                </CardContent>
+              </Card>
+            </>
+          ) : (
+            <div className="md:col-span-2 p-6 flex items-center justify-center bg-white/5 rounded-xl border border-dashed border-white/10">
+              <p className="text-xs text-muted-foreground italic flex items-center gap-2">
+                <Search className="w-3 h-3" /> Type an item name to see specific sales analytics
+              </p>
+            </div>
+          )}
         </div>
 
         <Card className="glass-card">
           <CardHeader className="border-b border-white/5 pb-4">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
               <CardTitle className="text-xl font-headline flex items-center gap-2">
-                <FileText className="text-primary w-5 h-5" /> Transactions
+                <FileText className="text-primary w-5 h-5" /> Detailed Logs
               </CardTitle>
-              <div className="relative w-full sm:w-80">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input 
-                  placeholder="Filter sales..." 
-                  className="pl-10 h-10 bg-white/5 border-white/5" 
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
+              
+              <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full sm:w-[240px] justify-start text-left font-normal bg-white/5 border-white/10 h-10">
+                      <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
+                      {dateRange.from ? (
+                        dateRange.to ? (
+                          <>
+                            {format(dateRange.from, "LLL dd")} -{" "}
+                            {format(dateRange.to, "LLL dd")}
+                          </>
+                        ) : (
+                          format(dateRange.from, "LLL dd, y")
+                        )
+                      ) : (
+                        <span>Pick a date range</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 glass-card" align="end">
+                    <Calendar
+                      initialFocus
+                      mode="range"
+                      defaultMonth={dateRange.from}
+                      selected={{ from: dateRange.from, to: dateRange.to }}
+                      onSelect={(range: any) => setDateRange({ from: range?.from, to: range?.to })}
+                      numberOfMonths={2}
+                    />
+                  </PopoverContent>
+                </Popover>
+
+                <div className="relative w-full sm:w-80">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input 
+                    placeholder="Search table, item, or method..." 
+                    className="pl-10 h-10 bg-white/5 border-white/10 rounded-xl" 
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                </div>
               </div>
             </div>
           </CardHeader>
@@ -341,7 +536,10 @@ export default function SalesHistoryPage() {
             {loading ? (
               <div className="py-20 text-center animate-pulse text-muted-foreground">Fetching records...</div>
             ) : filteredSales.length === 0 ? (
-              <div className="py-20 text-center italic text-muted-foreground">No transactions found.</div>
+              <div className="py-20 text-center flex flex-col items-center justify-center gap-4 text-muted-foreground opacity-40">
+                <BarChart3 className="w-12 h-12" />
+                <p className="italic">No transactions found for the selected criteria.</p>
+              </div>
             ) : (
               <div className="divide-y divide-white/5">
                 {paginatedSales.map((sale) => (
@@ -361,17 +559,17 @@ export default function SalesHistoryPage() {
                           </span>
                         </div>
                         <div className="flex flex-col">
-                          <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none mb-1">Time</span>
+                          <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none mb-1">Date & Time</span>
                           <span className="text-sm font-medium">
-                            {sale.timestamp?.toDate ? format(sale.timestamp.toDate(), 'HH:mm') : 'N/A'}
+                            {sale.timestamp?.toDate ? format(sale.timestamp.toDate(), 'dd/MM/yy HH:mm') : 'N/A'}
                           </span>
                         </div>
                         <div className="flex flex-col">
-                          <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none mb-1">Table</span>
+                          <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none mb-1">Service Point</span>
                           <span className="text-sm font-medium text-primary">{sale.tableNumber}</span>
                         </div>
                         <div className="flex flex-col items-end md:items-start">
-                          <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none mb-1">Total</span>
+                          <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none mb-1">Grand Total</span>
                           <span className={cn(
                             "text-lg font-headline font-bold text-white",
                             sale.status === "Canceled" && "line-through text-muted-foreground"
@@ -395,12 +593,15 @@ export default function SalesHistoryPage() {
                       <div className="max-w-md space-y-4">
                         <div className="space-y-3">
                           <div className="flex justify-between text-xs font-bold text-muted-foreground uppercase tracking-[0.2em] border-b border-white/10 pb-2">
-                            <span>Items</span>
-                            <span>Subtotal</span>
+                            <span>Itemized List</span>
+                            <span>Line Total</span>
                           </div>
                           {sale.items?.map((item: any, idx: number) => (
                             <div key={idx} className="flex justify-between items-center text-sm group/item">
-                              <span className="text-white/80">
+                              <span className={cn(
+                                "text-white/80",
+                                search && item.name.toLowerCase().includes(search.toLowerCase()) && "text-primary font-bold"
+                              )}>
                                 {item.name} <span className="text-muted-foreground">x{item.quantity}</span>
                                 {sale.status !== "Canceled" && (
                                   <button 
@@ -426,12 +627,12 @@ export default function SalesHistoryPage() {
                               <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                   <Button variant="ghost" size="sm" className="h-8 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive">
-                                    <XCircle className="w-3.5 h-3.5 mr-1.5" /> Cancel Entire Sale
+                                    <XCircle className="w-3.5 h-3.5 mr-1.5" /> Void Entire Sale
                                   </Button>
                                 </AlertDialogTrigger>
                                 <AlertDialogContent className="glass-card border-white/10">
                                   <AlertDialogHeader>
-                                    <AlertDialogTitle>Cancel Transaction?</AlertDialogTitle>
+                                    <AlertDialogTitle>Void Transaction?</AlertDialogTitle>
                                     <AlertDialogDescription>
                                       This will mark the entire sale as canceled and restore <strong>all items</strong> back to the inventory. This action is only allowed if the day hasn't been settled.
                                     </AlertDialogDescription>
@@ -439,7 +640,7 @@ export default function SalesHistoryPage() {
                                   <AlertDialogFooter>
                                     <AlertDialogCancel className="bg-white/5 border-white/10">No, Keep</AlertDialogCancel>
                                     <AlertDialogAction onClick={() => handleCancelSale(sale)} className="bg-destructive text-destructive-foreground">
-                                      Yes, Cancel & Restore Stock
+                                      Yes, Void & Restore Stock
                                     </AlertDialogAction>
                                   </AlertDialogFooter>
                                 </AlertDialogContent>
@@ -461,7 +662,7 @@ export default function SalesHistoryPage() {
             {totalPages > 1 && (
               <div className="flex items-center justify-between">
                 <p className="text-xs text-muted-foreground">
-                  Showing {paginatedSales.length} of {filteredSales.length} sales
+                  Showing {paginatedSales.length} of {filteredSales.length} transactions
                 </p>
                 <div className="flex gap-2">
                   <Button
