@@ -502,60 +502,60 @@ export default function SalesHistoryPage() {
 
   return (
     <AppShell>
-      <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-6 md:gap-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-headline font-bold uppercase tracking-tight">Sales Audit & Reports</h1>
-            <p className="text-muted-foreground">Detailed history with West Africa Time logging.</p>
+            <h1 className="text-2xl md:text-3xl font-headline font-bold uppercase tracking-tight">Sales Audit</h1>
+            <p className="text-xs md:text-sm text-muted-foreground">Detailed history with West Africa Time logging.</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" className="gap-2 border-white/10" onClick={printSalesReport}>
-              <Printer className="w-4 h-4" /> Print Report
+            <Button variant="outline" size="sm" className="gap-2 border-white/10 flex-1 md:flex-none" onClick={printSalesReport}>
+              <Printer className="w-4 h-4" /> <span className="hidden sm:inline">Print Report</span><span className="sm:hidden">Print</span>
             </Button>
-            <Button variant="outline" className="gap-2 border-white/10" asChild>
+            <Button variant="outline" size="sm" className="gap-2 border-white/10 flex-1 md:flex-none" asChild>
               <Link href="/bar/sales">
-                <ShoppingCart className="w-4 h-4" /> New Sale
+                <ShoppingCart className="w-4 h-4" /> <span className="hidden sm:inline">New Sale</span><span className="sm:hidden">New</span>
               </Link>
             </Button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
           <Card className="glass-card">
-            <CardContent className="pt-6">
-              <div className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest leading-none mb-2 flex items-center gap-2">
-                <CheckCircle2 className="w-3 h-3" /> {reportMetrics.isSearchingItem ? `"${search}" Settled` : 'Settled Revenue'}
+            <CardContent className="pt-4 md:pt-6">
+              <div className="text-[9px] md:text-[10px] font-bold text-emerald-500 uppercase tracking-widest leading-none mb-2 flex items-center gap-1.5 md:gap-2">
+                <CheckCircle2 className="w-2.5 h-2.5 md:w-3 md:h-3" /> <span className="truncate">{reportMetrics.isSearchingItem ? `"${search}" Settled` : 'Settled'}</span>
               </div>
-              <div className="text-2xl font-bold font-headline text-white">
+              <div className="text-xl md:text-2xl font-bold font-headline text-white truncate">
                 ₦{reportMetrics.settledRevenue.toLocaleString()}
               </div>
-              {!reportMetrics.isSearchingItem && <p className="text-[10px] text-muted-foreground mt-1">{reportMetrics.settledCount} Transactions</p>}
+              {!reportMetrics.isSearchingItem && <p className="text-[8px] md:text-[10px] text-muted-foreground mt-1">{reportMetrics.settledCount} Rec</p>}
             </CardContent>
           </Card>
-          <Card className="glass-card border-l-4 border-l-amber-500">
-            <CardContent className="pt-6">
-              <div className="text-[10px] font-bold text-amber-500 uppercase tracking-widest leading-none mb-2 flex items-center gap-2">
-                <AlertCircle className="w-3 h-3" /> {reportMetrics.isSearchingItem ? `"${search}" Pending` : 'Unsettled (Pending)'}
+          <Card className="glass-card border-l-2 md:border-l-4 border-l-amber-500">
+            <CardContent className="pt-4 md:pt-6">
+              <div className="text-[9px] md:text-[10px] font-bold text-amber-500 uppercase tracking-widest leading-none mb-2 flex items-center gap-1.5 md:gap-2">
+                <AlertCircle className="w-2.5 h-2.5 md:w-3 md:h-3" /> <span className="truncate">{reportMetrics.isSearchingItem ? `"${search}" Pending` : 'Pending'}</span>
               </div>
-              <div className="text-2xl font-bold font-headline text-white">
+              <div className="text-xl md:text-2xl font-bold font-headline text-white truncate">
                 ₦{reportMetrics.unsettledRevenue.toLocaleString()}
               </div>
-              {!reportMetrics.isSearchingItem && <p className="text-[10px] text-muted-foreground mt-1">{reportMetrics.unsettledCount} Transactions</p>}
+              {!reportMetrics.isSearchingItem && <p className="text-[8px] md:text-[10px] text-muted-foreground mt-1">{reportMetrics.unsettledCount} Rec</p>}
             </CardContent>
           </Card>
           
           {reportMetrics.isSearchingItem && (
             <>
-              <Card className="glass-card border-l-4 border-l-primary animate-in fade-in slide-in-from-right-4">
-                <CardContent className="pt-6">
-                  <div className="text-[10px] font-bold text-primary uppercase tracking-widest leading-none mb-2">"{search}" Qty Sold</div>
-                  <div className="text-2xl font-bold font-headline text-white">{reportMetrics.itemQty}</div>
+              <Card className="glass-card border-l-2 md:border-l-4 border-l-primary animate-in fade-in slide-in-from-right-4">
+                <CardContent className="pt-4 md:pt-6">
+                  <div className="text-[9px] md:text-[10px] font-bold text-primary uppercase tracking-widest leading-none mb-2 truncate">Qty Sold</div>
+                  <div className="text-xl md:text-2xl font-bold font-headline text-white">{reportMetrics.itemQty}</div>
                 </CardContent>
               </Card>
-              <Card className="glass-card border-l-4 border-l-primary animate-in fade-in slide-in-from-right-4">
-                <CardContent className="pt-6">
-                  <div className="text-[10px] font-bold text-primary uppercase tracking-widest leading-none mb-2">Transactions count</div>
-                  <div className="text-2xl font-bold font-headline text-white">{reportMetrics.count}</div>
+              <Card className="glass-card border-l-2 md:border-l-4 border-l-primary animate-in fade-in slide-in-from-right-4">
+                <CardContent className="pt-4 md:pt-6">
+                  <div className="text-[9px] md:text-[10px] font-bold text-primary uppercase tracking-widest leading-none mb-2 truncate">Trans. Count</div>
+                  <div className="text-xl md:text-2xl font-bold font-headline text-white">{reportMetrics.count}</div>
                 </CardContent>
               </Card>
             </>
@@ -563,40 +563,40 @@ export default function SalesHistoryPage() {
         </div>
 
         <Card className="glass-card">
-          <CardHeader className="border-b border-white/5 pb-4">
-            <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
-              <CardTitle className="text-xl font-headline flex items-center gap-2">
-                <FileText className="text-primary w-5 h-5" /> Detailed Logs
+          <CardHeader className="border-b border-white/5 pb-4 px-4 md:px-6">
+            <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+              <CardTitle className="text-lg md:text-xl font-headline flex items-center gap-2">
+                <FileText className="text-primary w-4 h-4 md:w-5 md:h-5" /> Detailed Logs
               </CardTitle>
               
-              <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
-                <div className="flex items-center gap-2 bg-white/5 border border-white/10 px-3 py-1 rounded-xl w-full sm:w-auto h-10">
-                  <div className="flex flex-col">
-                    <Label className="text-[8px] font-bold text-primary/50 uppercase leading-none mb-0.5">From</Label>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
+                <div className="flex items-center gap-2 bg-white/5 border border-white/10 px-3 py-1.5 rounded-xl w-full sm:w-auto h-auto sm:h-10">
+                  <div className="flex flex-col flex-1 sm:flex-none">
+                    <Label className="text-[8px] font-bold text-primary/50 uppercase leading-none mb-1">From</Label>
                     <input 
                       type="date" 
-                      className="bg-transparent border-none text-xs font-bold text-white outline-none w-28 [color-scheme:dark]" 
+                      className="bg-transparent border-none text-xs font-bold text-white outline-none w-full sm:w-28 [color-scheme:dark]" 
                       value={dateFrom}
                       onChange={(e) => setDateFrom(e.target.value)}
                     />
                   </div>
-                  <div className="w-px h-6 bg-white/10" />
-                  <div className="flex flex-col">
-                    <Label className="text-[8px] font-bold text-primary/50 uppercase leading-none mb-0.5">To</Label>
+                  <div className="w-px h-6 bg-white/10 hidden sm:block" />
+                  <div className="flex flex-col flex-1 sm:flex-none">
+                    <Label className="text-[8px] font-bold text-primary/50 uppercase leading-none mb-1">To</Label>
                     <input 
                       type="date" 
-                      className="bg-transparent border-none text-xs font-bold text-white outline-none w-28 [color-scheme:dark]" 
+                      className="bg-transparent border-none text-xs font-bold text-white outline-none w-full sm:w-28 [color-scheme:dark]" 
                       value={dateTo}
                       onChange={(e) => setDateTo(e.target.value)}
                     />
                   </div>
                 </div>
 
-                <div className="relative w-full sm:w-80">
+                <div className="relative w-full sm:w-64 lg:w-80">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input 
-                    placeholder="Search table, item, or status..." 
-                    className="pl-10 h-10 bg-white/5 border-white/10 rounded-xl" 
+                    placeholder="Search table, item, status..." 
+                    className="pl-10 h-10 bg-white/5 border-white/10 rounded-xl text-sm" 
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                   />
@@ -606,11 +606,11 @@ export default function SalesHistoryPage() {
           </CardHeader>
           <CardContent className="p-0">
             {loading ? (
-              <div className="py-20 text-center animate-pulse text-muted-foreground">Fetching records...</div>
+              <div className="py-20 text-center animate-pulse text-muted-foreground text-sm uppercase font-bold tracking-widest">Fetching records...</div>
             ) : filteredSales.length === 0 ? (
               <div className="py-20 text-center flex flex-col items-center justify-center gap-4 text-muted-foreground opacity-40">
-                <BarChart3 className="w-12 h-12" />
-                <p className="italic">No transactions found.</p>
+                <BarChart3 className="w-10 h-10 md:w-12 md:h-12" />
+                <p className="italic text-sm">No transactions found.</p>
               </div>
             ) : (
               <div className="divide-y divide-white/5">
@@ -619,84 +619,84 @@ export default function SalesHistoryPage() {
                   return (
                     <Collapsible key={sale.id} className="group">
                       <div className={cn(
-                        "p-4 flex items-center justify-between hover:bg-white/5 transition-colors",
+                        "p-4 flex items-center justify-between hover:bg-white/5 transition-colors cursor-pointer",
                         sale.status === "Canceled" && "opacity-60 bg-red-500/[0.02]",
                         sale.status === "Unsettled" && "bg-amber-500/[0.03]"
                       )}>
-                        <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-4 items-center">
+                        <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-x-2 gap-y-3 md:gap-4 items-center">
                           <div className="flex flex-col">
-                            <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none mb-1">Receipt</span>
-                            <span className="font-mono text-xs font-bold text-white flex items-center gap-2">
-                              #{sale.id.slice(-8).toUpperCase()}
+                            <span className="text-[8px] md:text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none mb-1">Receipt</span>
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="font-mono text-[10px] md:text-xs font-bold text-white">#{sale.id.slice(-8).toUpperCase()}</span>
                               {sale.status === "Canceled" ? (
-                                <Badge variant="destructive" className="h-4 text-[8px] uppercase px-1">Canceled</Badge>
+                                <Badge variant="destructive" className="h-3.5 text-[7px] md:text-[8px] uppercase px-1">Canceled</Badge>
                               ) : sale.status === "Unsettled" ? (
-                                <Badge variant="outline" className="h-4 text-[8px] uppercase px-1 border-amber-500/50 text-amber-500">Unsettled</Badge>
+                                <Badge variant="outline" className="h-3.5 text-[7px] md:text-[8px] uppercase px-1 border-amber-500/50 text-amber-500">Unsettled</Badge>
                               ) : (
-                                <Badge variant="outline" className="h-4 text-[8px] uppercase px-1 border-emerald-500/50 text-emerald-500">Settled</Badge>
+                                <Badge variant="outline" className="h-3.5 text-[7px] md:text-[8px] uppercase px-1 border-emerald-500/50 text-emerald-500">Settled</Badge>
                               )}
-                            </span>
+                            </div>
                           </div>
                           <div className="flex flex-col">
-                            <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none mb-1">Date & Time (WAT)</span>
-                            <span className="text-sm font-medium">
+                            <span className="text-[8px] md:text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none mb-1">Date & Time</span>
+                            <span className="text-[10px] md:text-sm font-medium truncate">
                               {formatNigeriaTime(saleDate)}
                             </span>
                           </div>
                           <div className="flex flex-col">
-                            <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none mb-1">Service Point</span>
-                            <span className="text-sm font-medium text-primary">{sale.tableNumber}</span>
+                            <span className="text-[8px] md:text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none mb-1">Point</span>
+                            <span className="text-[10px] md:text-sm font-medium text-primary truncate">{sale.tableNumber}</span>
                           </div>
                           <div className="flex flex-col items-end md:items-start">
-                            <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none mb-1">Grand Total</span>
+                            <span className="text-[8px] md:text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none mb-1">Total</span>
                             <span className={cn(
-                              "text-lg font-headline font-bold text-white",
+                              "text-sm md:text-lg font-headline font-bold text-white",
                               sale.status === "Canceled" && "line-through text-muted-foreground"
                             )}>₦{sale.total.toLocaleString()}</span>
                           </div>
                         </div>
                         
-                        <div className="flex items-center gap-2 ml-4">
-                          <Button variant="ghost" size="icon" className="h-10 w-10 text-muted-foreground hover:text-primary" onClick={() => printDucket(sale)}>
-                            <Printer className="w-4 h-4" />
+                        <div className="flex items-center gap-1 md:gap-2 ml-4 shrink-0">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 md:h-10 md:w-10 text-muted-foreground hover:text-primary" onClick={(e) => { e.stopPropagation(); printDucket(sale); }}>
+                            <Printer className="w-3.5 h-3.5 md:w-4 md:h-4" />
                           </Button>
                           <CollapsibleTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-10 w-10">
-                              <ChevronDown className="w-4 h-4 transition-transform group-data-[state=open]:rotate-180" />
+                            <Button variant="ghost" size="icon" className="h-8 w-8 md:h-10 md:w-10">
+                              <ChevronDown className="w-3.5 h-3.5 md:w-4 md:h-4 transition-transform group-data-[state=open]:rotate-180" />
                             </Button>
                           </CollapsibleTrigger>
                         </div>
                       </div>
                       
-                      <CollapsibleContent className="bg-white/[0.02] px-6 py-4 border-t border-white/5">
+                      <CollapsibleContent className="bg-white/[0.02] px-4 md:px-6 py-4 border-t border-white/5">
                         <div className="max-w-md space-y-6">
                           {sale.status === "Unsettled" && (
-                            <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl space-y-4">
+                            <div className="p-3 md:p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl space-y-4">
                               <div className="flex items-center gap-2">
-                                <AlertCircle className="w-4 h-4 text-amber-500" />
-                                <span className="text-xs font-bold text-amber-500 uppercase tracking-widest">Complete Settlement</span>
+                                <AlertCircle className="w-3.5 h-3.5 md:w-4 md:h-4 text-amber-500" />
+                                <span className="text-[10px] md:text-xs font-bold text-amber-500 uppercase tracking-widest">Complete Settlement</span>
                               </div>
                               <div className="grid grid-cols-3 gap-2">
-                                <Button size="sm" className="bg-primary text-primary-foreground font-bold h-10" onClick={() => handleSettleSale(sale, "Card")}>
-                                  <CreditCard className="w-3.5 h-3.5 mr-1" /> Card
+                                <Button size="sm" className="bg-primary text-primary-foreground font-bold h-9 md:h-10 text-[10px] md:text-sm px-1" onClick={() => handleSettleSale(sale, "Card")}>
+                                  <CreditCard className="w-3 h-3 md:w-3.5 md:h-3.5 mr-1" /> Card
                                 </Button>
-                                <Button size="sm" variant="outline" className="border-primary/30 text-primary font-bold h-10" onClick={() => handleSettleSale(sale, "Transfer")}>
-                                  <ArrowLeftRight className="w-3.5 h-3.5 mr-1" /> Trans
+                                <Button size="sm" variant="outline" className="border-primary/30 text-primary font-bold h-9 md:h-10 text-[10px] md:text-sm px-1" onClick={() => handleSettleSale(sale, "Transfer")}>
+                                  <ArrowLeftRight className="w-3 h-3 md:w-3.5 md:h-3.5 mr-1" /> Trans
                                 </Button>
-                                <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-10" onClick={() => handleSettleSale(sale, "Cash")}>
-                                  <Banknote className="w-3.5 h-3.5 mr-1" /> Cash
+                                <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-9 md:h-10 text-[10px] md:text-sm px-1" onClick={() => handleSettleSale(sale, "Cash")}>
+                                  <Banknote className="w-3 h-3 md:w-3.5 md:h-3.5 mr-1" /> Cash
                                 </Button>
                               </div>
                             </div>
                           )}
 
                           <div className="space-y-3">
-                            <div className="flex justify-between text-xs font-bold text-muted-foreground uppercase tracking-[0.2em] border-b border-white/10 pb-2">
-                              <span>Itemized List</span>
-                              <span>Line Total</span>
+                            <div className="flex justify-between text-[10px] md:text-xs font-bold text-muted-foreground uppercase tracking-[0.1em] md:tracking-[0.2em] border-b border-white/10 pb-2">
+                              <span>Items</span>
+                              <span>Total</span>
                             </div>
                             {sale.items?.map((item: any, idx: number) => (
-                              <div key={idx} className="flex justify-between items-center text-sm group/item">
+                              <div key={idx} className="flex justify-between items-center text-[11px] md:text-sm group/item">
                                 <span className={cn(
                                   "text-white/80",
                                   search && item.name.toLowerCase().includes(search.toLowerCase()) && "text-primary font-bold"
@@ -705,10 +705,10 @@ export default function SalesHistoryPage() {
                                   {(sale.status !== "Canceled" && (isAdmin || !sale.shiftId || sale.shiftId === "admin-override")) && (
                                     <button 
                                       onClick={() => handleVoidItem(sale, idx)}
-                                      className="ml-2 text-destructive opacity-0 group-hover/item:opacity-100 transition-opacity"
+                                      className="ml-2 text-destructive opacity-40 hover:opacity-100 transition-opacity"
                                       title="Void this item"
                                     >
-                                      <MinusCircle className="w-3.5 h-3.5 inline" />
+                                      <MinusCircle className="w-3 h-3 md:w-3.5 md:h-3.5 inline" />
                                     </button>
                                   )}
                                 </span>
@@ -717,27 +717,27 @@ export default function SalesHistoryPage() {
                             ))}
                           </div>
                           
-                          <div className="pt-3 flex items-center justify-between border-t border-white/5">
-                            <Badge variant="outline" className="gap-1.5 border-white/10 text-[10px] uppercase font-bold py-1">
+                          <div className="pt-3 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between border-t border-white/5">
+                            <Badge variant="outline" className="gap-1.5 border-white/10 text-[9px] md:text-[10px] uppercase font-bold py-1 w-fit">
                               {getMethodIcon(sale.method)} {sale.method}
                             </Badge>
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center justify-between sm:justify-end gap-3">
                               {sale.status !== "Canceled" && (isAdmin || !sale.shiftId || sale.shiftId === "admin-override") && (
                                 <AlertDialog>
                                   <AlertDialogTrigger asChild>
-                                    <Button variant="ghost" size="sm" className="h-8 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive">
-                                      <XCircle className="w-3.5 h-3.5 mr-1.5" /> Void Entire Sale
+                                    <Button variant="ghost" size="sm" className="h-8 text-[10px] md:text-xs text-destructive hover:bg-destructive/10 hover:text-destructive px-2">
+                                      <XCircle className="w-3 h-3 md:w-3.5 md:h-3.5 mr-1.5" /> Void Sale
                                     </Button>
                                   </AlertDialogTrigger>
-                                  <AlertDialogContent className="glass-card border-white/10">
+                                  <AlertDialogContent className="glass-card border-white/10 mx-4 w-[calc(100%-2rem)] max-w-lg">
                                     <AlertDialogHeader>
                                       <AlertDialogTitle>Void Transaction?</AlertDialogTitle>
                                       <AlertDialogDescription>
                                         This will mark the entire sale as canceled and restore <strong>all items</strong> back to the inventory.
                                       </AlertDialogDescription>
                                     </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel className="bg-white/5 border-white/10">No, Keep</AlertDialogCancel>
+                                    <AlertDialogFooter className="gap-2">
+                                      <AlertDialogCancel className="bg-white/5 border-white/10 mt-0">No, Keep</AlertDialogCancel>
                                       <AlertDialogAction onClick={() => handleCancelSale(sale)} className="bg-destructive text-destructive-foreground">
                                         Yes, Void & Restore Stock
                                       </AlertDialogAction>
@@ -745,7 +745,7 @@ export default function SalesHistoryPage() {
                                   </AlertDialogContent>
                                 </AlertDialog>
                               )}
-                              <span className="text-xs text-muted-foreground">
+                              <span className="text-[10px] md:text-xs text-muted-foreground shrink-0">
                                 {formatNigeriaTime(saleDate)}
                               </span>
                             </div>
@@ -760,21 +760,21 @@ export default function SalesHistoryPage() {
           </CardContent>
           <CardContent className="border-t border-white/5 p-4">
             {totalPages > 1 && (
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">
-                  Showing {paginatedSales.length} transactions
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <p className="text-[10px] md:text-xs text-muted-foreground uppercase font-bold tracking-widest">
+                  Showing {paginatedSales.length} Records
                 </p>
-                <div className="flex gap-2">
+                <div className="flex gap-2 w-full sm:w-auto">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
-                    className="h-10 px-4 rounded-xl border-white/10"
+                    className="h-10 px-4 rounded-xl border-white/10 flex-1 sm:flex-none"
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </Button>
-                  <div className="flex items-center gap-1 text-sm font-bold px-4 bg-primary/10 rounded-xl text-primary">
+                  <div className="flex items-center justify-center gap-1 text-sm font-bold px-4 bg-primary/10 rounded-xl text-primary flex-1 sm:flex-none">
                     {currentPage} / {totalPages}
                   </div>
                   <Button
@@ -782,7 +782,7 @@ export default function SalesHistoryPage() {
                     size="sm"
                     onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                     disabled={currentPage === totalPages}
-                    className="h-10 px-4 rounded-xl border-white/10"
+                    className="h-10 px-4 rounded-xl border-white/10 flex-1 sm:flex-none"
                   >
                     <ChevronRight className="w-4 h-4" />
                   </Button>
