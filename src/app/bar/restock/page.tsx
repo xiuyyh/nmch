@@ -56,16 +56,19 @@ export default function BarRestockPage() {
   }, [firestore]);
   const { data: history, loading: historyLoading } = useCollection(historyQuery);
 
+  // Only include items that are NOT food for restocking
   const lowStockItems = useMemo(() => {
     if (!inventory) return [];
-    return inventory.filter(item => item.stock <= item.min);
+    return inventory.filter(item => item.category !== "FOOD" && item.stock <= item.min);
   }, [inventory]);
 
   const filteredInventory = useMemo(() => {
     if (!inventory) return [];
     return inventory.filter(item => 
-      item.name?.toLowerCase().includes(inventorySearch.toLowerCase()) ||
-      item.category?.toLowerCase().includes(inventorySearch.toLowerCase())
+      item.category !== "FOOD" && (
+        item.name?.toLowerCase().includes(inventorySearch.toLowerCase()) ||
+        item.category?.toLowerCase().includes(inventorySearch.toLowerCase())
+      )
     );
   }, [inventory, inventorySearch]);
 
@@ -129,6 +132,7 @@ export default function BarRestockPage() {
       <div className="flex flex-col gap-8 max-w-6xl mx-auto">
         <div>
           <h1 className="text-3xl font-headline font-bold uppercase tracking-tight">Bar Restock</h1>
+          <p className="text-muted-foreground mt-1">Request supplies from the main store. Food items are managed by the kitchen.</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -172,7 +176,7 @@ export default function BarRestockPage() {
               {/* Inventory Selection Section */}
               <div className="border-b border-white/5 bg-white/[0.02] p-6 space-y-4">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                  <span className="text-sm font-bold uppercase tracking-widest text-muted-foreground shrink-0">Select from Inventory</span>
+                  <span className="text-sm font-bold uppercase tracking-widest text-muted-foreground shrink-0">Select from Bar Inventory</span>
                   <div className="relative w-full sm:w-64">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input 
@@ -185,7 +189,7 @@ export default function BarRestockPage() {
                 </div>
                 <div className="flex flex-wrap gap-2 pt-2 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
                   {filteredInventory.length === 0 ? (
-                    <p className="text-xs text-muted-foreground italic py-4">No matching items found.</p>
+                    <p className="text-xs text-muted-foreground italic py-4">No matching stock items found.</p>
                   ) : (
                     filteredInventory.map(item => (
                       <Button 
@@ -256,7 +260,7 @@ export default function BarRestockPage() {
                           <div className="p-4 space-y-3 hover:bg-white/5 transition-colors cursor-pointer">
                             <div className="flex justify-between items-start">
                               <div className="flex flex-col">
-                                <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
                                   {req.requestDate?.toDate ? format(req.requestDate.toDate(), "MMM dd, HH:mm") : "N/A"}
                                 </span>
                                 <span className="text-sm font-bold">{req.items?.length || 0} items requested</span>
