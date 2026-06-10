@@ -14,7 +14,8 @@ import {
   History,
   CheckCircle2,
   ChevronDown,
-  ExternalLink
+  ExternalLink,
+  Loader2
 } from "lucide-react";
 import { 
   Collapsible,
@@ -36,7 +37,6 @@ export default function ShiftManagementPage() {
   const { toast } = useToast();
   const [isStarting, setIsStarting] = useState(false);
 
-  // Get current user role
   const userRef = useMemo(() => {
     if (!firestore || !user) return null;
     return doc(firestore, 'users', user.uid);
@@ -44,14 +44,12 @@ export default function ShiftManagementPage() {
   const { data: userRecord } = useDoc(userRef);
   const isAdmin = userRecord?.role === 'admin';
 
-  // Fetch Inventory for snapshot
   const inventoryQuery = useMemo(() => {
     if (!firestore) return null;
     return query(collection(firestore, "inventory"), orderBy("name"));
   }, [firestore]);
   const { data: inventory, loading: inventoryLoading } = useCollection(inventoryQuery);
 
-  // Check for ANY active shift
   const allActiveShiftsQuery = useMemo(() => {
     if (!firestore) return null;
     return query(
@@ -70,7 +68,6 @@ export default function ShiftManagementPage() {
     return allActiveShifts?.find(s => s.staffId !== user?.uid);
   }, [allActiveShifts, user]);
 
-  // Fetch today's shift history
   const historyQuery = useMemo(() => {
     if (!firestore || !user) return null;
     const start = startOfDay(new Date());
@@ -87,7 +84,6 @@ export default function ShiftManagementPage() {
   const handleStartShift = () => {
     if (!firestore || !user || !inventory) return;
     
-    // Admins are not blocked by other active shifts
     if (otherActiveShift && !isAdmin) {
       toast({
         variant: "destructive",
@@ -98,7 +94,6 @@ export default function ShiftManagementPage() {
     }
 
     setIsStarting(true);
-    const now = new Date();
 
     const openingStock = inventory
       .filter(item => item.category !== "FOOD")
@@ -113,15 +108,13 @@ export default function ShiftManagementPage() {
       staffId: user.uid,
       staffName: user.displayName || user.email,
       startTime: serverTimestamp(),
-      localStartTime: now.toISOString(),
       openingStock,
       status: "active"
     };
 
-    // Use .then() instead of await
     addDoc(collection(firestore, "shifts"), shiftData)
       .then(() => {
-        toast({ title: "Shift Started", description: "Opening stock recorded in West Africa Time." });
+        toast({ title: "Shift Started", description: "Opening stock recorded via verified timestamp." });
       })
       .catch(error => {
         errorEmitter.emit("permission-error", new FirestorePermissionError({
@@ -139,8 +132,7 @@ export default function ShiftManagementPage() {
     const shiftRef = doc(firestore, "shifts", myActiveShift.id);
     updateDoc(shiftRef, {
       status: "closed",
-      endTime: serverTimestamp(),
-      localEndTime: new Date().toISOString()
+      endTime: serverTimestamp()
     }).then(() => {
       toast({ title: "Shift Ended", description: "Session closed successfully." });
     }).catch(error => {
@@ -226,7 +218,13 @@ export default function ShiftManagementPage() {
                     <div className="flex flex-col gap-1">
                       <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Shift Started (WAT)</span>
                       <span className="font-headline font-bold text-lg">
-                        {formatNigeriaTime(myActiveShift.startTime?.toDate ? myActiveShift.startTime.toDate() : new Date(myActiveShift.localStartTime))}
+                        {myActiveShift.startTime?.toDate ? (
+                          formatNigeriaTime(myActiveShift.startTime.toDate())
+                        ) : (
+                          <span className="text-primary/50 flex items-center gap-2">
+                            <Loader2 className="w-4 h-4 animate-spin" /> SYNCING...
+                          </span>
+                        )}
                       </span>
                     </div>
                   </div>
@@ -285,7 +283,7 @@ export default function ShiftManagementPage() {
                               <div className="flex flex-col">
                                 <span className="text-sm font-bold text-white">{shift.staffName}</span>
                                 <span className="text-[10px] uppercase font-bold text-muted-foreground/60">
-                                  {formatNigeriaTime(shift.startTime?.toDate ? shift.startTime.toDate() : new Date(shift.localStartTime))}
+                                  {shift.startTime?.toDate ? formatNigeriaTime(shift.startTime.toDate()) : "SYNCING..."}
                                 </span>
                               </div>
                             </div>

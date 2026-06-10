@@ -31,7 +31,8 @@ import {
   BarChart3,
   CheckCircle2,
   AlertCircle,
-  CalendarX
+  CalendarX,
+  Loader2
 } from "lucide-react";
 import { useCollection, useFirestore, useUser, useDoc } from "@/firebase";
 import { collection, query, orderBy, doc, updateDoc, increment, serverTimestamp, getDoc } from "firebase/firestore";
@@ -74,7 +75,6 @@ export default function SalesHistoryPage() {
   const { data: userRecord } = useDoc(userRef);
   const isAdmin = userRecord?.role === 'admin';
 
-  // Changed: Default to empty strings so filter is not active by default
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
 
@@ -88,10 +88,10 @@ export default function SalesHistoryPage() {
   const filteredSales = useMemo(() => {
     if (!sales) return [];
     return sales.filter(sale => {
-      const saleDate = sale.timestamp?.toDate ? sale.timestamp.toDate() : (sale.localTimestamp ? new Date(sale.localTimestamp) : null);
+      const saleDate = sale.timestamp?.toDate ? sale.timestamp.toDate() : null;
       
-      // Changed: Only apply date interval filtering if BOTH dates are explicitly provided
-      if (dateFrom && dateTo && saleDate) {
+      if (dateFrom && dateTo) {
+        if (!saleDate) return false; // Hide syncing items if explicit date filter active
         try {
           const start = startOfDay(parseISO(dateFrom));
           const end = endOfDay(parseISO(dateTo));
@@ -226,18 +226,10 @@ export default function SalesHistoryPage() {
 
       for (const item of sale.items) {
         const stockRef = doc(firestore, "inventory", item.itemId);
-        const stockUpdate = {
+        updateDoc(stockRef, {
           stock: increment(item.quantity),
           lastUpdated: serverTimestamp()
-        };
-        
-        updateDoc(stockRef, stockUpdate).catch((error) => {
-          errorEmitter.emit("permission-error", new FirestorePermissionError({
-            path: stockRef.path,
-            operation: "update",
-            requestResourceData: stockUpdate
-          }));
-        });
+        }).catch(() => {});
       }
 
       toast({
@@ -289,18 +281,10 @@ export default function SalesHistoryPage() {
       });
 
       const stockRef = doc(firestore, "inventory", itemToVoid.itemId);
-      const stockUpdate = {
+      updateDoc(stockRef, {
         stock: increment(itemToVoid.quantity),
         lastUpdated: serverTimestamp()
-      };
-
-      updateDoc(stockRef, stockUpdate).catch((error) => {
-        errorEmitter.emit("permission-error", new FirestorePermissionError({
-          path: stockRef.path,
-          operation: "update",
-          requestResourceData: stockUpdate
-        }));
-      });
+      }).catch(() => {});
 
       toast({
         title: "Item Voided",
@@ -425,7 +409,8 @@ export default function SalesHistoryPage() {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    const dateStr = formatNigeriaTime(sale.timestamp?.toDate ? sale.timestamp.toDate() : (sale.localTimestamp ? new Date(sale.localTimestamp) : new Date()));
+    // NO local Date() fallback for audit history duckets. If it's not synced, don't invent a date.
+    const dateStr = sale.timestamp?.toDate ? formatNigeriaTime(sale.timestamp.toDate()) : "OFFLINE - NO DATE";
     
     const itemsHtml = sale.items.map((item: any) => `
       <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-weight: 800; font-size: 16px;">
@@ -511,7 +496,7 @@ export default function SalesHistoryPage() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-headline font-bold uppercase tracking-tight">Sales Audit</h1>
-            <p className="text-xs md:text-sm text-muted-foreground">Detailed history with West Africa Time logging.</p>
+            <p className="text-xs md:text-sm text-muted-foreground">Detailed history with verified server timestamps.</p>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" className="gap-2 border-white/10 flex-1 md:flex-none" onClick={printSalesReport}>
@@ -625,7 +610,7 @@ export default function SalesHistoryPage() {
             ) : (
               <div className="divide-y divide-white/5">
                 {paginatedSales.map((sale) => {
-                  const saleDate = sale.timestamp?.toDate ? sale.timestamp.toDate() : (sale.localTimestamp ? new Date(sale.localTimestamp) : null);
+                  const saleDate = sale.timestamp?.toDate ? sale.timestamp.toDate() : null;
                   return (
                     <Collapsible key={sale.id} className="group">
                       <div className={cn(
@@ -636,7 +621,7 @@ export default function SalesHistoryPage() {
                         <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-x-2 gap-y-3 md:gap-4 items-center">
                           <div className="flex flex-col">
                             <span className="text-[8px] md:text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none mb-1">Receipt</span>
-                            <div className="flex flex-wrap items-center gap-1.5">
+                            <div className="flex wrap items-center gap-1.5">
                               <span className="font-mono text-[10px] md:text-xs font-bold text-white">#{sale.id.slice(-8).toUpperCase()}</span>
                               {sale.status === "Canceled" ? (
                                 <Badge variant="destructive" className="h-3.5 text-[7px] md:text-[8px] uppercase px-1">Canceled</Badge>
@@ -649,9 +634,15 @@ export default function SalesHistoryPage() {
                           </div>
                           <div className="flex flex-col">
                             <span className="text-[8px] md:text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none mb-1">Date & Time</span>
-                            <span className="text-[10px] md:text-sm font-medium truncate">
-                              {formatNigeriaTime(saleDate)}
-                            </span>
+                            {saleDate ? (
+                              <span className="text-[10px] md:text-sm font-medium truncate">
+                                {formatNigeriaTime(saleDate)}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] md:text-xs font-bold text-primary/50 animate-pulse flex items-center gap-1">
+                                <Loader2 className="w-2.5 h-2.5 animate-spin" /> SYNCING...
+                              </span>
+                            )}
                           </div>
                           <div className="flex flex-col">
                             <span className="text-[8px] md:text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none mb-1">Point</span>
@@ -756,7 +747,7 @@ export default function SalesHistoryPage() {
                                 </AlertDialog>
                               )}
                               <span className="text-[10px] md:text-xs text-muted-foreground shrink-0">
-                                {formatNigeriaTime(saleDate)}
+                                {saleDate ? formatNigeriaTime(saleDate) : "OFFLINE"}
                               </span>
                             </div>
                           </div>

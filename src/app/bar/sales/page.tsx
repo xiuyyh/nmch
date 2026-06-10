@@ -81,7 +81,6 @@ export default function SalesPage() {
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
   const [shouldPrintDucket, setShouldPrintDucket] = useState(true);
 
-  // Get current user role
   const userRef = useMemo(() => {
     if (!firestore || !user) return null;
     return doc(firestore, 'users', user.uid);
@@ -89,7 +88,6 @@ export default function SalesPage() {
   const { data: userRecord } = useDoc(userRef);
   const isAdmin = userRecord?.role === 'admin';
 
-  // Check for active shift
   const shiftQuery = useMemo(() => {
     if (!firestore || !user) return null;
     return query(
@@ -102,26 +100,21 @@ export default function SalesPage() {
   const { data: activeShifts, loading: shiftLoading } = useCollection(shiftQuery);
   const activeShift = activeShifts?.[0];
 
-  // Fetch Inventory
   const inventoryQuery = useMemo(() => {
     if (!firestore) return null;
     return query(collection(firestore, "inventory"), orderBy("name"));
   }, [firestore]);
   const { data: inventoryItems, loading: inventoryLoading } = useCollection(inventoryQuery);
 
-  // Fetch Active Table Order
   const tableRef = useMemo(() => {
     if (!firestore || !selectedTable) return null;
     return doc(firestore, "tableSessions", selectedTable);
   }, [firestore, selectedTable]);
   const { data: tableSession, loading: sessionLoading } = useDoc(tableRef);
 
-  // Sync cart with table session
   useEffect(() => {
-    if (selectedTable) {
-      if (!sessionLoading) {
-        setCart(tableSession?.items || []);
-      }
+    if (selectedTable && !sessionLoading) {
+      setCart(tableSession?.items || []);
     }
   }, [selectedTable, tableSession, sessionLoading]);
 
@@ -251,32 +244,24 @@ export default function SalesPage() {
       return;
     }
 
-    const now = new Date();
     const saleData = {
       items: cart,
       total,
       method: "Unsettled",
       tableNumber: selectedTable || "Counter",
       timestamp: serverTimestamp(),
-      localTimestamp: now.toISOString(),
       status: "Unsettled",
       staffName: user?.displayName || user?.email || "Bar Staff",
       shiftId: activeShift?.id || "admin-override"
     };
 
-    // Use .then() instead of await to avoid generator reference errors
     addDoc(collection(firestore, "sales"), saleData)
       .then((docRef) => {
         if (shouldPrintDucket) {
-          const printFriendlySale = {
-            ...saleData,
-            timestamp: { toDate: () => now },
-            id: docRef.id
-          };
-          printDucket(printFriendlySale);
+          // Pass the reference to doc to the printer, which handles missing timestamp
+          printDucket({ ...saleData, id: docRef.id });
         }
 
-        // Fire food items if any
         const foodItemsToFire = cart
           .filter(item => item.category === "FOOD" && item.quantity > (item.lastSentQuantity || 0))
           .map(item => ({
@@ -285,17 +270,15 @@ export default function SalesPage() {
           }));
 
         if (foodItemsToFire.length > 0) {
-          const kitchenOrderData = {
+          addDoc(collection(firestore, "kitchenOrders"), {
             tableNumber: selectedTable || "Counter",
             items: foodItemsToFire,
             timestamp: serverTimestamp(),
             staffName: user?.displayName || user?.email || "Bar Staff",
             status: "Pending"
-          };
-          addDoc(collection(firestore, "kitchenOrders"), kitchenOrderData).catch(() => {});
+          }).catch(() => {});
         }
 
-        // Deduct stock immediately
         cart.forEach(cartItem => {
           if (cartItem.category !== "FOOD") {
             const stockRef = doc(firestore, "inventory", cartItem.itemId);
@@ -328,7 +311,8 @@ export default function SalesPage() {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    const dateStr = formatNigeriaTime(sale.timestamp?.toDate ? sale.timestamp.toDate() : new Date());
+    // Strict requirement: Do not use local Date() as fallback. Show OFFLINE if sync pending.
+    const dateStr = sale.timestamp?.toDate ? formatNigeriaTime(sale.timestamp.toDate()) : "OFFLINE - NO DATE";
 
     const itemsHtml = sale.items.map((item: any) => `
       <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-weight: 800; font-size: 16px;">

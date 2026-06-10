@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useMemo } from "react";
@@ -13,7 +12,8 @@ import {
   User, 
   Clock, 
   ArrowRight,
-  PackageCheck
+  PackageCheck,
+  Loader2
 } from "lucide-react";
 import { useDoc, useFirestore } from "@/firebase";
 import { doc } from "firebase/firestore";
@@ -65,7 +65,7 @@ export default function ShiftOpeningStockDetailPage() {
     );
   }
 
-  const startTime = shift.startTime?.toDate ? shift.startTime.toDate() : (shift.localStartTime ? new Date(shift.localStartTime) : null);
+  const startTime = shift.startTime?.toDate ? shift.startTime.toDate() : null;
 
   return (
     <AppShell>
@@ -95,7 +95,11 @@ export default function ShiftOpeningStockDetailPage() {
                 <Clock className="w-3 h-3 text-primary" /> Start Time (WAT)
               </span>
               <CardTitle className="text-xl font-headline">
-                {formatNigeriaTime(startTime)}
+                {startTime ? formatNigeriaTime(startTime) : (
+                  <span className="text-primary/50 text-sm animate-pulse flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" /> SYNCING...
+                  </span>
+                )}
               </CardTitle>
             </CardHeader>
           </Card>
