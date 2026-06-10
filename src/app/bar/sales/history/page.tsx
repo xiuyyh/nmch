@@ -30,7 +30,8 @@ import {
   MinusCircle,
   BarChart3,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  CalendarX
 } from "lucide-react";
 import { useCollection, useFirestore, useUser, useDoc } from "@/firebase";
 import { collection, query, orderBy, doc, updateDoc, increment, serverTimestamp, getDoc } from "firebase/firestore";
@@ -57,7 +58,7 @@ import { useToast } from "@/hooks/use-toast";
 import { errorEmitter } from "@/firebase/error-emitter";
 import { FirestorePermissionError } from "@/firebase/errors";
 
-const ITEMS_PER_PAGE = 10;
+const ITEMS_PER_PAGE = 13;
 
 export default function SalesHistoryPage() {
   const firestore = useFirestore();
@@ -73,8 +74,9 @@ export default function SalesHistoryPage() {
   const { data: userRecord } = useDoc(userRef);
   const isAdmin = userRecord?.role === 'admin';
 
-  const [dateFrom, setDateFrom] = useState<string>(format(new Date(), "yyyy-MM-dd"));
-  const [dateTo, setDateTo] = useState<string>(format(new Date(), "yyyy-MM-dd"));
+  // Changed: Default to empty strings so filter is not active by default
+  const [dateFrom, setDateFrom] = useState<string>("");
+  const [dateTo, setDateTo] = useState<string>("");
 
   const salesQuery = useMemo(() => {
     if (!firestore) return null;
@@ -88,6 +90,7 @@ export default function SalesHistoryPage() {
     return sales.filter(sale => {
       const saleDate = sale.timestamp?.toDate ? sale.timestamp.toDate() : (sale.localTimestamp ? new Date(sale.localTimestamp) : null);
       
+      // Changed: Only apply date interval filtering if BOTH dates are explicitly provided
       if (dateFrom && dateTo && saleDate) {
         try {
           const start = startOfDay(parseISO(dateFrom));
@@ -495,6 +498,13 @@ export default function SalesHistoryPage() {
     }
   };
 
+  const clearDateFilter = () => {
+    setDateFrom("");
+    setDateTo("");
+    setCurrentPage(1);
+    toast({ title: "Filters Cleared", description: "Showing most recent sales." });
+  };
+
   return (
     <AppShell>
       <div className="flex flex-col gap-6 md:gap-8">
@@ -585,6 +595,11 @@ export default function SalesHistoryPage() {
                       onChange={(e) => setDateTo(e.target.value)}
                     />
                   </div>
+                  {(dateFrom || dateTo) && (
+                    <Button variant="ghost" size="icon" className="h-6 w-6 ml-2" onClick={clearDateFilter}>
+                      <CalendarX className="w-3 h-3 text-destructive" />
+                    </Button>
+                  )}
                 </div>
 
                 <div className="relative w-full sm:w-64 lg:w-80">
