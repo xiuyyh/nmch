@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo } from "react";
@@ -95,50 +94,49 @@ export default function WarehouseStockPage() {
     return filteredItems.slice(start, start + ITEMS_PER_PAGE);
   }, [filteredItems, currentPage]);
 
-  const handleSyncMissingItems = async () => {
+  const handleSyncMissingItems = () => {
     if (!firestore) return;
     setIsSyncing(true);
 
-    try {
-      const barInventorySnap = await getDocs(collection(firestore, "inventory"));
-      const warehouseInventorySnap = await getDocs(collection(firestore, "warehouseInventory"));
-      
-      const warehouseIds = new Set(warehouseInventorySnap.docs.map(doc => doc.id));
-      let syncCount = 0;
+    // Using nested .then() chains to avoid generator transpilation issues
+    getDocs(collection(firestore, "inventory"))
+      .then(barInventorySnap => {
+        getDocs(collection(firestore, "warehouseInventory"))
+          .then(warehouseInventorySnap => {
+            const warehouseIds = new Set(warehouseInventorySnap.docs.map(doc => doc.id));
+            let syncCount = 0;
+            const syncPromises: Promise<any>[] = [];
 
-      for (const barDoc of barInventorySnap.docs) {
-        const data = barDoc.data();
-        // Don't sync FOOD or items that already exist in warehouse
-        if (!warehouseIds.has(barDoc.id) && data.category !== "FOOD") {
-          const warehouseRef = doc(firestore, "warehouseInventory", barDoc.id);
-          await setDoc(warehouseRef, {
-            name: data.name,
-            category: data.category,
-            unit: data.unit || "N/A",
-            stock: 0,
-            min: 5,
-            lastUpdated: serverTimestamp()
+            barInventorySnap.docs.forEach(barDoc => {
+              const data = barDoc.data();
+              if (!warehouseIds.has(barDoc.id) && data.category !== "FOOD") {
+                const warehouseRef = doc(firestore, "warehouseInventory", barDoc.id);
+                syncPromises.push(setDoc(warehouseRef, {
+                  name: data.name,
+                  category: data.category,
+                  unit: data.unit || "N/A",
+                  stock: 0,
+                  min: 5,
+                  lastUpdated: serverTimestamp()
+                }));
+                syncCount++;
+              }
+            });
+
+            Promise.all(syncPromises)
+              .then(() => {
+                toast({ title: "Sync Complete", description: `Successfully imported ${syncCount} missing items.` });
+              })
+              .finally(() => setIsSyncing(false));
           });
-          syncCount++;
-        }
-      }
-
-      toast({
-        title: "Sync Complete",
-        description: `Successfully imported ${syncCount} missing items from bar inventory.`,
+      })
+      .catch(error => {
+        toast({ variant: "destructive", title: "Sync Failed", description: "Could not synchronize missing items." });
+        setIsSyncing(false);
       });
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Sync Failed",
-        description: "Could not synchronize missing items. Please check permissions.",
-      });
-    } finally {
-      setIsSyncing(false);
-    }
   };
 
-  const handleUpdateItem = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleUpdateItem = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!firestore || !editingItem) return;
 

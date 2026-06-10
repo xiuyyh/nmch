@@ -87,6 +87,7 @@ export default function StoreRequestsPage() {
       items: action === "Approved" ? requestAdjustments : request.items
     };
 
+    // Use .then() chain instead of await
     updateDoc(requestRef, updateData)
       .then(() => {
         if (action === "Approved") {
@@ -109,6 +110,7 @@ export default function StoreRequestsPage() {
                     lastUpdated: serverTimestamp()
                   });
                 }
+                return Promise.resolve();
               });
 
               return Promise.all([barUpdate, warehouseUpdate]);

@@ -84,7 +84,7 @@ export default function ShiftManagementPage() {
   }, [firestore, user]);
   const { data: shiftHistory, loading: historyLoading } = useCollection(historyQuery);
 
-  const handleStartShift = async () => {
+  const handleStartShift = () => {
     if (!firestore || !user || !inventory) return;
     
     // Admins are not blocked by other active shifts
@@ -118,6 +118,7 @@ export default function ShiftManagementPage() {
       status: "active"
     };
 
+    // Use .then() instead of await
     addDoc(collection(firestore, "shifts"), shiftData)
       .then(() => {
         toast({ title: "Shift Started", description: "Opening stock recorded in West Africa Time." });
@@ -132,7 +133,7 @@ export default function ShiftManagementPage() {
       .finally(() => setIsStarting(false));
   };
 
-  const handleEndShift = async () => {
+  const handleEndShift = () => {
     if (!firestore || !myActiveShift) return;
     
     const shiftRef = doc(firestore, "shifts", myActiveShift.id);
@@ -142,6 +143,8 @@ export default function ShiftManagementPage() {
       localEndTime: new Date().toISOString()
     }).then(() => {
       toast({ title: "Shift Ended", description: "Session closed successfully." });
+    }).catch(error => {
+      toast({ variant: "destructive", title: "Update Failed", description: "Could not finalize shift status." });
     });
   };
 

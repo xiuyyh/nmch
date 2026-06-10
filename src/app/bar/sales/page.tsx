@@ -240,7 +240,7 @@ export default function SalesPage() {
 
   const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
-  const handleUnsettledCheckout = async () => {
+  const handleUnsettledCheckout = () => {
     if (!firestore || cart.length === 0) {
       toast({ variant: "destructive", title: "Empty Cart", description: "Please add items before printing." });
       return;
@@ -264,15 +264,56 @@ export default function SalesPage() {
       shiftId: activeShift?.id || "admin-override"
     };
 
-    // We pass the local 'now' date to the print function so it doesn't show N/A
-    const printFriendlySale = {
-      ...saleData,
-      timestamp: { toDate: () => now }
-    };
-
+    // Use .then() instead of await to avoid generator reference errors
     addDoc(collection(firestore, "sales"), saleData)
       .then((docRef) => {
-        if (shouldPrintDucket) printDucket({ ...printFriendlySale, id: docRef.id });
+        if (shouldPrintDucket) {
+          const printFriendlySale = {
+            ...saleData,
+            timestamp: { toDate: () => now },
+            id: docRef.id
+          };
+          printDucket(printFriendlySale);
+        }
+
+        // Fire food items if any
+        const foodItemsToFire = cart
+          .filter(item => item.category === "FOOD" && item.quantity > (item.lastSentQuantity || 0))
+          .map(item => ({
+            name: item.name,
+            quantity: item.quantity - (item.lastSentQuantity || 0)
+          }));
+
+        if (foodItemsToFire.length > 0) {
+          const kitchenOrderData = {
+            tableNumber: selectedTable || "Counter",
+            items: foodItemsToFire,
+            timestamp: serverTimestamp(),
+            staffName: user?.displayName || user?.email || "Bar Staff",
+            status: "Pending"
+          };
+          addDoc(collection(firestore, "kitchenOrders"), kitchenOrderData).catch(() => {});
+        }
+
+        // Deduct stock immediately
+        cart.forEach(cartItem => {
+          if (cartItem.category !== "FOOD") {
+            const stockRef = doc(firestore, "inventory", cartItem.itemId);
+            updateDoc(stockRef, {
+              stock: increment(-cartItem.quantity),
+              lastUpdated: serverTimestamp()
+            }).catch(() => {});
+          }
+        });
+
+        toast({ title: "Order Logged", description: `Bill generated for ₦${total.toLocaleString()}. Settle later in History.` });
+        
+        if (selectedTable) {
+          deleteDoc(doc(firestore, "tableSessions", selectedTable)).catch(() => {});
+          setSelectedTable(null);
+        }
+        setCart([]);
+        setIsMobileCartOpen(false);
       })
       .catch((error: any) => {
         errorEmitter.emit("permission-error", new FirestorePermissionError({
@@ -281,51 +322,12 @@ export default function SalesPage() {
           requestResourceData: saleData,
         }));
       });
-
-    // Fire food items if any
-    const foodItemsToFire = cart
-      .filter(item => item.category === "FOOD" && item.quantity > (item.lastSentQuantity || 0))
-      .map(item => ({
-        name: item.name,
-        quantity: item.quantity - (item.lastSentQuantity || 0)
-      }));
-
-    if (foodItemsToFire.length > 0) {
-      const kitchenOrderData = {
-        tableNumber: selectedTable || "Counter",
-        items: foodItemsToFire,
-        timestamp: serverTimestamp(),
-        staffName: user?.displayName || user?.email || "Bar Staff",
-        status: "Pending"
-      };
-      addDoc(collection(firestore, "kitchenOrders"), kitchenOrderData).catch(() => {});
-    }
-
-    // Deduct stock immediately
-    for (const cartItem of cart) {
-      if (cartItem.category === "FOOD") continue;
-      const stockRef = doc(firestore, "inventory", cartItem.itemId);
-      updateDoc(stockRef, {
-        stock: increment(-cartItem.quantity),
-        lastUpdated: serverTimestamp()
-      }).catch(() => {});
-    }
-
-    toast({ title: "Order Logged", description: `Bill generated for ₦${total.toLocaleString()}. Settle later in History.` });
-    
-    if (selectedTable) {
-      deleteDoc(doc(firestore, "tableSessions", selectedTable));
-      setSelectedTable(null);
-    }
-    setCart([]);
-    setIsMobileCartOpen(false);
   };
 
   const printDucket = (sale: any) => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    // Use the explicit Nigeria time helper
     const dateStr = formatNigeriaTime(sale.timestamp?.toDate ? sale.timestamp.toDate() : new Date());
 
     const itemsHtml = sale.items.map((item: any) => `
@@ -334,6 +336,7 @@ export default function SalesPage() {
         <span>₦${(item.price * item.quantity).toLocaleString()}</span>
       </div>
     `).join('');
+    
     const html = `
       <html>
         <head>
