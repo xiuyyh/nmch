@@ -27,14 +27,13 @@ export function useDoc<T = DocumentData>(ref: DocumentReference<T> | null) {
       ref,
       (snapshot: DocumentSnapshot<T>) => {
         if (snapshot.exists()) {
-          // Use serverTimestamps: 'estimate' for offline resilience
           setData({ ...snapshot.data({ serverTimestamps: 'estimate' })!, id: snapshot.id } as (T & { id: string }));
         } else {
           setData(null);
         }
         setLoading(false);
       },
-      async (serverError: FirestoreError) => {
+      (serverError: FirestoreError) => {
         if (serverError.code === 'permission-denied') {
           const permissionError = new FirestorePermissionError({
             path: ref.path,

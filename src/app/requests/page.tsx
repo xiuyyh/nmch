@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useMemo, useState, useEffect } from "react";
@@ -37,7 +36,6 @@ export default function StoreRequestsPage() {
   const { toast } = useToast();
   const [processingId, setProcessingId] = useState<string | null>(null);
   
-  // Track local edits to quantities and approval status per item
   const [adjustments, setAdjustments] = useState<Record<string, any>>({});
 
   const requestsQuery = useMemo(() => {
@@ -47,7 +45,6 @@ export default function StoreRequestsPage() {
 
   const { data: requests, loading } = useCollection(requestsQuery);
 
-  // Initialize adjustments when requests load
   useEffect(() => {
     if (requests) {
       const initialAdjustments: Record<string, any> = { ...adjustments };
@@ -73,7 +70,7 @@ export default function StoreRequestsPage() {
     }));
   };
 
-  const handleAction = async (requestId: string, action: "Approved" | "Rejected") => {
+  const handleAction = (requestId: string, action: "Approved" | "Rejected") => {
     if (!firestore || !user) return;
     setProcessingId(requestId);
 
@@ -90,67 +87,59 @@ export default function StoreRequestsPage() {
       items: action === "Approved" ? requestAdjustments : request.items
     };
 
-    try {
-      await updateDoc(requestRef, updateData);
-
-      if (action === "Approved") {
-        // Update Inventory levels based on approved quantities
-        for (const item of requestAdjustments) {
-          if (!item.isDeclined && item.approvedQuantity > 0) {
-            // 1. Update Bar Inventory
-            const barStockRef = doc(firestore, "inventory", item.itemId);
-            updateDoc(barStockRef, {
-              stock: increment(item.approvedQuantity),
-              lastUpdated: serverTimestamp()
-            }).catch(e => {
-              errorEmitter.emit("permission-error", new FirestorePermissionError({
-                path: barStockRef.path,
-                operation: "update",
-                requestResourceData: { stock: increment(item.approvedQuantity) }
-              }));
-            });
-
-            // 2. Subtract from Warehouse Inventory (Matching by Name)
-            const warehouseRef = collection(firestore, "warehouseInventory");
-            const warehouseQuery = query(warehouseRef, where("name", "==", item.name));
-            const warehouseSnap = await getDocs(warehouseQuery);
-            
-            if (!warehouseSnap.empty) {
-              const wDoc = warehouseSnap.docs[0];
-              const wRef = doc(firestore, "warehouseInventory", wDoc.id);
-              updateDoc(wRef, {
-                stock: increment(-item.approvedQuantity),
+    updateDoc(requestRef, updateData)
+      .then(() => {
+        if (action === "Approved") {
+          const syncPromises = requestAdjustments.map((item: any) => {
+            if (!item.isDeclined && item.approvedQuantity > 0) {
+              const barStockRef = doc(firestore, "inventory", item.itemId);
+              const barUpdate = updateDoc(barStockRef, {
+                stock: increment(item.approvedQuantity),
                 lastUpdated: serverTimestamp()
-              }).catch(e => {
-                errorEmitter.emit("permission-error", new FirestorePermissionError({
-                  path: wRef.path,
-                  operation: "update",
-                  requestResourceData: { stock: increment(-item.approvedQuantity) }
-                }));
               });
+
+              const warehouseRef = collection(firestore, "warehouseInventory");
+              const warehouseQuery = query(warehouseRef, where("name", "==", item.name));
+              const warehouseUpdate = getDocs(warehouseQuery).then(warehouseSnap => {
+                if (!warehouseSnap.empty) {
+                  const wDoc = warehouseSnap.docs[0];
+                  const wRef = doc(firestore, "warehouseInventory", wDoc.id);
+                  return updateDoc(wRef, {
+                    stock: increment(-item.approvedQuantity),
+                    lastUpdated: serverTimestamp()
+                  });
+                }
+              });
+
+              return Promise.all([barUpdate, warehouseUpdate]);
             }
-          }
+            return Promise.resolve();
+          });
+
+          Promise.all(syncPromises).then(() => {
+            toast({
+              title: "Request Processed",
+              description: `Inventory synced and warehouse stock deducted.`,
+            });
+          });
+        } else {
+          toast({
+            title: "Request Rejected",
+            variant: "destructive",
+            description: "Request has been marked as rejected.",
+          });
         }
-        toast({
-          title: "Request Processed",
-          description: `Inventory synced and warehouse stock deducted.`,
-        });
-      } else {
-        toast({
-          title: "Request Rejected",
-          variant: "destructive",
-          description: "Request has been marked as rejected.",
-        });
-      }
-    } catch (error) {
-      errorEmitter.emit("permission-error", new FirestorePermissionError({
-        path: requestRef.path,
-        operation: "update",
-        requestResourceData: updateData
-      }));
-    } finally {
-      setProcessingId(null);
-    }
+      })
+      .catch(error => {
+        errorEmitter.emit("permission-error", new FirestorePermissionError({
+          path: requestRef.path,
+          operation: "update",
+          requestResourceData: updateData
+        }));
+      })
+      .finally(() => {
+        setProcessingId(null);
+      });
   };
 
   const pendingRequests = requests?.filter(r => r.status === "Pending") || [];
@@ -173,7 +162,6 @@ export default function StoreRequestsPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Active Pending Requests */}
           <div className="space-y-6">
             <h2 className="text-lg font-headline font-bold flex items-center gap-2 text-white">
               <Clock className="w-5 h-5 text-amber-500" /> Pending Approval
@@ -267,7 +255,6 @@ export default function StoreRequestsPage() {
             )}
           </div>
 
-          {/* History */}
           <div className="space-y-6">
             <h2 className="text-lg font-headline font-bold flex items-center gap-2 text-white">
               <ClipboardList className="w-5 h-5 text-primary" /> Processed Log

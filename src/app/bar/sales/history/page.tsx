@@ -66,7 +66,6 @@ export default function SalesHistoryPage() {
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   
-  // Get current user role
   const userRef = useMemo(() => {
     if (!firestore || !user) return null;
     return doc(firestore, 'users', user.uid);
@@ -74,7 +73,6 @@ export default function SalesHistoryPage() {
   const { data: userRecord } = useDoc(userRef);
   const isAdmin = userRecord?.role === 'admin';
 
-  // Manual Date State
   const [dateFrom, setDateFrom] = useState<string>(format(new Date(), "yyyy-MM-dd"));
   const [dateTo, setDateTo] = useState<string>(format(new Date(), "yyyy-MM-dd"));
 
@@ -88,10 +86,8 @@ export default function SalesHistoryPage() {
   const filteredSales = useMemo(() => {
     if (!sales) return [];
     return sales.filter(sale => {
-      // Logic for determining sale date with offline fallback
       const saleDate = sale.timestamp?.toDate ? sale.timestamp.toDate() : (sale.localTimestamp ? new Date(sale.localTimestamp) : null);
       
-      // Manual Date Range Filter
       if (dateFrom && dateTo && saleDate) {
         try {
           const start = startOfDay(parseISO(dateFrom));
@@ -99,12 +95,9 @@ export default function SalesHistoryPage() {
           if (!isWithinInterval(saleDate, { start, end })) {
             return false;
           }
-        } catch (e) {
-          // If parsing fails, don't filter by date
-        }
+        } catch (e) {}
       }
 
-      // Search Filter
       const searchMatch = 
         sale.tableNumber?.toLowerCase().includes(search.toLowerCase()) || 
         sale.method?.toLowerCase().includes(search.toLowerCase()) ||
@@ -114,7 +107,6 @@ export default function SalesHistoryPage() {
     });
   }, [sales, search, dateFrom, dateTo]);
 
-  // Aggregated Report Metrics
   const reportMetrics = useMemo(() => {
     const activeSales = filteredSales.filter(s => s.status !== "Canceled");
     const settledSales = activeSales.filter(s => s.status === "Completed");
@@ -158,155 +150,159 @@ export default function SalesHistoryPage() {
     return filteredSales.slice(start, start + ITEMS_PER_PAGE);
   }, [filteredSales, currentPage]);
 
-  const checkShiftStatus = async (shiftId: string) => {
-    if (shiftId === "admin-override") return false; // Admin overrides never locked
-    if (!firestore || !shiftId) return true;
+  const checkShiftStatus = (shiftId: string): Promise<boolean> => {
+    if (shiftId === "admin-override") return Promise.resolve(false);
+    if (!firestore || !shiftId) return Promise.resolve(true);
     const shiftRef = doc(firestore, "shifts", shiftId);
-    const shiftSnap = await getDoc(shiftRef);
-    if (!shiftSnap.exists()) return true;
-    return shiftSnap.data().status !== "active";
+    return getDoc(shiftRef).then(shiftSnap => {
+      if (!shiftSnap.exists()) return true;
+      return shiftSnap.data().status !== "active";
+    });
   };
 
-  const handleSettleSale = async (sale: any, method: string) => {
+  const handleSettleSale = (sale: any, method: string) => {
     if (!firestore) return;
 
-    const isClosed = await checkShiftStatus(sale.shiftId);
-    if (isClosed && !isAdmin) {
-      toast({
-        variant: "destructive",
-        title: "Action Restricted",
-        description: `This transaction belongs to a closed shift and cannot be modified.`,
-      });
-      return;
-    }
+    checkShiftStatus(sale.shiftId).then(isClosed => {
+      if (isClosed && !isAdmin) {
+        toast({
+          variant: "destructive",
+          title: "Action Restricted",
+          description: `This transaction belongs to a closed shift and cannot be modified.`,
+        });
+        return;
+      }
 
-    const saleRef = doc(firestore, "sales", sale.id);
-    const updateData = {
-      status: "Completed",
-      method: method,
-      settledAt: serverTimestamp()
-    };
+      const saleRef = doc(firestore, "sales", sale.id);
+      const updateData = {
+        status: "Completed",
+        method: method,
+        settledAt: serverTimestamp()
+      };
 
-    updateDoc(saleRef, updateData)
-      .then(() => {
-        toast({ title: "Sale Settled", description: `Transaction recorded via ${method}.` });
-      })
-      .catch(async (error) => {
+      updateDoc(saleRef, updateData)
+        .then(() => {
+          toast({ title: "Sale Settled", description: `Transaction recorded via ${method}.` });
+        })
+        .catch((error) => {
+          errorEmitter.emit("permission-error", new FirestorePermissionError({
+            path: saleRef.path,
+            operation: "update",
+            requestResourceData: updateData
+          }));
+        });
+    });
+  };
+
+  const handleCancelSale = (sale: any) => {
+    if (!firestore) return;
+
+    checkShiftStatus(sale.shiftId).then(isClosed => {
+      if (isClosed && !isAdmin) {
+        toast({
+          variant: "destructive",
+          title: "Action Restricted",
+          description: `This transaction belongs to a closed shift and cannot be canceled.`,
+        });
+        return;
+      }
+
+      const saleRef = doc(firestore, "sales", sale.id);
+      const saleData = {
+        status: "Canceled",
+        canceledAt: serverTimestamp()
+      };
+
+      updateDoc(saleRef, saleData).catch((error) => {
         errorEmitter.emit("permission-error", new FirestorePermissionError({
           path: saleRef.path,
           operation: "update",
-          requestResourceData: updateData
+          requestResourceData: saleData
         }));
       });
+
+      for (const item of sale.items) {
+        const stockRef = doc(firestore, "inventory", item.itemId);
+        const stockUpdate = {
+          stock: increment(item.quantity),
+          lastUpdated: serverTimestamp()
+        };
+        
+        updateDoc(stockRef, stockUpdate).catch((error) => {
+          errorEmitter.emit("permission-error", new FirestorePermissionError({
+            path: stockRef.path,
+            operation: "update",
+            requestResourceData: stockUpdate
+          }));
+        });
+      }
+
+      toast({
+        title: "Sale Canceled",
+        description: `Inventory restored and transaction marked as canceled.`,
+      });
+    });
   };
 
-  const handleCancelSale = async (sale: any) => {
+  const handleVoidItem = (sale: any, itemIndex: number) => {
     if (!firestore) return;
 
-    const isClosed = await checkShiftStatus(sale.shiftId);
-    if (isClosed && !isAdmin) {
-      toast({
-        variant: "destructive",
-        title: "Action Restricted",
-        description: `This transaction belongs to a closed shift and cannot be canceled.`,
+    checkShiftStatus(sale.shiftId).then(isClosed => {
+      if (isClosed && !isAdmin) {
+        toast({
+          variant: "destructive",
+          title: "Action Restricted",
+          description: `This transaction belongs to a closed shift and cannot be edited.`,
+        });
+        return;
+      }
+
+      const itemToVoid = sale.items[itemIndex];
+      const updatedItems = sale.items.filter((_: any, i: number) => i !== itemIndex);
+      const updatedTotal = updatedItems.reduce((sum: number, i: any) => sum + (i.price * i.quantity), 0);
+      const saleRef = doc(firestore, "sales", sale.id);
+
+      let saleUpdate: any;
+      if (updatedItems.length === 0) {
+        saleUpdate = {
+          status: "Canceled",
+          canceledAt: serverTimestamp(),
+          items: [],
+          total: 0
+        };
+      } else {
+        saleUpdate = {
+          items: updatedItems,
+          total: updatedTotal
+        };
+      }
+
+      updateDoc(saleRef, saleUpdate).catch((error) => {
+        errorEmitter.emit("permission-error", new FirestorePermissionError({
+          path: saleRef.path,
+          operation: "update",
+          requestResourceData: saleUpdate
+        }));
       });
-      return;
-    }
 
-    const saleRef = doc(firestore, "sales", sale.id);
-    const saleData = {
-      status: "Canceled",
-      canceledAt: serverTimestamp()
-    };
-
-    updateDoc(saleRef, saleData).catch(async (error) => {
-      errorEmitter.emit("permission-error", new FirestorePermissionError({
-        path: saleRef.path,
-        operation: "update",
-        requestResourceData: saleData
-      }));
-    });
-
-    for (const item of sale.items) {
-      const stockRef = doc(firestore, "inventory", item.itemId);
+      const stockRef = doc(firestore, "inventory", itemToVoid.itemId);
       const stockUpdate = {
-        stock: increment(item.quantity),
+        stock: increment(itemToVoid.quantity),
         lastUpdated: serverTimestamp()
       };
-      
-      updateDoc(stockRef, stockUpdate).catch(async (error) => {
+
+      updateDoc(stockRef, stockUpdate).catch((error) => {
         errorEmitter.emit("permission-error", new FirestorePermissionError({
           path: stockRef.path,
           operation: "update",
           requestResourceData: stockUpdate
         }));
       });
-    }
 
-    toast({
-      title: "Sale Canceled",
-      description: `Inventory restored and transaction marked as canceled.`,
-    });
-  };
-
-  const handleVoidItem = async (sale: any, itemIndex: number) => {
-    if (!firestore) return;
-
-    const isClosed = await checkShiftStatus(sale.shiftId);
-    if (isClosed && !isAdmin) {
       toast({
-        variant: "destructive",
-        title: "Action Restricted",
-        description: `This transaction belongs to a closed shift and cannot be edited.`,
+        title: "Item Voided",
+        description: `${itemToVoid.name} removed and stock restored.`,
       });
-      return;
-    }
-
-    const itemToVoid = sale.items[itemIndex];
-    const updatedItems = sale.items.filter((_: any, i: number) => i !== itemIndex);
-    const updatedTotal = updatedItems.reduce((sum: number, i: any) => sum + (i.price * i.quantity), 0);
-    const saleRef = doc(firestore, "sales", sale.id);
-
-    let saleUpdate: any;
-    if (updatedItems.length === 0) {
-      saleUpdate = {
-        status: "Canceled",
-        canceledAt: serverTimestamp(),
-        items: [],
-        total: 0
-      };
-    } else {
-      saleUpdate = {
-        items: updatedItems,
-        total: updatedTotal
-      };
-    }
-
-    updateDoc(saleRef, saleUpdate).catch(async (error) => {
-      errorEmitter.emit("permission-error", new FirestorePermissionError({
-        path: saleRef.path,
-        operation: "update",
-        requestResourceData: saleUpdate
-      }));
-    });
-
-    const stockRef = doc(firestore, "inventory", itemToVoid.itemId);
-    const stockUpdate = {
-      stock: increment(itemToVoid.quantity),
-      lastUpdated: serverTimestamp()
-    };
-
-    updateDoc(stockRef, stockUpdate).catch(async (error) => {
-      errorEmitter.emit("permission-error", new FirestorePermissionError({
-        path: stockRef.path,
-        operation: "update",
-        requestResourceData: stockUpdate
-      }));
-    });
-
-    toast({
-      title: "Item Voided",
-      description: `${itemToVoid.name} removed and stock restored.`,
     });
   };
 
@@ -314,7 +310,6 @@ export default function SalesHistoryPage() {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    // Standardize WAT format for headers
     const fromDate = dateFrom ? formatNigeriaTime(parseISO(dateFrom)) : "N/A";
     const toDate = dateTo ? formatNigeriaTime(parseISO(dateTo)) : "N/A";
     

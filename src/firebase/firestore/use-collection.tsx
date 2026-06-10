@@ -26,8 +26,6 @@ export function useCollection<T = DocumentData>(query: Query<T> | null) {
     const unsubscribe = onSnapshot(
       query,
       (snapshot: QuerySnapshot<T>) => {
-        // Use serverTimestamps: 'estimate' to ensure pending local writes 
-        // return a timestamp value instead of null.
         const items = snapshot.docs.map((doc) => ({
           ...doc.data({ serverTimestamps: 'estimate' }),
           id: doc.id,
@@ -35,7 +33,7 @@ export function useCollection<T = DocumentData>(query: Query<T> | null) {
         setData(items as (T & { id: string })[]);
         setLoading(false);
       },
-      async (serverError: FirestoreError) => {
+      (serverError: FirestoreError) => {
         if (serverError.code === 'permission-denied') {
           const permissionError = new FirestorePermissionError({
             path: (query as any)._query?.path?.toString() || 'unknown',
