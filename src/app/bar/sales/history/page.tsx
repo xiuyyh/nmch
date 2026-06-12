@@ -78,17 +78,27 @@ export default function SalesAuditPage() {
   const { data: userRecord } = useDoc(userRef);
   const isAdmin = userRecord?.role === 'admin';
 
-  // 2. Get Active Shift for current user
+  // 2. Get Active Shift
+  // For staff: their own active shift
+  // For admin: any active shift (latest one)
   const activeShiftQuery = useMemo(() => {
-    if (!firestore || !user) return null;
+    if (!firestore || !userRecord) return null;
+    
+    const baseQuery = collection(firestore, "shifts");
+    if (isAdmin) {
+      // Admins see performance of whoever is currently active
+      return query(baseQuery, where("status", "==", "active"), orderBy("startTime", "desc"), limit(1));
+    }
+    // Staff only see their own active session
     return query(
-      collection(firestore, "shifts"),
-      where("staffId", "==", user.uid),
+      baseQuery,
+      where("staffId", "==", user?.uid),
       where("status", "==", "active"),
       limit(1)
     );
-  }, [firestore, user]);
-  const { data: activeShifts } = useCollection(activeShiftQuery);
+  }, [firestore, user, isAdmin, userRecord]);
+
+  const { data: activeShifts, loading: shiftStatusLoading } = useCollection(activeShiftQuery);
   const activeShift = activeShifts?.[0];
 
   // 3. Fetch Sales
@@ -109,7 +119,7 @@ export default function SalesAuditPage() {
         if (sale.shiftId !== activeShift.id) return false;
       }
 
-      // Search Filter
+      // Search Filter (Strictly applied to aggregations later)
       const searchMatch = 
         !search ||
         sale.tableNumber?.toLowerCase().includes(search.toLowerCase()) || 
@@ -120,25 +130,53 @@ export default function SalesAuditPage() {
     });
   }, [allSales, viewMode, activeShift, search]);
 
-  // 5. Aggregate Metrics
+  // 5. Aggregate Metrics (Strict item filtering if search is active)
   const reportMetrics = useMemo(() => {
-    const active = filteredSales.filter(s => s.status !== "Canceled");
-    const settled = active.filter(s => s.status === "Completed");
-    const unsettled = active.filter(s => s.status === "Unsettled");
+    const isSearching = search.trim().length > 0;
+    
+    // We only want to sum items that match the search if searching
+    // Otherwise we sum the whole transaction total
+    let totalRevenue = 0;
+    let settledRevenue = 0;
+    let unsettledRevenue = 0;
+    let activeCount = 0;
+    let settledCount = 0;
+    let unsettledCount = 0;
 
-    const totalRevenue = active.reduce((sum, s) => sum + (s.total || 0), 0);
-    const settledRevenue = settled.reduce((sum, s) => sum + (s.total || 0), 0);
-    const unsettledRevenue = unsettled.reduce((sum, s) => sum + (s.total || 0), 0);
+    filteredSales.forEach(sale => {
+      if (sale.status === "Canceled") return;
+      
+      activeCount++;
+      if (sale.status === "Completed") settledCount++;
+      if (sale.status === "Unsettled") unsettledCount++;
+
+      if (isSearching) {
+        // Only sum items matching search in the receipt
+        const matchingItemsTotal = sale.items
+          ?.filter((i: any) => i.name?.toLowerCase().includes(search.toLowerCase()))
+          .reduce((sum: number, i: any) => sum + (i.price * i.quantity), 0) || 0;
+        
+        totalRevenue += matchingItemsTotal;
+        if (sale.status === "Completed") settledRevenue += matchingItemsTotal;
+        if (sale.status === "Unsettled") unsettledRevenue += matchingItemsTotal;
+      } else {
+        // Sum the full transaction
+        const saleTotal = sale.total || 0;
+        totalRevenue += saleTotal;
+        if (sale.status === "Completed") settledRevenue += saleTotal;
+        if (sale.status === "Unsettled") unsettledRevenue += saleTotal;
+      }
+    });
 
     return {
       totalRevenue,
       settledRevenue,
       unsettledRevenue,
-      count: active.length,
-      settledCount: settled.length,
-      unsettledCount: unsettled.length,
+      count: activeCount,
+      settledCount,
+      unsettledCount,
     };
-  }, [filteredSales]);
+  }, [filteredSales, search]);
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(filteredSales.length / ITEMS_PER_PAGE));
@@ -291,11 +329,15 @@ export default function SalesAuditPage() {
     const printWindow = window.open('', '_blank');
     if (!printWindow || !activeShift) return;
 
-    const shiftStart = activeShift.startTime?.toDate ? formatNigeriaTime(activeShift.startTime.toDate()) : "N/A";
+    const shiftStart = activeShift.startTime?.toDate ? formatNigeriaTime(activeShift.startTime.toDate()) : "OFFLINE - NO DATE";
+    const isSearching = search.trim().length > 0;
     
     const itemTotals: Record<string, { qty: number; revenue: number }> = {};
     filteredSales.filter(s => s.status !== "Canceled").forEach(sale => {
       sale.items?.forEach((item: any) => {
+        // If searching, only include items that match the search
+        if (isSearching && !item.name?.toLowerCase().includes(search.toLowerCase())) return;
+        
         if (!itemTotals[item.name]) {
           itemTotals[item.name] = { qty: 0, revenue: 0 };
         }
@@ -338,6 +380,7 @@ export default function SalesAuditPage() {
             <p class="bold">SHIFT SUMMARY REPORT</p>
             <p>STAFF: ${activeShift.staffName.toUpperCase()}</p>
             <p>STARTED: ${shiftStart}</p>
+            ${isSearching ? `<p class="bold">FILTER: ${search.toUpperCase()}</p>` : ''}
           </div>
           
           <table style="margin-bottom: 15px;">
@@ -476,7 +519,8 @@ export default function SalesAuditPage() {
         <Tabs value={viewMode} onValueChange={(v: any) => setViewMode(v)} className="w-full">
           <TabsList className="bg-white/5 border border-white/10 p-1 mb-6">
             <TabsTrigger value="shift" className="gap-2 px-6 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              <User className="w-4 h-4" /> Current Shift
+              <User className="w-4 h-4" /> 
+              {isAdmin ? "Active Session Performance" : "Current Shift"}
             </TabsTrigger>
             {isAdmin && (
               <TabsTrigger value="all" className="gap-2 px-6 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
@@ -510,10 +554,12 @@ export default function SalesAuditPage() {
             </Card>
             <Card className="glass-card md:col-span-2 border-l-2 md:border-l-4 border-l-primary">
               <CardContent className="pt-4 md:pt-6">
-                <div className="text-[9px] md:text-[10px] font-bold text-primary uppercase tracking-widest leading-none mb-2">Total Combined</div>
+                <div className="text-[9px] md:text-[10px] font-bold text-primary uppercase tracking-widest leading-none mb-2">Total Period Revenue</div>
                 <div className="text-xl md:text-2xl font-bold font-headline text-white">₦{reportMetrics.totalRevenue.toLocaleString()}</div>
-                <p className="text-[8px] md:text-[10px] text-muted-foreground mt-1">
-                  {viewMode === "shift" ? "Current Active Session" : "All Global Records"}
+                <p className="text-[8px] md:text-[10px] text-muted-foreground mt-1 uppercase font-bold tracking-widest">
+                  {viewMode === "shift" 
+                    ? (activeShift ? `Active: ${activeShift.staffName}` : "No Session Active") 
+                    : "Global Audit Mode"}
                 </p>
               </CardContent>
             </Card>
@@ -524,7 +570,9 @@ export default function SalesAuditPage() {
               <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
                 <CardTitle className="text-lg md:text-xl font-headline flex items-center gap-2">
                   <FileText className="text-primary w-4 h-4 md:w-5 md:h-5" /> 
-                  {viewMode === "shift" ? `Sales Log: ${activeShift?.staffName || 'N/A'}` : "Global Sales Archive"}
+                  {viewMode === "shift" 
+                    ? (activeShift ? `Live Performance: ${activeShift.staffName}` : "Shift Activity Log") 
+                    : "Global Sales Archive"}
                 </CardTitle>
                 
                 <div className="relative w-full sm:w-64 lg:w-80">
@@ -539,12 +587,16 @@ export default function SalesAuditPage() {
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              {loading ? (
+              {loading || shiftStatusLoading ? (
                 <div className="py-20 text-center animate-pulse text-muted-foreground text-sm uppercase font-bold tracking-widest">Auditing records...</div>
               ) : filteredSales.length === 0 ? (
                 <div className="py-20 text-center flex flex-col items-center justify-center gap-4 text-muted-foreground opacity-40">
                   <BarChart3 className="w-10 h-10 md:w-12 md:h-12" />
-                  <p className="italic text-sm">No matching transactions found for this {viewMode}.</p>
+                  <p className="italic text-sm">
+                    {viewMode === "shift" && !activeShift 
+                      ? "No staff session is currently active." 
+                      : "No transactions found for this audit scope."}
+                  </p>
                 </div>
               ) : (
                 <div className="divide-y divide-white/5">
