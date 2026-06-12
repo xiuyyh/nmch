@@ -10,7 +10,7 @@ import {
   Search, 
   Printer, 
   Filter, 
-  Calendar, 
+  Calendar as CalendarIcon, 
   Package, 
   DollarSign,
   ArrowRight,
@@ -20,30 +20,23 @@ import {
 import { useCollection, useFirestore } from "@/firebase";
 import { collection, query, orderBy, where } from "firebase/firestore";
 import { formatNigeriaTime, cn } from "@/lib/utils";
-import { startOfDay, endOfDay, parse, isValid } from "date-fns";
+import { startOfDay, endOfDay, format } from "date-fns";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 
 export default function SalesFilterPage() {
   const firestore = useFirestore();
-  const [startDateStr, setStartDateStr] = useState("");
-  const [endDateStr, setEndDateStr] = useState("");
+  const [startDate, setStartDate] = useState<Date>();
+  const [endDate, setEndDate] = useState<Date>();
   const [searchItem, setSearchItem] = useState("");
 
-  // Parse YYYY-MM-DD strings to Dates for Firestore with strict validation
   const dateRange = useMemo(() => {
-    // Only proceed if strings are long enough to be a date (YYYY-MM-DD = 10 chars)
-    if (!startDateStr || !endDateStr || startDateStr.length < 10 || endDateStr.length < 10) return null;
-    
-    try {
-      const start = startOfDay(parse(startDateStr, "yyyy-MM-dd", new Date()));
-      const end = endOfDay(parse(endDateStr, "yyyy-MM-dd", new Date()));
-      
-      if (!isValid(start) || !isValid(end)) return null;
-      
-      return { start, end };
-    } catch (e) {
-      return null;
-    }
-  }, [startDateStr, endDateStr]);
+    if (!startDate || !endDate) return null;
+    return { 
+      start: startOfDay(startDate), 
+      end: endOfDay(endDate) 
+    };
+  }, [startDate, endDate]);
 
   const salesQuery = useMemo(() => {
     if (!firestore || !dateRange) return null;
@@ -57,7 +50,6 @@ export default function SalesFilterPage() {
 
   const { data: sales, loading } = useCollection(salesQuery);
 
-  // Aggregate specifically for the filtered item
   const report = useMemo(() => {
     if (!sales || !searchItem) return { totalQty: 0, totalValue: 0, items: [] };
 
@@ -123,7 +115,7 @@ export default function SalesFilterPage() {
           <div class="header">
             <h1>NIGHTINGALE HOTEL</h1>
             <p>ITEM SALES AUDIT REPORT</p>
-            <p>PERIOD: ${startDateStr} TO ${endDateStr}</p>
+            <p>PERIOD: ${startDate ? format(startDate, "dd/MM/yyyy") : "N/A"} TO ${endDate ? format(endDate, "dd/MM/yyyy") : "N/A"}</p>
             <p>FILTER: "${searchItem.toUpperCase()}"</p>
           </div>
           
@@ -186,29 +178,57 @@ export default function SalesFilterPage() {
           <CardHeader className="bg-white/5 border-b border-white/5 py-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="space-y-2">
-                <Label className="text-[10px] uppercase font-bold tracking-widest text-primary/70">Start Date (YYYY-MM-DD)</Label>
-                <div className="relative">
-                   <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                   <Input 
-                    placeholder="2024-01-01" 
-                    value={startDateStr} 
-                    onChange={(e) => setStartDateStr(e.target.value)}
-                    className="bg-white/5 border-white/10 pl-10 h-12 rounded-xl font-mono" 
-                   />
-                </div>
+                <Label className="text-[10px] uppercase font-bold tracking-widest text-primary/70">Start Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full h-12 justify-start text-left font-normal bg-white/5 border-white/10 rounded-xl",
+                        !startDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {startDate ? format(startDate, "PPP") : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 glass-card" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={startDate}
+                      onSelect={setStartDate}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
+
               <div className="space-y-2">
-                <Label className="text-[10px] uppercase font-bold tracking-widest text-primary/70">End Date (YYYY-MM-DD)</Label>
-                <div className="relative">
-                   <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                   <Input 
-                    placeholder="2024-01-20" 
-                    value={endDateStr} 
-                    onChange={(e) => setEndDateStr(e.target.value)}
-                    className="bg-white/5 border-white/10 pl-10 h-12 rounded-xl font-mono" 
-                   />
-                </div>
+                <Label className="text-[10px] uppercase font-bold tracking-widest text-primary/70">End Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full h-12 justify-start text-left font-normal bg-white/5 border-white/10 rounded-xl",
+                        !endDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {endDate ? format(endDate, "PPP") : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 glass-card" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={endDate}
+                      onSelect={setEndDate}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
+
               <div className="space-y-2">
                 <Label className="text-[10px] uppercase font-bold tracking-widest text-primary/70">Search Item Name</Label>
                 <div className="relative">
@@ -229,7 +249,7 @@ export default function SalesFilterPage() {
               <div className="py-24 text-center flex flex-col items-center justify-center opacity-40">
                 <FileText className="w-16 h-16 mb-4" />
                 <h3 className="text-xl font-headline font-bold uppercase">Ready to Filter</h3>
-                <p className="text-sm italic mt-2">Enter a valid date range (YYYY-MM-DD) and item name above.</p>
+                <p className="text-sm italic mt-2">Select a date range and enter an item name above.</p>
               </div>
             ) : loading ? (
               <div className="py-24 text-center flex flex-col items-center justify-center gap-4">
