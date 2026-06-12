@@ -28,7 +28,8 @@ import {
   Wifi,
   WifiOff,
   CloudUpload,
-  Clock
+  Clock,
+  Filter
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -70,6 +71,7 @@ const departments = [
       { name: "Bar Sales", href: "/bar/sales", icon: ShoppingCart },
       { name: "Shift Management", href: "/bar/shift", icon: Clock },
       { name: "Sales History", href: "/bar/sales/history", icon: HistoryIcon },
+      { name: "Sales Filter", href: "/bar/sales/filter", icon: Filter },
       { name: "Restock", href: "/bar/restock", icon: RefreshCw },
     ],
   },
