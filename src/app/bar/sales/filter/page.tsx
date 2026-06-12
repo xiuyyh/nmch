@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo } from "react";
@@ -7,7 +6,6 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { 
   Search, 
   Printer, 
@@ -20,23 +18,27 @@ import {
   FileText
 } from "lucide-react";
 import { useCollection, useFirestore } from "@/firebase";
-import { collection, query, orderBy, where, Timestamp } from "firebase/firestore";
+import { collection, query, orderBy, where } from "firebase/firestore";
 import { formatNigeriaTime, cn } from "@/lib/utils";
-import { startOfDay, endOfDay, parse } from "date-fns";
+import { startOfDay, endOfDay, parse, isValid } from "date-fns";
 
 export default function SalesFilterPage() {
   const firestore = useFirestore();
   const [startDateStr, setStartDateStr] = useState("");
   const [endDateStr, setEndDateStr] = useState("");
   const [searchItem, setSearchItem] = useState("");
-  const [isSearching, setIsSearching] = useState(false);
 
-  // Parse YYYY-MM-DD strings to Dates for Firestore
+  // Parse YYYY-MM-DD strings to Dates for Firestore with strict validation
   const dateRange = useMemo(() => {
-    if (!startDateStr || !endDateStr) return null;
+    // Only proceed if strings are long enough to be a date (YYYY-MM-DD = 10 chars)
+    if (!startDateStr || !endDateStr || startDateStr.length < 10 || endDateStr.length < 10) return null;
+    
     try {
       const start = startOfDay(parse(startDateStr, "yyyy-MM-dd", new Date()));
       const end = endOfDay(parse(endDateStr, "yyyy-MM-dd", new Date()));
+      
+      if (!isValid(start) || !isValid(end)) return null;
+      
       return { start, end };
     } catch (e) {
       return null;
@@ -227,7 +229,7 @@ export default function SalesFilterPage() {
               <div className="py-24 text-center flex flex-col items-center justify-center opacity-40">
                 <FileText className="w-16 h-16 mb-4" />
                 <h3 className="text-xl font-headline font-bold uppercase">Ready to Filter</h3>
-                <p className="text-sm italic mt-2">Enter a valid date range and item name above to generate report.</p>
+                <p className="text-sm italic mt-2">Enter a valid date range (YYYY-MM-DD) and item name above.</p>
               </div>
             ) : loading ? (
               <div className="py-24 text-center flex flex-col items-center justify-center gap-4">
