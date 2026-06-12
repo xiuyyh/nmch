@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo } from "react";
@@ -120,7 +119,7 @@ export default function MenuPage() {
                     <Input id="category" name="category" placeholder="Cocktails" required className="bg-white/5" />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="price">Price ($)</Label>
+                    <Label htmlFor="price">Price (₦)</Label>
                     <Input id="price" name="price" type="number" step="0.01" required className="bg-white/5" />
                   </div>
                 </div>
@@ -181,7 +180,7 @@ export default function MenuPage() {
                   <div className="flex justify-between items-end">
                     <div className="flex flex-col">
                       <span className="text-xs text-muted-foreground">Price</span>
-                      <span className="text-2xl font-headline font-bold text-secondary">${item.price.toFixed(2)}</span>
+                      <span className="text-2xl font-headline font-bold text-secondary">₦{item.price.toFixed(2)}</span>
                     </div>
                     <div className="flex flex-col text-right">
                       <span className="text-xs text-muted-foreground">Inventory Links</span>

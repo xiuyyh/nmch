@@ -12,7 +12,7 @@ import {
   Filter, 
   Calendar as CalendarIcon, 
   Package, 
-  DollarSign,
+  Banknote, 
   ArrowRight,
   Loader2,
   FileText
@@ -260,7 +260,7 @@ export default function SalesFilterPage() {
               <div className="py-24 text-center flex flex-col items-center justify-center opacity-40">
                 <Package className="w-16 h-16 mb-4" />
                 <h3 className="text-xl font-headline font-bold uppercase">No Matches Found</h3>
-                <p className="text-sm italic mt-2">No items matching "{searchItem}" were sold in this period.</p>
+                <p className="text-sm italic mt-2">No items matching "${searchItem}" were sold in this period.</p>
               </div>
             ) : (
               <div className="animate-in fade-in duration-500">
@@ -278,7 +278,7 @@ export default function SalesFilterPage() {
                     <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.3em]">Total Generated Revenue</span>
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-500">
-                        <DollarSign className="w-6 h-6" />
+                        <Banknote className="w-6 h-6" />
                       </div>
                       <span className="text-5xl font-headline font-bold text-emerald-500">₦{report.totalValue.toLocaleString()}</span>
                     </div>

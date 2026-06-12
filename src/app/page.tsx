@@ -8,7 +8,7 @@ import {
   TrendingUp, 
   AlertCircle, 
   PackageCheck, 
-  DollarSign,
+  Banknote,
   Loader2,
   Clock,
   User,
@@ -86,7 +86,7 @@ export default function BarOverviewDashboard() {
       { 
         label: "Today's Bar Revenue", 
         value: `₦${revenue.toLocaleString()}`, 
-        icon: DollarSign, 
+        icon: Banknote, 
         color: "text-primary",
         sub: `${validSales.length} Transactions`
       },
