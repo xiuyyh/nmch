@@ -234,7 +234,7 @@ export default function InventoryPage() {
   };
 
   const handleReconcileLegacySales = () => {
-    if (!firestore || !user || !isAdmin) return;
+    if (!firestore || !user || !isAdmin || !stockItems) return;
     setIsReconciling(true);
 
     const salesQuery = query(
@@ -251,18 +251,37 @@ export default function InventoryPage() {
         return;
       }
 
-      let totalDeductedItems = 0;
+      // Prepare deep audit data
+      const itemAudit: Record<string, { name: string; startingStock: number; deducted: number; saleIds: string[] }> = {};
+      const saleIds: string[] = [];
+
+      let totalDeductedItemsCount = 0;
       const promises: Promise<any>[] = [];
 
       unreconciledSales.forEach((saleDoc) => {
         const sale = saleDoc.data();
+        saleIds.push(saleDoc.id);
+
         sale.items?.forEach((item: any) => {
-          // Double check category if possible, but mainly skip known food
           const invItem = stockItems?.find(si => si.id === item.itemId);
           if (invItem && invItem.category !== "FOOD") {
+            // Track for audit log
+            if (!itemAudit[item.itemId]) {
+              itemAudit[item.itemId] = {
+                name: invItem.name,
+                startingStock: invItem.stock,
+                deducted: 0,
+                saleIds: []
+              };
+            }
+            itemAudit[item.itemId].deducted += item.quantity;
+            if (!itemAudit[item.itemId].saleIds.includes(saleDoc.id)) {
+              itemAudit[item.itemId].saleIds.push(saleDoc.id);
+            }
+
             const stockRef = doc(firestore, "inventory", item.itemId);
             promises.push(updateDoc(stockRef, { stock: increment(-item.quantity), lastUpdated: serverTimestamp() }));
-            totalDeductedItems += item.quantity;
+            totalDeductedItemsCount += item.quantity;
           }
         });
         
@@ -270,16 +289,25 @@ export default function InventoryPage() {
       });
 
       Promise.all(promises).then(() => {
+        // Create technical audit report for Admin Actions
+        const auditReport = {
+          title: "Legacy Inventory Reconciliation Report",
+          summary: `Corrected ${unreconciledSales.length} legacy sales.`,
+          totalDeducted: totalDeductedItemsCount,
+          itemsProcessed: Object.values(itemAudit),
+          allSaleIds: saleIds
+        };
+
         addDoc(collection(firestore, "adminActions"), {
           adminName: user.displayName || user.email,
           adminId: user.uid,
           action: "RECONCILE_INVENTORY",
           entity: "INVENTORY",
-          details: `Performed manual reconciliation of ${unreconciledSales.length} legacy sales. Total items deducted: ${totalDeductedItems}`,
+          details: JSON.stringify(auditReport), // Store structured data for verification
           timestamp: serverTimestamp()
         }).catch(() => {});
 
-        toast({ title: "Success", description: `Deducted ${totalDeductedItems} items from ${unreconciledSales.length} legacy sales.` });
+        toast({ title: "Success", description: `Deducted ${totalDeductedItemsCount} items from ${unreconciledSales.length} legacy sales. Verify in Admin Actions.` });
       }).finally(() => setIsReconciling(false));
     });
   };

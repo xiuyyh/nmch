@@ -18,8 +18,23 @@ import {
   Settings2,
   RefreshCw,
   PlusCircle,
-  AlertCircle
+  AlertCircle,
+  FileCheck,
+  ChevronDown
 } from "lucide-react";
+import { 
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from "@/components/ui/table";
 import { useCollection, useFirestore } from "@/firebase";
 import { collection, query, orderBy, limit } from "firebase/firestore";
 import { formatNigeriaTime, cn } from "@/lib/utils";
@@ -54,6 +69,7 @@ export default function AdminActionsPage() {
     if (act.includes("CREATE")) return <PlusCircle className="w-4 h-4 text-emerald-500" />;
     if (act.includes("UPDATE")) return <RefreshCw className="w-4 h-4 text-primary" />;
     if (act.includes("DELETE")) return <AlertCircle className="w-4 h-4 text-destructive" />;
+    if (act.includes("RECONCILE")) return <FileCheck className="w-4 h-4 text-amber-500" />;
     if (act.includes("RESTOCK") || act.includes("RECEIVE")) return <Warehouse className="w-4 h-4 text-amber-500" />;
     return <Settings2 className="w-4 h-4 text-muted-foreground" />;
   };
@@ -67,6 +83,68 @@ export default function AdminActionsPage() {
       case "REQUEST": return <Badge variant="outline" className="bg-blue-500/5 text-blue-500 border-blue-500/20 gap-1">REQ</Badge>;
       default: return <Badge variant="outline">{e}</Badge>;
     }
+  };
+
+  // Helper to parse technical reconciliation reports
+  const renderDetails = (details: string, action: string) => {
+    if (action === "RECONCILE_INVENTORY") {
+      try {
+        const audit = JSON.parse(details);
+        return (
+          <Collapsible className="mt-4 border border-white/10 rounded-xl overflow-hidden bg-black/20">
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" className="w-full justify-between h-12 px-4 hover:bg-white/5 group">
+                <div className="flex items-center gap-2">
+                  <FileCheck className="w-4 h-4 text-amber-500" />
+                  <span className="font-bold text-xs uppercase tracking-widest">{audit.title || "Audit Report"}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                   <span className="text-[10px] text-muted-foreground uppercase font-bold">{audit.summary}</span>
+                   <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+                </div>
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="p-4 border-t border-white/5 space-y-6">
+              <div className="space-y-4">
+                <h4 className="text-[10px] font-bold text-primary uppercase tracking-[0.2em]">Item Deduction Audit</h4>
+                <Table>
+                  <TableHeader className="bg-white/5">
+                    <TableRow className="border-white/5 hover:bg-transparent">
+                      <TableHead className="text-[9px] h-8 font-bold uppercase">Item</TableHead>
+                      <TableHead className="text-[9px] h-8 font-bold uppercase text-right">Start Stock</TableHead>
+                      <TableHead className="text-[9px] h-8 font-bold uppercase text-right">Deducted</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {audit.itemsProcessed?.map((item: any, idx: number) => (
+                      <TableRow key={idx} className="border-white/5 hover:bg-white/5">
+                        <TableCell className="py-2 text-xs font-bold text-white">{item.name}</TableCell>
+                        <TableCell className="py-2 text-xs text-right text-muted-foreground">{item.startingStock}</TableCell>
+                        <TableCell className="py-2 text-xs text-right text-destructive font-bold">-{item.deducted}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              <div className="space-y-2">
+                <h4 className="text-[10px] font-bold text-primary uppercase tracking-[0.2em]">Processed Sale Receipts</h4>
+                <div className="flex flex-wrap gap-1.5">
+                  {audit.allSaleIds?.map((id: string) => (
+                    <Badge key={id} variant="outline" className="font-mono text-[9px] border-white/10 bg-white/[0.02]">
+                      #{id.slice(-8).toUpperCase()}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        );
+      } catch (e) {
+        return <p className="text-sm text-muted-foreground leading-relaxed italic">{details}</p>;
+      }
+    }
+    return <p className="text-sm text-muted-foreground leading-relaxed">{details}</p>;
   };
 
   return (
@@ -127,9 +205,9 @@ export default function AdminActionsPage() {
                           <span className="font-bold text-white uppercase text-sm tracking-tight">{log.action}</span>
                           {getEntityBadge(log.entity)}
                         </div>
-                        <p className="text-sm text-muted-foreground leading-relaxed">
-                          {log.details}
-                        </p>
+                        <div className="max-w-3xl">
+                          {renderDetails(log.details, log.action)}
+                        </div>
                       </div>
                     </div>
                   ))}
