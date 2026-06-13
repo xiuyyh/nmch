@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo } from "react";
@@ -398,18 +397,6 @@ export default function InventoryPage() {
             <CardContent><div className="text-3xl font-bold text-destructive font-headline">{stats.lowStock} Alerts</div></CardContent>
           </Card>
         </div>
-
-        {isAdmin && (
-          <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex items-start gap-4">
-             <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-             <div className="space-y-1">
-               <p className="text-xs font-bold text-amber-500 uppercase tracking-widest">Legacy Inventory Correction</p>
-               <p className="text-[10px] text-muted-foreground leading-relaxed">
-                 Use the <strong>"Reconcile Legacy Sales"</strong> button above if items sold before the automatic deduction system was implemented are still showing in your stock count. This tool will subtract those items once and mark the sales as reconciled.
-               </p>
-             </div>
-          </div>
-        )}
 
         <Card className="glass-card overflow-hidden">
           <CardHeader className="border-b border-white/5 pb-4">
