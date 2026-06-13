@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { 
   BedDouble, 
   Plus, 
@@ -21,17 +22,15 @@ import {
   Home,
   ChevronRight,
   ChevronDown,
-  Layers,
   CheckCircle2,
-  X,
-  Banknote,
   Users,
   Search,
   History,
   Phone,
   Clock,
   ChevronLeft,
-  AlertTriangle
+  AlertTriangle,
+  Banknote
 } from "lucide-react";
 import { 
   Dialog, 
@@ -52,7 +51,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { useCollection, useFirestore, useUser } from "@/firebase";
-import { collection, query, where, addDoc, serverTimestamp, doc, updateDoc, orderBy, limit, writeBatch } from "firebase/firestore";
+import { collection, query, where, addDoc, serverTimestamp, doc, updateDoc, orderBy, limit } from "firebase/firestore";
 import { addDays, format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -112,7 +111,7 @@ export default function RoomManagerPage() {
   }, [firestore]);
   const { data: activeBookings, loading: bookingsLoading } = useCollection(activeBookingsQuery);
 
-  // 4. Fetch Booking History (for the history tab)
+  // 4. Fetch Booking History
   const historyQuery = useMemo(() => {
     if (!firestore) return null;
     return query(
@@ -134,6 +133,42 @@ export default function RoomManagerPage() {
     return map;
   }, [activeBookings]);
 
+  // Grouped Occupancy for the List Tab
+  const groupedOccupancy = useMemo(() => {
+    if (!activeBookings) return [];
+    
+    const groups: Record<string, any[]> = {};
+    activeBookings.forEach(b => {
+      // Group by Name + Phone to identify the same guest
+      const key = `${b.guestName?.trim()}-${b.phoneNumber?.trim()}`.toLowerCase();
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(b);
+    });
+
+    const result = Object.values(groups).map(bookings => {
+      const first = bookings[0];
+      const rooms = bookings.map(b => `${b.apartmentName} — ${b.roomNumber}`).join(', ');
+      const totalCost = bookings.reduce((sum, b) => sum + (b.totalStayCost || 0), 0);
+      const totalPaid = bookings.reduce((sum, b) => sum + (b.checkInAmountPaid || 0) + (b.retainingAmountPaid || 0), 0);
+      const isPaid = totalPaid >= totalCost;
+      
+      return {
+        ...first,
+        id: first.id, // Keep a reference ID
+        roomDisplay: rooms,
+        totalGroupCost: totalCost,
+        totalGroupPaid: totalPaid,
+        isGroupPaid: isPaid,
+        allBookings: bookings
+      };
+    });
+
+    return result.filter(g => 
+      g.guestName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      g.roomDisplay?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [activeBookings, searchQuery]);
+
   const toggleExpansion = (id: string) => {
     const next = new Set(expandedApartments);
     if (next.has(id)) next.delete(id);
@@ -141,23 +176,10 @@ export default function RoomManagerPage() {
     setExpandedApartments(next);
   };
 
-  const isEntitySelected = (aptId: string, roomNum: string) => {
-    return selectedForBulk.some(s => s.apartmentId === aptId && s.roomNumber === roomNum);
-  };
-
   const handleEntityClick = (apt: any, roomNum: string, isOccupied: boolean) => {
     if (isOccupied) return;
-
-    if (selectionMode) {
-      if (isEntitySelected(apt.id, roomNum)) {
-        setSelectedForBulk(prev => prev.filter(s => !(s.apartmentId === apt.id && s.roomNumber === roomNum)));
-      } else {
-        setSelectedForBulk(prev => [...prev, { apartmentId: apt.id, apartmentName: apt.name, roomNumber: roomNum }]);
-      }
-    } else {
-      setSelectedEntity({ apartment: apt, roomNumber: roomNum });
-      setIsCheckInOpen(true);
-    }
+    setSelectedEntity({ apartment: apt, roomNumber: roomNum });
+    setIsCheckInOpen(true);
   };
 
   const handleCheckIn = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -198,15 +220,6 @@ export default function RoomManagerPage() {
     }).then(() => toast({ title: "Checked Out", description: "Room released." }));
   };
 
-  const filteredOccupancy = useMemo(() => {
-    if (!activeBookings) return [];
-    return activeBookings.filter(b => 
-      b.guestName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      b.apartmentName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      b.roomNumber?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [activeBookings, searchQuery]);
-
   const paginatedHistory = useMemo(() => {
     if (!historyBookings) return [];
     const start = (historyPage - 1) * HISTORY_PER_PAGE;
@@ -245,19 +258,6 @@ export default function RoomManagerPage() {
                 <Home className="w-8 h-8 text-primary" /> Room Manager
               </h1>
               <p className="text-muted-foreground mt-1">Real-time apartment occupancy and guest billing control.</p>
-            </div>
-
-            <div className="flex items-center gap-4 bg-white/5 border border-white/10 p-4 rounded-2xl">
-              <div className="flex items-center gap-2">
-                <Switch 
-                  id="multi-mode" 
-                  checked={selectionMode} 
-                  onCheckedChange={(val) => { setSelectionMode(val); if(!val) setSelectedForBulk([]); }} 
-                />
-                <Label htmlFor="multi-mode" className="text-xs uppercase font-bold tracking-widest text-muted-foreground cursor-pointer">
-                  Group Selection
-                </Label>
-              </div>
             </div>
           </div>
 
@@ -397,12 +397,12 @@ export default function RoomManagerPage() {
                  <CardHeader className="border-b border-white/5 pb-4">
                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                      <CardTitle className="text-xl font-headline flex items-center gap-2">
-                       <Users className="w-5 h-5 text-primary" /> Active Guests
+                       <Users className="w-5 h-5 text-primary" /> Active Guests (Merged Records)
                      </CardTitle>
                      <div className="relative w-full sm:w-80">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                         <Input 
-                          placeholder="Search guest or flat..." 
+                          placeholder="Search guest or unit..." 
                           className="pl-10 h-10 bg-white/5 border-white/10 rounded-xl"
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
@@ -412,41 +412,47 @@ export default function RoomManagerPage() {
                  </CardHeader>
                  <CardContent className="p-0">
                     <div className="divide-y divide-white/5">
-                      {filteredOccupancy.length === 0 ? (
+                      {groupedOccupancy.length === 0 ? (
                         <div className="py-20 text-center text-muted-foreground italic">No active guests found.</div>
-                      ) : filteredOccupancy.map(b => (
-                        <div key={b.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-white/[0.01] transition-colors">
+                      ) : groupedOccupancy.map(g => (
+                        <div key={g.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-white/[0.01] transition-colors">
                           <div className="flex items-center gap-4">
                             <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
                               <Users className="w-6 h-6" />
                             </div>
                             <div className="flex flex-col">
-                              <span className="font-bold text-white uppercase text-sm">{b.guestName}</span>
+                              <span className="font-bold text-white uppercase text-sm">{g.guestName}</span>
                               <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                                <BedDouble className="w-3 h-3" /> {b.apartmentName} — {b.roomNumber}
+                                <BedDouble className="w-3 h-3" /> {g.roomDisplay}
                               </div>
                             </div>
                           </div>
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 items-center">
                             <div className="flex flex-col">
                               <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Phone</span>
-                              <span className="text-xs font-bold text-white flex items-center gap-1"><Phone className="w-2.5 h-2.5" /> {b.phoneNumber || "N/A"}</span>
+                              <span className="text-xs font-bold text-white flex items-center gap-1"><Phone className="w-2.5 h-2.5" /> {g.phoneNumber || "N/A"}</span>
                             </div>
                             <div className="flex flex-col">
                               <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Check-Out</span>
-                              <span className="text-xs font-bold text-white flex items-center gap-1"><Clock className="w-2.5 h-2.5" /> {b.checkOutDate?.toDate ? format(b.checkOutDate.toDate(), "dd MMM, yyyy") : "N/A"}</span>
+                              <span className="text-xs font-bold text-white flex items-center gap-1"><Clock className="w-2.5 h-2.5" /> {g.checkOutDate?.toDate ? format(g.checkOutDate.toDate(), "dd MMM, yyyy") : "N/A"}</span>
                             </div>
                             <div className="flex flex-col">
-                              <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Payment Status</span>
-                              {b.isPaid ? (
-                                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 text-[9px] uppercase w-fit">Paid & Secured</Badge>
+                              <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Balance Status</span>
+                              {g.isGroupPaid ? (
+                                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 text-[9px] uppercase w-fit">Consolidated Paid</Badge>
                               ) : (
-                                <Badge variant="destructive" className="text-[9px] uppercase w-fit">Balance Pending</Badge>
+                                <Badge variant="destructive" className="text-[9px] uppercase w-fit">₦{(g.totalGroupCost - g.totalGroupPaid).toLocaleString()} Pending</Badge>
                               )}
                             </div>
                             <div className="flex justify-end">
-                              <Button variant="ghost" size="icon" onClick={() => { setActiveBooking(b); setIsExtendOpen(true); }} className="hover:text-primary"><CalendarPlus className="w-4 h-4" /></Button>
-                              <Button variant="ghost" size="icon" onClick={() => handleCheckout(b)} className="hover:text-destructive"><LogOut className="w-4 h-4" /></Button>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => { setActiveBooking(g); setIsExtendOpen(true); }} 
+                                className="h-9 gap-2 border-primary/20 text-primary font-bold uppercase text-[10px] tracking-widest"
+                              >
+                                <CalendarPlus className="w-4 h-4" /> Extend
+                              </Button>
                             </div>
                           </div>
                         </div>
@@ -511,7 +517,7 @@ export default function RoomManagerPage() {
           </Tabs>
         </div>
 
-        {/* Standard Check-In */}
+        {/* Standard Check-In Dialog */}
         <Dialog open={isCheckInOpen} onOpenChange={setIsCheckInOpen}>
           <DialogContent className="glass-card border-white/10 max-w-md">
             <DialogHeader>
@@ -555,7 +561,7 @@ export default function RoomManagerPage() {
           <DialogContent className="glass-card border-white/10 max-w-md">
             <DialogHeader>
               <DialogTitle className="text-xl font-headline flex items-center gap-2 uppercase">
-                <CalendarPlus className="text-primary w-5 h-5" /> Extend Stay (Retaining)
+                <CalendarPlus className="text-primary w-5 h-5" /> Extend Stay (Handover)
               </DialogTitle>
             </DialogHeader>
             {activeBooking && (
@@ -564,35 +570,55 @@ export default function RoomManagerPage() {
                 const formData = new FormData(e.currentTarget);
                 const extraDays = Number(formData.get("extraDays"));
                 const extraCost = Number(formData.get("extraCost"));
-                const retaining = Number(formData.get("retainingPaid"));
+                const declaringPaid = Number(formData.get("declaringPaid"));
+                const paymentStatus = formData.get("paymentStatus");
                 
-                const newCheckOut = addDays(activeBooking.checkOutDate.toDate(), extraDays);
-                const totalNewCost = activeBooking.totalStayCost + extraCost;
-                const totalPaid = activeBooking.checkInAmountPaid + activeBooking.retainingAmountPaid + retaining;
+                // Extension applies to the first booking in group or individual
+                const bookingsToUpdate = activeBooking.allBookings || [activeBooking];
+                
+                const promises = bookingsToUpdate.map((b: any) => {
+                  const newCheckOut = addDays(b.checkOutDate.toDate(), extraDays);
+                  // Distribute the cost and payment across the group or apply to individual
+                  // For simplicity in multi-room, we apply total cost/paid to the group leader record or split
+                  // Here we update each record in the group
+                  const totalNewCost = (b.totalStayCost || 0) + (extraCost / bookingsToUpdate.length);
+                  const totalPaid = (b.checkInAmountPaid || 0) + (b.retainingAmountPaid || 0) + (declaringPaid / bookingsToUpdate.length);
 
-                updateDoc(doc(firestore, "roomBookings", activeBooking.id), {
-                  checkOutDate: newCheckOut,
-                  totalStayCost: totalNewCost,
-                  retainingAmountPaid: activeBooking.retainingAmountPaid + retaining,
-                  isPaid: totalPaid >= totalNewCost,
-                  lastModified: serverTimestamp()
-                }).then(() => {
-                  toast({ title: "Stay Extended", description: "Record updated." });
+                  return updateDoc(doc(firestore, "roomBookings", b.id), {
+                    checkOutDate: newCheckOut,
+                    totalStayCost: totalNewCost,
+                    retainingAmountPaid: (b.retainingAmountPaid || 0) + (declaringPaid / bookingsToUpdate.length),
+                    isPaid: paymentStatus === 'paid' || totalPaid >= totalNewCost,
+                    lastModified: serverTimestamp()
+                  });
+                });
+
+                Promise.all(promises).then(() => {
+                  toast({ title: "Stay Extended", description: "All grouped records updated." });
                   setIsExtendOpen(false);
                 });
               }}>
-                <div className="p-4 bg-white/5 rounded-xl border border-white/5 space-y-2">
+                <div className="p-4 bg-white/5 rounded-xl border border-white/5 space-y-3">
                   <div className="flex justify-between text-xs font-bold text-muted-foreground uppercase tracking-widest">
-                    <span>Current Balance:</span>
-                    <span className={cn(activeBooking.isPaid ? "text-emerald-500" : "text-destructive")}>
-                      ₦{(activeBooking.totalStayCost - (activeBooking.checkInAmountPaid + activeBooking.retainingAmountPaid)).toLocaleString()}
+                    <span>Current Group Balance:</span>
+                    <span className={cn(activeBooking.isGroupPaid || activeBooking.isPaid ? "text-emerald-500" : "text-destructive")}>
+                      ₦{((activeBooking.totalGroupCost || activeBooking.totalStayCost) - (activeBooking.totalGroupPaid || (activeBooking.checkInAmountPaid + activeBooking.retainingAmountPaid))).toLocaleString()}
                     </span>
                   </div>
-                  {!activeBooking.isPaid && (
-                    <Badge variant="destructive" className="w-full justify-center py-1 text-[9px] uppercase tracking-widest gap-2">
-                      <AlertTriangle className="w-3 h-3" /> Guest Has Unpaid Balance
-                    </Badge>
-                  )}
+                  
+                  <div className="space-y-2">
+                    <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Extension Payment Status</Label>
+                    <RadioGroup name="paymentStatus" defaultValue="unpaid" className="flex gap-4">
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="paid" id="r-paid" className="border-emerald-500 text-emerald-500" />
+                        <Label htmlFor="r-paid" className="text-xs font-bold text-emerald-500 cursor-pointer">PAID</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="unpaid" id="r-unpaid" className="border-destructive text-destructive" />
+                        <Label htmlFor="r-unpaid" className="text-xs font-bold text-destructive cursor-pointer">UNPAID</Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -605,16 +631,27 @@ export default function RoomManagerPage() {
                     <Input name="extraCost" type="number" required className="bg-white/5 border-white/10" />
                   </div>
                 </div>
+
                 <div className="space-y-2">
-                  <Label className="text-[10px] uppercase font-bold tracking-widest text-primary">Payment for Extension (₦)</Label>
-                  <Input name="retainingPaid" type="number" defaultValue="0" className="bg-white/10 border-primary/20 font-bold h-12 text-lg" />
+                  <Label className="text-[10px] uppercase font-bold tracking-widest text-primary">Declare Payment Received (₦)</Label>
+                  <div className="relative">
+                    <Banknote className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary/60" />
+                    <Input 
+                      name="declaringPaid" 
+                      type="number" 
+                      defaultValue="0" 
+                      className="bg-white/10 border-primary/20 font-bold h-12 text-lg pl-10" 
+                    />
+                  </div>
+                  <p className="text-[9px] text-muted-foreground italic">Enter the physical amount the guest is paying now.</p>
                 </div>
-                <div className="flex gap-2">
+
+                <div className="flex gap-2 pt-2">
                    <Button type="button" variant="outline" className="flex-1 border-destructive/20 text-destructive font-bold uppercase text-[10px] tracking-widest h-12" onClick={() => setIsExtendOpen(false)}>
                      Cancel
                    </Button>
                    <Button type="submit" className="flex-[2] h-12 bg-primary text-primary-foreground font-bold uppercase text-[10px] tracking-widest shadow-xl">
-                     Update Guest Stay
+                     Process Extension
                    </Button>
                 </div>
               </form>
