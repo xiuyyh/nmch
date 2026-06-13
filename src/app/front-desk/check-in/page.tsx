@@ -42,8 +42,8 @@ export default function CheckInPage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [guestData, setGuestData] = useState({
-    name: "",
-    phone: "",
+    name: searchParams.get("guestName") || "",
+    phone: searchParams.get("phoneNumber") || "",
     days: 1,
     amountPaid: 0,
     totalCost: 0

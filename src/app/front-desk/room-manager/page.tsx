@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { RoleGuard } from "@/components/auth/RoleGuard";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -49,7 +49,7 @@ import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { errorEmitter } from "@/firebase/error-emitter";
 import { FirestorePermissionError } from "@/firebase/errors";
 
@@ -63,17 +63,27 @@ const HISTORY_PER_PAGE = 5;
 
 export default function RoomManagerPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const firestore = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
   
   // UI State
-  const [activeTab, setActiveTab] = useState("grid");
+  const [activeTab, setActiveTab] = useState(searchParams.get("activeTab") || "grid");
   const [expandedApartments, setExpandedApartments] = useState<Set<string>>(new Set());
-  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(searchParams.get("selectionMode") === "true");
   const [selectedForBulk, setSelectedForBulk] = useState<SelectedEntity[]>([]);
   const [historyPage, setHistoryPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
+
+  useEffect(() => {
+    if (searchParams.get("selectionMode") === "true") {
+      setSelectionMode(true);
+    }
+    if (searchParams.get("activeTab")) {
+      setActiveTab(searchParams.get("activeTab")!);
+    }
+  }, [searchParams]);
 
   // 1. Shift Check
   const shiftQuery = useMemo(() => {
@@ -179,7 +189,16 @@ export default function RoomManagerPage() {
       }
     } else {
       const rooms = [{ apartmentId: apt.id, apartmentName: apt.name, roomNumber: roomNum }];
-      router.push(`/front-desk/check-in?rooms=${encodeURIComponent(JSON.stringify(rooms))}`);
+      const params = new URLSearchParams();
+      params.set("rooms", JSON.stringify(rooms));
+      
+      // If adding to existing guest from extension page
+      const gName = searchParams.get("guestName");
+      const gPhone = searchParams.get("phoneNumber");
+      if(gName) params.set("guestName", gName);
+      if(gPhone) params.set("phoneNumber", gPhone);
+
+      router.push(`/front-desk/check-in?${params.toString()}`);
     }
   };
 
@@ -202,7 +221,16 @@ export default function RoomManagerPage() {
 
   const handleBatchCheckIn = () => {
     if (selectedForBulk.length === 0) return;
-    router.push(`/front-desk/check-in?rooms=${encodeURIComponent(JSON.stringify(selectedForBulk))}`);
+    const params = new URLSearchParams();
+    params.set("rooms", JSON.stringify(selectedForBulk));
+    
+    // If adding to existing guest from extension page
+    const gName = searchParams.get("guestName");
+    const gPhone = searchParams.get("phoneNumber");
+    if(gName) params.set("guestName", gName);
+    if(gPhone) params.set("phoneNumber", gPhone);
+
+    router.push(`/front-desk/check-in?${params.toString()}`);
   };
 
   const paginatedHistory = useMemo(() => {
