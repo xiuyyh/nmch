@@ -68,7 +68,6 @@ export default function RoomManagerPage() {
   const { user } = useUser();
   const { toast } = useToast();
   
-  // UI State
   const [activeTab, setActiveTab] = useState(searchParams.get("activeTab") || "grid");
   const [expandedApartments, setExpandedApartments] = useState<Set<string>>(new Set());
   const [selectionMode, setSelectionMode] = useState(searchParams.get("selectionMode") === "true");
@@ -85,7 +84,6 @@ export default function RoomManagerPage() {
     }
   }, [searchParams]);
 
-  // 1. Shift Check
   const shiftQuery = useMemo(() => {
     if (!firestore || !user) return null;
     return query(
@@ -98,21 +96,18 @@ export default function RoomManagerPage() {
   const { data: shifts, loading: shiftLoading } = useCollection(shiftQuery);
   const activeShift = shifts?.[0];
 
-  // 2. Fetch Apartments Config
   const apartmentsQuery = useMemo(() => {
     if (!firestore) return null;
     return query(collection(firestore, "apartments"), orderBy("name"));
   }, [firestore]);
   const { data: apartments, loading: aptLoading } = useCollection(apartmentsQuery);
 
-  // 3. Fetch All Active Bookings
   const activeBookingsQuery = useMemo(() => {
     if (!firestore) return null;
     return query(collection(firestore, "roomBookings"), where("status", "==", "active"), orderBy("checkInDate", "desc"));
   }, [firestore]);
   const { data: activeBookings, loading: bookingsLoading } = useCollection(activeBookingsQuery);
 
-  // 4. Fetch Booking History
   const historyQuery = useMemo(() => {
     if (!firestore) return null;
     return query(
@@ -192,7 +187,6 @@ export default function RoomManagerPage() {
       const params = new URLSearchParams();
       params.set("rooms", JSON.stringify(rooms));
       
-      // If adding to existing guest from extension page
       const gName = searchParams.get("guestName");
       const gPhone = searchParams.get("phoneNumber");
       if(gName) params.set("guestName", gName);
@@ -224,7 +218,6 @@ export default function RoomManagerPage() {
     const params = new URLSearchParams();
     params.set("rooms", JSON.stringify(selectedForBulk));
     
-    // If adding to existing guest from extension page
     const gName = searchParams.get("guestName");
     const gPhone = searchParams.get("phoneNumber");
     if(gName) params.set("guestName", gName);
@@ -248,13 +241,13 @@ export default function RoomManagerPage() {
   if (!activeShift) {
     return (
       <AppShell>
-        <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-6">
+        <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-6 p-4">
           <div className="w-20 h-20 bg-amber-500/10 rounded-full flex items-center justify-center">
             <ShieldAlert className="w-10 h-10 text-amber-500" />
           </div>
-          <h2 className="text-3xl font-headline font-bold uppercase">Front Desk Closed</h2>
-          <Button asChild className="h-14 px-8 bg-primary text-primary-foreground font-bold rounded-2xl shadow-xl text-lg">
-            <Link href="/front-desk/shift">Start Shift to Manage Rooms</Link>
+          <h2 className="text-2xl sm:text-3xl font-headline font-bold uppercase">Front Desk Closed</h2>
+          <Button asChild className="h-14 px-8 bg-primary text-primary-foreground font-bold rounded-2xl shadow-xl text-lg w-full max-w-xs">
+            <Link href="/front-desk/shift">Start Shift</Link>
           </Button>
         </div>
       </AppShell>
@@ -264,43 +257,43 @@ export default function RoomManagerPage() {
   return (
     <RoleGuard allowedRoles={["front_desk", "admin"]}>
       <AppShell>
-        <div className="space-y-8 max-w-7xl mx-auto">
+        <div className="space-y-6 sm:space-y-8 max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
             <div>
-              <h1 className="text-3xl font-headline font-bold uppercase tracking-tight text-white flex items-center gap-3">
-                <Home className="w-8 h-8 text-primary" /> Room Manager
+              <h1 className="text-2xl sm:text-3xl font-headline font-bold uppercase tracking-tight text-white flex items-center gap-3">
+                <Home className="w-6 h-6 sm:w-8 sm:h-8 text-primary" /> Room Manager
               </h1>
-              <p className="text-muted-foreground mt-1">Real-time apartment occupancy and guest billing control.</p>
+              <p className="text-sm text-muted-foreground mt-1">Real-time apartment occupancy and guest billing.</p>
             </div>
 
-            <div className="flex items-center gap-4 bg-white/5 border border-white/10 p-2 px-4 rounded-2xl">
+            <div className="flex flex-wrap items-center gap-4 bg-white/5 border border-white/10 p-3 sm:px-4 rounded-2xl w-full sm:w-auto justify-between sm:justify-start">
               <div className="flex items-center gap-3">
                 <Switch id="multi-select" checked={selectionMode} onCheckedChange={(val) => { setSelectionMode(val); setSelectedForBulk([]); }} />
-                <Label htmlFor="multi-select" className="text-[10px] uppercase font-bold tracking-widest cursor-pointer">Selection Mode</Label>
+                <Label htmlFor="multi-select" className="text-[10px] uppercase font-bold tracking-widest cursor-pointer">Multi-Select</Label>
               </div>
               {selectionMode && selectedForBulk.length > 0 && (
-                <Button onClick={handleBatchCheckIn} className="bg-primary text-primary-foreground font-bold h-10 px-6 rounded-xl animate-in zoom-in duration-300">
-                   Check-In {selectedForBulk.length} Units
+                <Button onClick={handleBatchCheckIn} className="bg-primary text-primary-foreground font-bold h-10 px-6 rounded-xl animate-in zoom-in duration-300 w-full sm:w-auto">
+                   Check-In {selectedForBulk.length}
                 </Button>
               )}
             </div>
           </div>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
-            <TabsList className="bg-white/5 border border-white/10 p-1 h-12 w-full sm:w-fit">
-              <TabsTrigger value="grid" className="flex-1 sm:flex-none gap-2 px-6 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-bold text-xs uppercase tracking-widest">
-                <LayoutGrid className="w-4 h-4" /> Room Grid
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+            <TabsList className="bg-white/5 border border-white/10 p-1 h-12 w-full flex overflow-x-auto overflow-y-hidden custom-scrollbar">
+              <TabsTrigger value="grid" className="flex-1 gap-2 px-3 sm:px-6 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-bold text-[10px] sm:text-xs uppercase tracking-widest whitespace-nowrap">
+                <LayoutGrid className="w-4 h-4 hidden sm:block" /> Grid
               </TabsTrigger>
-              <TabsTrigger value="occupancy" className="flex-1 sm:flex-none gap-2 px-6 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-bold text-xs uppercase tracking-widest">
-                <Users className="w-4 h-4" /> Active Occupancy
+              <TabsTrigger value="occupancy" className="flex-1 gap-2 px-3 sm:px-6 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-bold text-[10px] sm:text-xs uppercase tracking-widest whitespace-nowrap">
+                <Users className="w-4 h-4 hidden sm:block" /> Active
               </TabsTrigger>
-              <TabsTrigger value="history" className="flex-1 sm:flex-none gap-2 px-6 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-bold text-xs uppercase tracking-widest">
-                <History className="w-4 h-4" /> Stay History
+              <TabsTrigger value="history" className="flex-1 gap-2 px-3 sm:px-6 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-bold text-[10px] sm:text-xs uppercase tracking-widest whitespace-nowrap">
+                <History className="w-4 h-4 hidden sm:block" /> History
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="grid" className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
                 {apartments?.map(apt => {
                   const aptRooms = apt.roomNumbers || [];
                   const bookingsInApt = aptRooms.map((r: string) => occupancyMap[`${apt.id}-${r}`] || occupancyMap[`${apt.id}-FULL`]).filter(Boolean);
@@ -315,21 +308,21 @@ export default function RoomManagerPage() {
                       onOpenChange={() => toggleExpansion(apt.id)}
                       className={cn(
                         "flex flex-col gap-2 transition-all duration-300",
-                        isExpanded ? "col-span-2 sm:col-span-3 md:col-span-2 lg:col-span-2" : "col-span-1"
+                        isExpanded ? "col-span-2 sm:col-span-3 md:col-span-2" : "col-span-1"
                       )}
                     >
                       <Card className={cn(
-                        "glass-card border-l-4 h-32 flex flex-col justify-between transition-all cursor-pointer hover:bg-white/5",
+                        "glass-card border-l-4 h-28 sm:h-32 flex flex-col justify-between transition-all cursor-pointer hover:bg-white/5",
                         occupiedCount === aptRooms.length ? "border-l-amber-500" : occupiedCount > 0 ? "border-l-primary" : "border-l-white/10"
                       )} onClick={() => toggleExpansion(apt.id)}>
-                        <div className="p-3 flex justify-between items-start">
+                        <div className="p-2 sm:p-3 flex justify-between items-start">
                           <div className="min-w-0">
-                            <CardTitle className="text-sm font-headline truncate uppercase tracking-tight">{apt.name}</CardTitle>
-                            <span className="text-[9px] font-bold text-muted-foreground uppercase">{apt.type}</span>
+                            <CardTitle className="text-xs sm:text-sm font-headline truncate uppercase tracking-tight">{apt.name}</CardTitle>
+                            <span className="text-[8px] sm:text-[9px] font-bold text-muted-foreground uppercase">{apt.type}</span>
                           </div>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                              <Button variant="ghost" size="icon" className="h-6 w-6 -mr-2"><MoreVertical className="w-3 h-3" /></Button>
+                              <Button variant="ghost" size="icon" className="h-6 w-6 -mr-1"><MoreVertical className="w-3 h-3" /></Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="glass-card border-white/10 w-48">
                               {!isFullAptOccupied ? (
@@ -352,28 +345,28 @@ export default function RoomManagerPage() {
                           </DropdownMenu>
                         </div>
 
-                        <div className="px-3 pb-3 flex items-center justify-between">
+                        <div className="px-2 sm:p-3 pb-2 sm:pb-3 flex items-center justify-between">
                           <div className="space-y-1">
                             <p className={cn(
-                              "text-[10px] font-bold uppercase tracking-widest",
+                              "text-[8px] sm:text-[10px] font-bold uppercase tracking-widest",
                               occupiedCount === aptRooms.length ? "text-amber-500" : "text-muted-foreground"
                             )}>
-                              {occupiedCount}/{aptRooms.length} Taken
+                              {occupiedCount}/{aptRooms.length}
                             </p>
-                            <div className="w-16 h-1 bg-white/5 rounded-full overflow-hidden">
+                            <div className="w-10 sm:w-16 h-1 bg-white/5 rounded-full overflow-hidden">
                               <div 
                                 className="bg-primary h-full transition-all duration-700" 
                                 style={{ width: `${(occupiedCount/aptRooms.length)*100}%` }} 
                               />
                             </div>
                           </div>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 bg-white/5 rounded-lg hover:bg-primary/20">
-                            {isExpanded ? <ChevronDown className="w-4 h-4 text-primary" /> : <ChevronRight className="w-4 h-4" />}
+                          <Button variant="ghost" size="icon" className="h-6 w-6 sm:h-7 sm:w-7 bg-white/5 rounded-lg">
+                            {isExpanded ? <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4 text-primary" /> : <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4" />}
                           </Button>
                         </div>
                       </Card>
 
-                      <CollapsibleContent className="space-y-2 animate-in slide-in-from-top-2 duration-300">
+                      <CollapsibleContent className="space-y-1 sm:space-y-2 animate-in slide-in-from-top-2 duration-300">
                         {aptRooms.map((room: string) => {
                           const booking = occupancyMap[`${apt.id}-${room}`] || occupancyMap[`${apt.id}-FULL`];
                           const isOccupied = !!booking;
@@ -385,7 +378,7 @@ export default function RoomManagerPage() {
                               key={room} 
                               onClick={() => !isFullBooking && handleEntityClick(apt, room, isOccupied)}
                               className={cn(
-                                "p-3 rounded-xl border flex items-center justify-between transition-all group cursor-pointer",
+                                "p-2 sm:p-3 rounded-xl border flex items-center justify-between transition-all group cursor-pointer",
                                 isOccupied 
                                   ? "bg-amber-500/10 border-amber-500/30 text-amber-500" 
                                   : isSelected 
@@ -394,13 +387,13 @@ export default function RoomManagerPage() {
                                 isFullBooking && "opacity-50 cursor-not-allowed"
                               )}
                             >
-                              <div className="flex items-center gap-3">
-                                <BedDouble className={cn("w-4 h-4", isOccupied || isSelected ? "opacity-100" : "opacity-30")} />
-                                <span className="text-xs font-bold">{room}</span>
+                              <div className="flex items-center gap-2 sm:gap-3">
+                                <BedDouble className={cn("w-3.5 h-3.5 sm:w-4 sm:h-4", isOccupied || isSelected ? "opacity-100" : "opacity-30")} />
+                                <span className="text-[10px] sm:text-xs font-bold">{room}</span>
                               </div>
                               {isOccupied && (
-                                <div className="flex items-center gap-2">
-                                  {!booking.isPaid && <Badge variant="destructive" className="h-5 text-[8px] uppercase px-1">Unpaid</Badge>}
+                                <div className="flex items-center gap-1.5 sm:gap-2">
+                                  {!booking.isPaid && <Badge variant="destructive" className="h-4 sm:h-5 text-[7px] sm:text-[8px] uppercase px-1">Debt</Badge>}
                                   <DropdownMenu>
                                     <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                                       <Button variant="ghost" size="icon" className="h-6 w-6"><MoreVertical className="w-3 h-3" /></Button>
@@ -414,7 +407,7 @@ export default function RoomManagerPage() {
                                   </DropdownMenu>
                                 </div>
                               )}
-                              {isSelected && !isOccupied && <CheckCircle2 className="w-4 h-4 text-primary" />}
+                              {isSelected && !isOccupied && <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />}
                             </div>
                           );
                         })}
@@ -427,16 +420,16 @@ export default function RoomManagerPage() {
 
             <TabsContent value="occupancy" className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                <Card className="glass-card">
-                 <CardHeader className="border-b border-white/5 pb-4">
+                 <CardHeader className="border-b border-white/5 pb-4 px-4 sm:px-6">
                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                     <CardTitle className="text-xl font-headline flex items-center gap-2">
-                       <Users className="w-5 h-5 text-primary" /> Active Guests
+                     <CardTitle className="text-lg sm:text-xl font-headline flex items-center gap-2">
+                       <Users className="w-5 h-5 text-primary" /> Active Stays
                      </CardTitle>
                      <div className="relative w-full sm:w-80">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                         <Input 
-                          placeholder="Search guest or unit..." 
-                          className="pl-10 h-10 bg-white/5 border-white/10 rounded-xl"
+                          placeholder="Search..." 
+                          className="pl-10 h-10 bg-white/5 border-white/10 rounded-xl text-sm"
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
                         />
@@ -446,41 +439,41 @@ export default function RoomManagerPage() {
                  <CardContent className="p-0">
                     <div className="divide-y divide-white/5">
                       {groupedOccupancy.length === 0 ? (
-                        <div className="py-20 text-center text-muted-foreground italic">No active guests found.</div>
+                        <div className="py-20 text-center text-muted-foreground italic text-sm">No active stays found.</div>
                       ) : groupedOccupancy.map(g => (
-                        <div key={g.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-white/[0.01] transition-colors">
+                        <div key={g.id} className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-6 hover:bg-white/[0.01] transition-colors">
                           <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                              <Users className="w-6 h-6" />
+                            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                              <Users className="w-5 h-5 sm:w-6 sm:h-6" />
                             </div>
-                            <div className="flex flex-col">
-                              <span className="font-bold text-white uppercase text-sm">{g.guestName}</span>
-                              <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                                <BedDouble className="w-3 h-3" /> {g.roomDisplay}
+                            <div className="flex flex-col min-w-0">
+                              <span className="font-bold text-white uppercase text-sm truncate">{g.guestName}</span>
+                              <div className="flex items-center gap-2 text-[9px] sm:text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">
+                                <BedDouble className="w-3 h-3 shrink-0" /> <span className="truncate">{g.roomDisplay}</span>
                               </div>
                             </div>
                           </div>
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 items-center">
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 items-center flex-1 sm:flex-none">
                             <div className="flex flex-col">
                               <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Phone</span>
-                              <span className="text-xs font-bold text-white flex items-center gap-1"><Phone className="w-2.5 h-2.5" /> {g.phoneNumber || "N/A"}</span>
+                              <span className="text-[10px] sm:text-xs font-bold text-white flex items-center gap-1"><Phone className="w-2.5 h-2.5" /> {g.phoneNumber || "N/A"}</span>
                             </div>
                             <div className="flex flex-col">
                               <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Check-Out</span>
-                              <span className="text-xs font-bold text-white flex items-center gap-1"><Clock className="w-2.5 h-2.5" /> {g.checkOutDate?.toDate ? format(g.checkOutDate.toDate(), "dd MMM, yyyy") : "N/A"}</span>
+                              <span className="text-[10px] sm:text-xs font-bold text-white flex items-center gap-1"><Clock className="w-2.5 h-2.5" /> {g.checkOutDate?.toDate ? format(g.checkOutDate.toDate(), "dd MMM") : "N/A"}</span>
                             </div>
-                            <div className="flex flex-col">
-                              <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Balance Status</span>
+                            <div className="flex flex-col col-span-1">
+                              <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Balance</span>
                               {g.isGroupPaid ? (
-                                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 text-[9px] uppercase w-fit">Consolidated Paid</Badge>
+                                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 text-[8px] sm:text-[9px] uppercase w-fit px-1.5 h-5">Paid</Badge>
                               ) : (
-                                <Badge variant="destructive" className="text-[9px] uppercase w-fit">₦{(g.totalGroupCost - g.totalGroupPaid).toLocaleString()} Pending</Badge>
+                                <Badge variant="destructive" className="text-[8px] sm:text-[9px] uppercase w-fit px-1.5 h-5">₦{(g.totalGroupCost - g.totalGroupPaid).toLocaleString()}</Badge>
                               )}
                             </div>
-                            <div className="flex justify-end">
+                            <div className="flex justify-end col-span-1">
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-white">
+                                  <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl border-white/10 bg-white/5">
                                     <MoreVertical className="w-4 h-4" />
                                   </Button>
                                 </DropdownMenuTrigger>
@@ -510,51 +503,51 @@ export default function RoomManagerPage() {
 
             <TabsContent value="history" className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                <Card className="glass-card">
-                 <CardHeader className="border-b border-white/5">
-                   <CardTitle className="text-xl font-headline flex items-center gap-2">
+                 <CardHeader className="border-b border-white/5 px-4 sm:px-6">
+                   <CardTitle className="text-lg sm:text-xl font-headline flex items-center gap-2">
                      <History className="w-5 h-5 text-primary" /> Stay Archive
                    </CardTitle>
                  </CardHeader>
                  <CardContent className="p-0">
                     <div className="divide-y divide-white/5">
                       {historyLoading ? (
-                        <div className="py-20 text-center animate-pulse">Loading history...</div>
+                        <div className="py-20 text-center animate-pulse text-sm">Loading history...</div>
                       ) : paginatedHistory.length === 0 ? (
-                        <div className="py-20 text-center text-muted-foreground italic">No checked-out stays found.</div>
+                        <div className="py-20 text-center text-muted-foreground italic text-sm">No historical stays found.</div>
                       ) : paginatedHistory.map(b => (
                         <div key={b.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                          <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center text-muted-foreground">
+                          <div className="flex items-center gap-3 sm:gap-4">
+                            <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center text-muted-foreground shrink-0">
                               <Users className="w-5 h-5" />
                             </div>
-                            <div className="flex flex-col">
-                              <span className="font-bold text-white uppercase text-xs">{b.guestName}</span>
-                              <span className="text-[10px] font-bold text-muted-foreground uppercase">{b.apartmentName} — {b.roomNumber}</span>
+                            <div className="flex flex-col min-w-0">
+                              <span className="font-bold text-white uppercase text-xs truncate">{b.guestName}</span>
+                              <span className="text-[9px] sm:text-[10px] font-bold text-muted-foreground uppercase truncate">{b.apartmentName} — {b.roomNumber}</span>
                             </div>
                           </div>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-6 items-center">
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 items-center">
                             <div className="flex flex-col">
-                              <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest">Duration</span>
-                              <span className="text-xs text-white/80">
+                              <span className="text-[8px] font-bold text-muted-foreground uppercase mb-0.5">Stay Period</span>
+                              <span className="text-[10px] text-white/80">
                                 {b.checkInDate?.toDate ? format(b.checkInDate.toDate(), "dd/MM") : "?"} - {b.actualCheckOutDate?.toDate ? format(b.actualCheckOutDate.toDate(), "dd/MM") : "?"}
                               </span>
                             </div>
                             <div className="flex flex-col">
-                               <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest">Revenue</span>
-                               <span className="text-xs font-bold text-primary">₦{b.totalStayCost?.toLocaleString()}</span>
+                               <span className="text-[8px] font-bold text-muted-foreground uppercase mb-0.5">Value</span>
+                               <span className="text-[10px] font-bold text-primary">₦{b.totalStayCost?.toLocaleString()}</span>
                             </div>
-                            <Badge variant="outline" className="text-[8px] uppercase tracking-widest justify-center">Checked Out</Badge>
+                            <Badge variant="outline" className="text-[8px] uppercase tracking-widest justify-center h-5 px-1 bg-white/5 border-white/10 hidden sm:flex">Archived</Badge>
                           </div>
                         </div>
                       ))}
                     </div>
                  </CardContent>
                  {historyTotalPages > 1 && (
-                   <div className="flex items-center justify-between p-4 border-t border-white/5">
+                   <div className="flex flex-col sm:flex-row items-center justify-between p-4 border-t border-white/5 gap-4">
                       <p className="text-[10px] text-muted-foreground font-bold uppercase">Page {historyPage} of {historyTotalPages}</p>
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => setHistoryPage(p => Math.max(1, p - 1))} disabled={historyPage === 1} className="h-9 px-4 rounded-xl border-white/10"><ChevronLeft className="w-4 h-4" /></Button>
-                        <Button variant="outline" size="sm" onClick={() => setHistoryPage(p => Math.min(historyTotalPages, p + 1))} disabled={historyPage === historyTotalPages} className="h-9 px-4 rounded-xl border-white/10"><ChevronRight className="w-4 h-4" /></Button>
+                      <div className="flex gap-2 w-full sm:w-auto">
+                        <Button variant="outline" size="sm" onClick={() => setHistoryPage(p => Math.max(1, p - 1))} disabled={historyPage === 1} className="h-10 px-4 rounded-xl border-white/10 flex-1 sm:flex-none"><ChevronLeft className="w-4 h-4" /></Button>
+                        <Button variant="outline" size="sm" onClick={() => setHistoryPage(p => Math.min(historyTotalPages, p + 1))} disabled={historyPage === historyTotalPages} className="h-10 px-4 rounded-xl border-white/10 flex-1 sm:flex-none"><ChevronRight className="w-4 h-4" /></Button>
                       </div>
                    </div>
                  )}

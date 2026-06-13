@@ -19,7 +19,8 @@ import {
   CalendarDays, 
   Banknote,
   Info,
-  AlertCircle
+  AlertCircle,
+  Loader2
 } from "lucide-react";
 import { useFirestore, useUser, useCollection } from "@/firebase";
 import { collection, query, where, addDoc, serverTimestamp, limit } from "firebase/firestore";
@@ -49,7 +50,6 @@ export default function CheckInPage() {
     totalCost: 0
   });
 
-  // Decode selected rooms from URL
   const selectedRooms = useMemo<SelectedRoom[]>(() => {
     try {
       const data = searchParams.get("rooms");
@@ -60,7 +60,6 @@ export default function CheckInPage() {
     }
   }, [searchParams]);
 
-  // Shift Check
   const shiftQuery = useMemo(() => {
     if (!firestore || !user) return null;
     return query(
@@ -95,7 +94,6 @@ export default function CheckInPage() {
           phoneNumber: guestData.phone,
           checkInDate: serverTimestamp(),
           checkOutDate: addDays(new Date(), guestData.days),
-          // Distribute payment/cost across rooms for individual record tracking
           checkInAmountPaid: guestData.amountPaid / selectedRooms.length,
           retainingAmountPaid: 0,
           totalStayCost: guestData.totalCost / selectedRooms.length,
@@ -109,154 +107,105 @@ export default function CheckInPage() {
 
       await Promise.all(promises);
       
-      toast({
-        title: "Check-In Successful",
-        description: `Registered ${guestData.name} for ${selectedRooms.length} units.`,
-      });
+      toast({ title: "Registration Complete", description: `Guest ${guestData.name} registered successfully.` });
       router.push("/front-desk/room-manager");
     } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Registration Failed",
-        description: "An error occurred while saving the booking records."
-      });
+      toast({ variant: "destructive", title: "Error", description: "Failed to process check-in." });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  if (shiftLoading) return <AppShell><div className="flex h-[60vh] items-center justify-center animate-pulse text-muted-foreground font-bold">VERIFYING SHIFT...</div></AppShell>;
+  if (shiftLoading) return <AppShell><div className="flex h-[60vh] items-center justify-center animate-pulse">VERIFYING SHIFT...</div></AppShell>;
 
   if (!activeShift) {
     return (
       <AppShell>
-        <div className="flex flex-col items-center justify-center h-[60vh] text-center gap-6">
+        <div className="flex flex-col items-center justify-center h-[60vh] text-center gap-6 p-4">
           <AlertCircle className="w-12 h-12 text-destructive" />
-          <h2 className="text-2xl font-headline font-bold">Shift Not Started</h2>
-          <Button onClick={() => router.push("/front-desk/shift")}>Go to Shift Management</Button>
+          <h2 className="text-2xl font-headline font-bold">Shift Not Active</h2>
+          <Button onClick={() => router.push("/front-desk/shift")} className="w-full max-w-xs">Start Shift First</Button>
         </div>
       </AppShell>
     );
   }
 
+  const outstanding = Math.max(0, guestData.totalCost - guestData.amountPaid);
+
   return (
     <RoleGuard allowedRoles={["front_desk", "admin"]}>
       <AppShell>
-        <div className="max-w-4xl mx-auto space-y-8">
+        <div className="max-w-4xl mx-auto space-y-6 sm:space-y-8">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-full bg-white/5">
+            <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-full bg-white/5 shrink-0">
               <ChevronLeft className="w-5 h-5" />
             </Button>
-            <div>
-              <h1 className="text-3xl font-headline font-bold uppercase tracking-tight">Guest Registration</h1>
-              <p className="text-muted-foreground text-sm uppercase tracking-widest font-bold">Front Desk Session: {activeShift.staffName}</p>
+            <div className="min-w-0">
+              <h1 className="text-2xl sm:text-3xl font-headline font-bold uppercase tracking-tight truncate">Check-In</h1>
+              <p className="text-muted-foreground text-[10px] sm:text-xs uppercase tracking-widest font-bold truncate">Staff: {activeShift.staffName}</p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
             <div className="lg:col-span-2">
               <Card className="glass-card">
-                <CardHeader className="border-b border-white/5">
-                  <CardTitle className="text-lg font-headline flex items-center gap-2">
+                <CardHeader className="border-b border-white/5 p-4 sm:p-6">
+                  <CardTitle className="text-base sm:text-lg font-headline flex items-center gap-2">
                     <User className="text-primary w-5 h-5" /> Guest Particulars
                   </CardTitle>
                 </CardHeader>
                 <form onSubmit={handleSubmit}>
-                  <CardContent className="space-y-6 pt-6">
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Guest Full Name</Label>
-                          <Input 
-                            required 
-                            placeholder="John Doe" 
-                            className="bg-white/5 h-12"
-                            value={guestData.name}
-                            onChange={e => setGuestData({...guestData, name: e.target.value})}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Phone Number</Label>
-                          <Input 
-                            placeholder="+234..." 
-                            className="bg-white/5 h-12"
-                            value={guestData.phone}
-                            onChange={e => setGuestData({...guestData, phone: e.target.value})}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Planned Stay (Days)</Label>
-                          <div className="relative">
-                            <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                            <Input 
-                              type="number" 
-                              min="1" 
-                              required 
-                              className="bg-white/5 h-12 pl-10" 
-                              value={guestData.days}
-                              onChange={e => setGuestData({...guestData, days: Number(e.target.value)})}
-                            />
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Total Agreed Cost (₦)</Label>
-                          <div className="relative">
-                            <Banknote className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                            <Input 
-                              type="number" 
-                              required 
-                              className="bg-white/5 h-12 pl-10" 
-                              value={guestData.totalCost}
-                              onChange={e => setGuestData({...guestData, totalCost: Number(e.target.value)})}
-                            />
-                          </div>
-                        </div>
-                      </div>
-
+                  <CardContent className="space-y-6 pt-6 p-4 sm:p-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label className="text-[10px] uppercase font-bold tracking-widest text-primary">Initial Payment Received (₦)</Label>
+                        <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Guest Full Name</Label>
+                        <Input required className="bg-white/5 h-12" value={guestData.name} onChange={e => setGuestData({...guestData, name: e.target.value})} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Phone Number</Label>
+                        <Input className="bg-white/5 h-12" value={guestData.phone} onChange={e => setGuestData({...guestData, phone: e.target.value})} />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Planned Stay (Days)</Label>
                         <div className="relative">
-                          <Banknote className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-primary/60" />
-                          <Input 
-                            type="number" 
-                            className="bg-white/10 border-primary/20 h-14 text-xl font-bold pl-12 text-white" 
-                            value={guestData.amountPaid}
-                            onChange={e => setGuestData({...guestData, amountPaid: Number(e.target.value)})}
-                          />
+                          <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                          <Input type="number" min="1" required className="bg-white/5 h-12 pl-10" value={guestData.days} onChange={e => setGuestData({...guestData, days: Number(e.target.value)})} />
                         </div>
-                        <p className="text-[10px] text-muted-foreground italic px-1">
-                          Declare the exact cash/transfer value collected from the guest right now.
-                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Total Cost (₦)</Label>
+                        <div className="relative">
+                          <Banknote className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                          <Input type="number" required className="bg-white/5 h-12 pl-10" value={guestData.totalCost} onChange={e => setGuestData({...guestData, totalCost: Number(e.target.value)})} />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-[10px] uppercase font-bold tracking-widest text-primary">Initial Payment Received (₦)</Label>
+                      <div className="relative">
+                        <Banknote className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-primary/60" />
+                        <Input type="number" className="bg-white/10 border-primary/20 h-14 text-xl font-bold pl-12" value={guestData.amountPaid} onChange={e => setGuestData({...guestData, amountPaid: Number(e.target.value)})} />
                       </div>
                     </div>
                   </CardContent>
-                  <CardFooter className="bg-white/[0.02] border-t border-white/5 pt-6 flex flex-col gap-4">
+                  <CardFooter className="bg-white/[0.02] border-t border-white/5 p-4 sm:p-6 flex flex-col gap-4">
                     <div className="w-full flex justify-between items-end px-1">
                        <div className="flex flex-col">
-                         <span className="text-[10px] font-bold text-muted-foreground uppercase">Outstanding Balance</span>
-                         <span className={cn(
-                           "text-2xl font-headline font-bold",
-                           guestData.amountPaid >= guestData.totalCost ? "text-emerald-500" : "text-destructive"
-                         )}>
-                           ₦{(guestData.totalCost - guestData.amountPaid).toLocaleString()}
+                         <span className="text-[10px] font-bold text-muted-foreground uppercase">Balance Due</span>
+                         <span className={cn("text-xl sm:text-2xl font-headline font-bold", outstanding <= 0 ? "text-emerald-500" : "text-destructive")}>
+                           ₦{outstanding.toLocaleString()}
                          </span>
                        </div>
-                       <Badge variant="outline" className={cn(
-                         "h-8 uppercase font-bold text-[10px]",
-                         guestData.amountPaid >= guestData.totalCost ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-destructive/10 text-destructive border-destructive/20"
-                       )}>
-                         {guestData.amountPaid >= guestData.totalCost ? "Fully Paid" : "Unsettled Balance"}
+                       <Badge variant="outline" className={cn("h-7 uppercase font-bold text-[8px] sm:text-[10px]", outstanding <= 0 ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-destructive/10 text-destructive border-destructive/20")}>
+                         {outstanding <= 0 ? "Settled" : "Unpaid"}
                        </Badge>
                     </div>
-                    <Button 
-                      type="submit" 
-                      disabled={isSubmitting} 
-                      className="w-full h-16 bg-primary text-primary-foreground font-bold text-lg rounded-2xl shadow-xl uppercase tracking-widest"
-                    >
-                      {isSubmitting ? "Finalizing Entry..." : <><Save className="w-6 h-6 mr-2" /> Complete Registration</>}
+                    <Button type="submit" disabled={isSubmitting} className="w-full h-16 bg-primary text-primary-foreground font-bold text-lg rounded-2xl shadow-xl uppercase tracking-widest">
+                      {isSubmitting ? <Loader2 className="animate-spin" /> : <><Save className="w-6 h-6 mr-2" /> Complete</>}
                     </Button>
                   </CardFooter>
                 </form>
@@ -265,20 +214,20 @@ export default function CheckInPage() {
 
             <div className="space-y-6">
               <Card className="glass-card">
-                <CardHeader className="border-b border-white/5">
-                  <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                <CardHeader className="border-b border-white/5 p-4">
+                  <CardTitle className="text-xs sm:text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
                     <BedDouble className="w-4 h-4" /> Allocated Units
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
                   <div className="divide-y divide-white/5">
                     {selectedRooms.map((room, idx) => (
-                      <div key={idx} className="p-4 flex items-center justify-between hover:bg-white/[0.01] transition-colors">
+                      <div key={idx} className="p-3 sm:p-4 flex items-center justify-between hover:bg-white/[0.01]">
                         <div className="flex flex-col">
                           <span className="text-xs font-bold text-white uppercase">{room.apartmentName}</span>
-                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Room {room.roomNumber}</span>
+                          <span className="text-[9px] sm:text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Room {room.roomNumber}</span>
                         </div>
-                        <Badge variant="outline" className="border-white/10 bg-white/5">Selected</Badge>
+                        <Badge variant="outline" className="border-white/10 bg-white/5 text-[8px] h-5">Selected</Badge>
                       </div>
                     ))}
                   </div>
@@ -286,8 +235,8 @@ export default function CheckInPage() {
                 <CardFooter className="p-4 bg-white/[0.02] border-t border-white/5">
                   <div className="flex items-start gap-3">
                     <Info className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                    <p className="text-[10px] text-muted-foreground leading-relaxed">
-                      All selected units will be registered under the lead guest's profile. Financial records will be distributed equally across records for audit purposes.
+                    <p className="text-[9px] sm:text-[10px] text-muted-foreground leading-relaxed">
+                      Costs and payments will be distributed evenly across these {selectedRooms.length} units for audit.
                     </p>
                   </div>
                 </CardFooter>
