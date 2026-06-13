@@ -31,7 +31,8 @@ import {
   ChevronLeft,
   AlertTriangle,
   Banknote,
-  LayoutGrid
+  LayoutGrid,
+  Loader2
 } from "lucide-react";
 import { 
   Dialog, 
@@ -58,6 +59,8 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { errorEmitter } from "@/firebase/error-emitter";
+import { FirestorePermissionError } from "@/firebase/errors";
 
 interface SelectedEntity {
   apartmentId: string;
@@ -199,7 +202,15 @@ export default function RoomManagerPage() {
       status: "checked_out", 
       actualCheckOutDate: serverTimestamp(),
       lastModified: serverTimestamp() 
-    }).then(() => toast({ title: "Checked Out", description: "Room released." }));
+    }).then(() => {
+      toast({ title: "Checked Out", description: "Room released." });
+    }).catch(err => {
+      errorEmitter.emit("permission-error", new FirestorePermissionError({
+        path: `roomBookings/${booking.id}`,
+        operation: "update",
+        requestResourceData: { status: "checked_out" }
+      }));
+    });
   };
 
   const handleBatchCheckIn = () => {
@@ -312,7 +323,7 @@ export default function RoomManagerPage() {
                                 </DropdownMenuItem>
                               ) : (
                                 <>
-                                  <DropdownMenuItem className="font-bold gap-2" onClick={() => { setActiveBooking(occupancyMap[`${apt.id}-FULL`]); setIsExtendOpen(true); }}>
+                                  <DropdownMenuItem className="font-bold gap-2" onSelect={(e) => { e.preventDefault(); setActiveBooking(occupancyMap[`${apt.id}-FULL`]); setIsExtendOpen(true); }}>
                                     <CalendarPlus className="w-4 h-4" /> Extend Stay
                                   </DropdownMenuItem>
                                   <DropdownMenuItem className="font-bold text-destructive gap-2" onClick={() => handleCheckout(occupancyMap[`${apt.id}-FULL`])}>
@@ -378,7 +389,7 @@ export default function RoomManagerPage() {
                                       <Button variant="ghost" size="icon" className="h-6 w-6"><MoreVertical className="w-3 h-3" /></Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end" className="glass-card border-white/10">
-                                      <DropdownMenuItem onClick={() => { setActiveBooking(booking); setIsExtendOpen(true); }}>Extend</DropdownMenuItem>
+                                      <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setActiveBooking(booking); setIsExtendOpen(true); }}>Extend</DropdownMenuItem>
                                       <DropdownMenuItem onClick={() => handleCheckout(booking)} className="text-destructive">Check Out</DropdownMenuItem>
                                     </DropdownMenuContent>
                                   </DropdownMenu>
@@ -455,12 +466,13 @@ export default function RoomManagerPage() {
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="glass-card border-white/10 w-48">
-                                  <DropdownMenuItem onClick={() => { setActiveBooking(g); setIsExtendOpen(true); }} className="gap-2 font-bold py-3 cursor-pointer">
+                                  <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setActiveBooking(g); setIsExtendOpen(true); }} className="gap-2 font-bold py-3 cursor-pointer">
                                     <CalendarPlus className="w-4 h-4 text-primary" /> Extend Stay
                                   </DropdownMenuItem>
                                   {!g.isGroupPaid && (
                                     <DropdownMenuItem 
-                                      onClick={() => { 
+                                      onSelect={(e) => { 
+                                        e.preventDefault();
                                         setActiveBooking(g); 
                                         setSettlementAmount(g.totalGroupCost - g.totalGroupPaid); 
                                         setIsSettleOpen(true); 
@@ -537,7 +549,7 @@ export default function RoomManagerPage() {
         </div>
 
         {/* Extend Stay Dialog */}
-        <Dialog open={isExtendOpen} onOpenChange={setIsExtendOpen}>
+        <Dialog open={isExtendOpen} onOpenChange={(open) => { setIsExtendOpen(open); if(!open) setActiveBooking(null); }}>
           <DialogContent className="glass-card border-white/10 max-w-md">
             <DialogHeader>
               <DialogTitle className="text-xl font-headline flex items-center gap-2 uppercase">
@@ -569,10 +581,15 @@ export default function RoomManagerPage() {
                   });
                 });
 
-                Promise.all(promises).then(() => {
-                  toast({ title: "Stay Extended", description: "Records updated." });
-                  setIsExtendOpen(false);
-                });
+                Promise.all(promises)
+                  .then(() => {
+                    toast({ title: "Stay Extended", description: "Records updated." });
+                    setIsExtendOpen(false);
+                    setActiveBooking(null);
+                  })
+                  .catch(err => {
+                    toast({ variant: "destructive", title: "Error", description: "Failed to extend stay." });
+                  });
               }}>
                 <div className="p-4 bg-white/5 rounded-xl border border-white/5 space-y-3">
                   <div className="flex justify-between text-xs font-bold text-muted-foreground uppercase tracking-widest">
@@ -622,7 +639,7 @@ export default function RoomManagerPage() {
                 </div>
 
                 <div className="flex gap-2 pt-2">
-                   <Button type="button" variant="outline" className="flex-1 border-destructive/20 text-destructive font-bold uppercase text-[10px] tracking-widest h-12" onClick={() => setIsExtendOpen(false)}>
+                   <Button type="button" variant="outline" className="flex-1 border-destructive/20 text-destructive font-bold uppercase text-[10px] tracking-widest h-12" onClick={() => { setIsExtendOpen(false); setActiveBooking(null); }}>
                      Cancel
                    </Button>
                    <Button type="submit" className="flex-[2] h-12 bg-primary text-primary-foreground font-bold uppercase text-[10px] tracking-widest shadow-xl">
@@ -635,7 +652,7 @@ export default function RoomManagerPage() {
         </Dialog>
 
         {/* Settlement Dialog */}
-        <Dialog open={isSettleOpen} onOpenChange={setIsSettleOpen}>
+        <Dialog open={isSettleOpen} onOpenChange={(open) => { setIsSettleOpen(open); if(!open) setActiveBooking(null); }}>
           <DialogContent className="glass-card border-white/10 max-w-md">
             <DialogHeader>
               <DialogTitle className="text-xl font-headline flex items-center gap-2 uppercase">
@@ -647,6 +664,8 @@ export default function RoomManagerPage() {
                 e.preventDefault();
                 const amount = settlementAmount;
                 const bookingsToUpdate = activeBooking.allBookings || [activeBooking];
+                
+                if (bookingsToUpdate.length === 0) return;
                 const perRoomAmount = amount / bookingsToUpdate.length;
 
                 const promises = bookingsToUpdate.map((b: any) => {
@@ -658,10 +677,15 @@ export default function RoomManagerPage() {
                   });
                 });
 
-                Promise.all(promises).then(() => {
-                  toast({ title: "Payment Recorded", description: `₦${amount.toLocaleString()} added to guest records.` });
-                  setIsSettleOpen(false);
-                });
+                Promise.all(promises)
+                  .then(() => {
+                    toast({ title: "Payment Recorded", description: `₦${amount.toLocaleString()} added to guest records.` });
+                    setIsSettleOpen(false);
+                    setActiveBooking(null);
+                  })
+                  .catch(err => {
+                    toast({ variant: "destructive", title: "Error", description: "Failed to record payment." });
+                  });
               }}>
                 <div className="space-y-4">
                   <div className="flex flex-col gap-1 p-4 bg-white/5 rounded-xl border border-white/5">
@@ -687,7 +711,7 @@ export default function RoomManagerPage() {
                 </div>
 
                 <div className="flex gap-2 pt-2">
-                   <Button type="button" variant="outline" className="flex-1 border-white/10 h-12 font-bold uppercase text-[10px]" onClick={() => setIsSettleOpen(false)}>
+                   <Button type="button" variant="outline" className="flex-1 border-white/10 h-12 font-bold uppercase text-[10px]" onClick={() => { setIsSettleOpen(false); setActiveBooking(null); }}>
                      Cancel
                    </Button>
                    <Button type="submit" className="flex-[2] h-12 bg-emerald-600 text-white font-bold uppercase text-[10px] tracking-widest shadow-xl">
