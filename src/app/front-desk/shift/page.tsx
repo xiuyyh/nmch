@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -17,7 +16,8 @@ import {
   ShieldCheck,
   BedDouble,
   Banknote,
-  Loader2
+  Loader2,
+  Contact
 } from "lucide-react";
 import { useCollection, useFirestore, useUser } from "@/firebase";
 import { collection, query, where, orderBy, addDoc, serverTimestamp, doc, updateDoc, limit, getDocs } from "firebase/firestore";
