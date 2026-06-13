@@ -112,7 +112,8 @@
         "status": { "type": "string", "enum": ["Completed", "Canceled", "Unsettled"] },
         "canceledAt": { "type": "string", "format": "date-time" },
         "staffName": { "type": "string" },
-        "shiftId": { "type": "string" }
+        "shiftId": { "type": "string" },
+        "isReconciled": { "type": "boolean", "description": "Whether the inventory was deducted for this sale" }
       },
       "required": ["items", "total", "method", "timestamp"]
     },

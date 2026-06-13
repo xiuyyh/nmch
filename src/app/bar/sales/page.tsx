@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
@@ -252,13 +253,13 @@ export default function SalesPage() {
       timestamp: serverTimestamp(),
       status: "Unsettled",
       staffName: user?.displayName || user?.email || "Bar Staff",
-      shiftId: activeShift?.id || "admin-override"
+      shiftId: activeShift?.id || "admin-override",
+      isReconciled: true // Mark as reconciled because we are deducting right now
     };
 
     addDoc(collection(firestore, "sales"), saleData)
       .then((docRef) => {
         if (shouldPrintDucket) {
-          // Pass the reference to doc to the printer, which handles missing timestamp
           printDucket({ ...saleData, id: docRef.id });
         }
 
@@ -289,7 +290,7 @@ export default function SalesPage() {
           }
         });
 
-        toast({ title: "Order Logged", description: `Bill generated for ₦${total.toLocaleString()}. Settle later in History.` });
+        toast({ title: "Order Logged", description: `Bill generated for ₦${total.toLocaleString()}.` });
         
         if (selectedTable) {
           deleteDoc(doc(firestore, "tableSessions", selectedTable)).catch(() => {});
@@ -311,7 +312,6 @@ export default function SalesPage() {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    // Strict requirement: Do not use local Date() as fallback. Show OFFLINE if sync pending.
     const dateStr = sale.timestamp?.toDate ? formatNigeriaTime(sale.timestamp.toDate()) : "OFFLINE - NO DATE";
 
     const itemsHtml = sale.items.map((item: any) => `
@@ -329,21 +329,18 @@ export default function SalesPage() {
             @page { size: 80mm auto; margin: 0; }
             body { font-family: 'Arial', sans-serif; width: 80mm; padding: 10mm; font-size: 14px; color: #000; line-height: 1.4; }
             .center { text-align: center; }
-            .bold { font-weight: 900; }
             .divider { border-bottom: 2px solid #000; margin: 10px 0; }
             .header { font-size: 24px; font-weight: 900; margin-bottom: 6px; text-transform: uppercase; }
-            .subheader { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
             .total { font-size: 22px; font-weight: 900; margin-top: 12px; border-top: 2px solid #000; padding-top: 8px; }
-            .meta { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+            .meta { font-size: 13px; font-weight: 700; }
           </style>
         </head>
         <body>
           <div class="center header">NIGHTINGALE HOTEL</div>
-          <div class="center subheader">Sales Ducket</div>
+          <div class="center">Sales Ducket</div>
           <div class="divider"></div>
           <div class="meta">DATE: ${dateStr}</div>
           <div class="meta">REC#: ${sale.id?.slice(-8).toUpperCase() || 'OFFLINE'}</div>
-          <div class="meta">SERV: ${sale.tableNumber}</div>
           <div class="meta">STAFF: ${sale.staffName || user?.displayName || user?.email}</div>
           <div class="divider"></div>
           ${itemsHtml}
@@ -351,11 +348,7 @@ export default function SalesPage() {
             <span>TOTAL:</span>
             <span>₦${sale.total.toLocaleString()}</span>
           </div>
-          <div class="meta" style="margin-top: 8px; font-size: 16px;">PAYMENT: ${sale.method.toUpperCase()}</div>
-          <div class="divider"></div>
-          <div class="center bold" style="margin-top: 15px; font-size: 16px;">
-            ${sale.status === 'Unsettled' ? '*** UNSETTLED ***' : '*** THANK YOU ***'}
-          </div>
+          <div class="center" style="margin-top: 15px; font-weight: 900;">*** UNSETTLED ***</div>
         </body>
       </html>
     `;
@@ -369,8 +362,6 @@ export default function SalesPage() {
     if (!inventoryItems) return [];
     return inventoryItems.filter(item => item.name?.toLowerCase().includes(search.toLowerCase()));
   }, [inventoryItems, search]);
-
-  useEffect(() => { setCurrentPage(1); }, [search]);
 
   const totalPages = Math.max(1, Math.ceil(filteredItems.length / ITEMS_PER_PAGE));
   const paginatedItems = useMemo(() => {
@@ -594,16 +585,6 @@ export default function SalesPage() {
                       </div>
                     ))}
                   </div>
-                  {totalPages > 1 && (
-                    <div className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-2xl">
-                      <p className="text-xs text-muted-foreground">{filteredItems.length} items</p>
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="h-10 px-4 rounded-xl"><ChevronLeft className="w-4 h-4" /></Button>
-                        <div className="flex items-center gap-1 text-sm font-bold px-4 bg-primary/10 rounded-xl text-primary">{currentPage} / {totalPages}</div>
-                        <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="h-10 px-4 rounded-xl"><ChevronRight className="w-4 h-4" /></Button>
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
             </div>
@@ -622,69 +603,6 @@ export default function SalesPage() {
               </Card>
             </div>
           </div>
-        </div>
-
-        <div className="fixed bottom-24 lg:bottom-6 left-6 right-6 lg:left-80 lg:right-[432px] z-40">
-          <div className="glass-card bg-black/80 backdrop-blur-3xl border-white/10 p-2 rounded-2xl shadow-2xl overflow-x-auto scrollbar-none flex items-center gap-3">
-            <div className="flex items-center gap-2 px-3 border-r border-white/10 mr-1">
-               <LayoutGrid className="w-4 h-4 text-primary" />
-               <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground whitespace-nowrap">Open Tabs</span>
-            </div>
-            {allActiveSessions?.length === 0 ? (
-              <span className="text-[10px] italic text-muted-foreground px-4">No active tables</span>
-            ) : (
-              allActiveSessions?.map((session) => (
-                <Button
-                  key={session.id}
-                  variant="ghost"
-                  size="sm"
-                  className={cn(
-                    "h-10 px-4 rounded-xl flex items-center gap-2 transition-all shrink-0",
-                    selectedTable === session.tableNumber 
-                      ? "bg-primary text-primary-foreground font-bold" 
-                      : "bg-white/5 hover:bg-white/10 text-white"
-                  )}
-                  onClick={() => {
-                    setSelectedTable(session.tableNumber);
-                    setActiveTab("quick");
-                  }}
-                >
-                  <div className={cn(
-                    "w-1.5 h-1.5 rounded-full",
-                    selectedTable === session.tableNumber ? "bg-white" : "bg-emerald-500"
-                  )} />
-                  <span className="whitespace-nowrap">{session.tableNumber}</span>
-                  <Badge variant="secondary" className="h-5 px-1.5 min-w-[20px] bg-black/20 text-inherit border-none text-[10px]">
-                    {session.items?.length || 0}
-                  </Badge>
-                </Button>
-              ))
-            )}
-          </div>
-        </div>
-
-        <div className="lg:hidden fixed bottom-6 left-6 right-6 z-50">
-          <Sheet open={isMobileCartOpen} onOpenChange={setIsMobileCartOpen}>
-            <SheetTrigger asChild>
-              <Button className="w-full h-14 bg-primary text-primary-foreground font-bold text-lg shadow-2xl rounded-2xl flex justify-between px-6">
-                <div className="flex items-center gap-2"><ShoppingCart className="w-5 h-5" /><span>Cart</span><Badge variant="secondary" className="bg-primary-foreground/20 text-primary-foreground border-none">{cart.length}</Badge></div>
-                <span className="font-headline">₦{total.toLocaleString()}</span>
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="bottom" className="h-[85vh] bg-background border-white/10 p-0 rounded-t-[2.5rem] overflow-hidden">
-              <div className="flex flex-col h-full overflow-hidden">
-                <SheetHeader className="p-6 border-b border-white/5 flex flex-row items-center justify-between space-y-0 shrink-0">
-                  <SheetTitle className="font-headline font-bold text-xl text-white">{selectedTable ? `Bill: ${selectedTable}` : "Quick Sale"}</SheetTitle>
-                  <Button variant="ghost" size="icon" className="h-10 w-10 text-muted-foreground hover:text-destructive" onClick={() => { setCart([]); if(selectedTable) saveToTable([]); }} disabled={cart.length === 0}>
-                    <Trash2 className="w-5 h-5" />
-                  </Button>
-                </SheetHeader>
-                <div className="flex-1 overflow-hidden">
-                  <CartUI />
-                </div>
-              </div>
-            </SheetContent>
-          </Sheet>
         </div>
       </AppShell>
     </RoleGuard>
