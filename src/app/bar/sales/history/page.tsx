@@ -276,46 +276,51 @@ export default function SalesAuditPage() {
       <Collapsible className="w-full">
         <Card className="glass-card transition-all overflow-hidden mb-4 border-l-4 border-l-primary relative">
           <div className="p-4 md:p-6">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
               <CollapsibleTrigger asChild>
-                <div className="flex items-center gap-4 cursor-pointer group flex-1">
-                  <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary/20 transition-colors">
+                <div className="flex items-center gap-4 cursor-pointer group flex-1 w-full">
+                  <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary/20 transition-colors shrink-0">
                     <User className="w-6 h-6" />
                   </div>
-                  <div>
-                    <h3 className="text-lg font-headline font-bold text-white uppercase">{shift.staffName}</h3>
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold flex items-center gap-2">
-                      <Clock className="w-3 h-3" /> 
-                      {shift.startTime?.toDate ? formatNigeriaTime(shift.startTime.toDate()) : "..."} 
-                      {shift.endTime && ` — ${formatNigeriaTime(shift.endTime.toDate())}`}
+                  <div className="min-w-0">
+                    <h3 className="text-lg font-headline font-bold text-white uppercase truncate">{shift.staffName}</h3>
+                    <p className="text-[10px] text-muted-foreground uppercase font-bold flex items-center gap-2 flex-wrap">
+                      <Clock className="w-3 h-3 shrink-0" /> 
+                      <span>{shift.startTime?.toDate ? formatNigeriaTime(shift.startTime.toDate()) : "..."}</span>
+                      {shift.endTime && (
+                        <>
+                          <span className="hidden sm:inline">—</span>
+                          <span>{formatNigeriaTime(shift.endTime.toDate())}</span>
+                        </>
+                      )}
                     </p>
                   </div>
                 </div>
               </CollapsibleTrigger>
 
-              <div className="flex flex-wrap items-center gap-6 text-right w-full md:w-auto">
-                <div className="flex flex-col items-end flex-1 md:flex-none">
+              <div className="flex flex-wrap items-center gap-4 sm:gap-6 w-full md:w-auto">
+                <div className="flex flex-col items-start sm:items-end flex-1 md:flex-none">
                   <span className="text-[9px] font-bold text-muted-foreground uppercase">Settled</span>
                   <span className="text-lg font-headline font-bold text-emerald-500">₦{settledRevenue.toLocaleString()}</span>
                 </div>
-                <div className="flex flex-col items-end flex-1 md:flex-none">
+                <div className="flex flex-col items-start sm:items-end flex-1 md:flex-none">
                   <span className="text-[9px] font-bold text-muted-foreground uppercase">Pending</span>
                   <span className="text-lg font-headline font-bold text-amber-500">₦{pendingRevenue.toLocaleString()}</span>
                 </div>
-                <div className="flex flex-col items-end flex-1 md:flex-none border-l border-white/10 pl-6">
+                <div className="flex flex-col items-start sm:items-end flex-1 md:flex-none sm:border-l border-white/10 sm:pl-6">
                   <span className="text-[9px] font-bold text-primary uppercase">Total Session</span>
                   <span className="text-xl font-headline font-bold text-white">₦{totalRevenue.toLocaleString()}</span>
                 </div>
                 
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="icon" className="h-10 w-10 border-white/10" onClick={() => printShiftSummary(shift)} title="Print Shift Report">
+                <div className="flex items-center gap-2 ml-auto">
+                  <Button variant="outline" size="icon" className="h-10 w-10 border-white/10 shrink-0" onClick={() => printShiftSummary(shift)} title="Print Shift Report">
                     <Printer className="w-4 h-4" />
                   </Button>
                   
                   {isAdmin && shift.status === 'closed' && (
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-10 w-10 text-muted-foreground hover:text-destructive" title="Hide Duplicate Shift">
+                        <Button variant="ghost" size="icon" className="h-10 w-10 text-muted-foreground hover:text-destructive shrink-0" title="Hide Duplicate Shift">
                           <EyeOff className="w-4 h-4" />
                         </Button>
                       </AlertDialogTrigger>
@@ -337,7 +342,7 @@ export default function SalesAuditPage() {
                   )}
                   
                   <CollapsibleTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-10 w-10">
+                    <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0">
                       <ChevronDown className="w-5 h-5 text-muted-foreground" />
                     </Button>
                   </CollapsibleTrigger>
@@ -346,33 +351,34 @@ export default function SalesAuditPage() {
             </div>
           </div>
         </Card>
-        <CollapsibleContent className="space-y-3 pb-8 px-2 md:px-4">
+
+        <CollapsibleContent className="space-y-3 pb-8 px-1 sm:px-2 md:px-4">
           <div className="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden divide-y divide-white/5 animate-in slide-in-from-top-2">
             {sales.length === 0 ? (
               <div className="p-12 text-center text-muted-foreground italic text-xs uppercase font-bold">No sales records found for this shift</div>
             ) : (
               sales.map((sale) => (
                 <div key={sale.id} className={cn(
-                  "p-5 flex flex-col gap-4 hover:bg-white/5 transition-colors",
+                  "p-4 sm:p-5 flex flex-col gap-4 hover:bg-white/5 transition-colors",
                   sale.status === "Canceled" && "opacity-60 bg-red-500/[0.02]",
                   sale.status === "Unsettled" && "bg-amber-500/[0.03]"
                 )}>
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-4 items-center">
-                      <div className="flex flex-col">
+                    <div className="flex-1 grid grid-cols-2 lg:grid-cols-4 gap-4 items-center">
+                      <div className="flex flex-col min-w-0">
                         <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Receipt</span>
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="font-mono text-xs font-bold text-white">#{sale.id.slice(-8).toUpperCase()}</span>
-                          {sale.status === "Canceled" ? <Badge variant="destructive" className="h-3.5 text-[8px] px-1 uppercase">Void</Badge> : sale.status === "Unsettled" ? <Badge variant="outline" className="h-3.5 text-[8px] px-1 border-amber-500/50 text-amber-500 uppercase">Pending</Badge> : <Badge variant="outline" className="h-3.5 text-[8px] px-1 border-emerald-500/50 text-emerald-500 uppercase">Paid</Badge>}
+                          {sale.status === "Canceled" ? <Badge variant="destructive" className="h-3.5 text-[8px] px-1 uppercase shrink-0">Void</Badge> : sale.status === "Unsettled" ? <Badge variant="outline" className="h-3.5 text-[8px] px-1 border-amber-500/50 text-amber-500 uppercase shrink-0">Pending</Badge> : <Badge variant="outline" className="h-3.5 text-[8px] px-1 border-emerald-500/50 text-emerald-500 uppercase shrink-0">Paid</Badge>}
                         </div>
                       </div>
                       <div className="flex flex-col">
                         <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Time</span>
-                        <span className="text-xs">{sale.timestamp?.toDate ? formatNigeriaTime(sale.timestamp.toDate()) : "..."}</span>
+                        <span className="text-xs truncate">{sale.timestamp?.toDate ? formatNigeriaTime(sale.timestamp.toDate()).split(', ')[1] : "..."}</span>
                       </div>
                       <div className="flex flex-col">
                         <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Point</span>
-                        <span className="text-xs font-medium text-primary">{sale.tableNumber}</span>
+                        <span className="text-xs font-medium text-primary truncate">{sale.tableNumber}</span>
                       </div>
                       <div className="flex flex-col items-end sm:items-start">
                         <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Grand Total</span>
@@ -380,15 +386,15 @@ export default function SalesAuditPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 self-end sm:self-center">
-                      <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground" onClick={() => printDucket(sale)}><Printer className="w-4 h-4" /></Button>
+                      <Button variant="ghost" size="icon" className="h-10 w-10 text-muted-foreground" onClick={() => printDucket(sale)}><Printer className="w-5 h-5" /></Button>
                       {sale.status === "Unsettled" && (
                         <div className="flex gap-1">
-                          <Button size="sm" variant="ghost" className="h-8 text-[9px] bg-primary/10 text-primary hover:bg-primary/20" onClick={() => handleSettleSale(sale, "Cash")}>SETTLE</Button>
+                          <Button size="sm" variant="ghost" className="h-9 text-[10px] bg-primary/10 text-primary hover:bg-primary/20 px-3 font-bold" onClick={() => handleSettleSale(sale, "Cash")}>SETTLE</Button>
                         </div>
                       )}
                       {sale.status !== "Canceled" && (isAdmin || sale.shiftId === activeShift?.id) && (
                         <AlertDialog>
-                          <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-9 w-9 text-destructive"><XCircle className="w-4 h-4" /></Button></AlertDialogTrigger>
+                          <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-10 w-10 text-destructive"><XCircle className="w-5 h-5" /></Button></AlertDialogTrigger>
                           <AlertDialogContent className="glass-card border-white/10"><AlertDialogHeader><AlertDialogTitle>Void Transaction?</AlertDialogTitle><AlertDialogDescription>This will restore stock items.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel className="bg-white/5">No</AlertDialogCancel><AlertDialogAction onClick={() => handleCancelSale(sale)} className="bg-destructive">Void</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
                         </AlertDialog>
                       )}
@@ -396,14 +402,14 @@ export default function SalesAuditPage() {
                   </div>
                   
                   {/* Detailed Items Breakdown */}
-                  <div className="bg-black/20 rounded-xl p-4 border border-white/5">
+                  <div className="bg-black/20 rounded-xl p-3 sm:p-4 border border-white/5">
                     <div className="flex items-center gap-2 mb-3">
                       <Receipt className="w-3 h-3 text-primary/50" />
                       <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Itemized Breakdown</span>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3">
                       {sale.items?.map((item: any, idx: number) => (
-                        <div key={idx} className="flex justify-between items-center p-2 bg-white/5 rounded-lg border border-white/5">
+                        <div key={idx} className="flex justify-between items-center p-2.5 bg-white/5 rounded-lg border border-white/5">
                           <span className="text-xs font-medium text-white truncate mr-2">{item.name}</span>
                           <span className="text-xs font-headline font-bold text-primary shrink-0">x{item.quantity}</span>
                         </div>
@@ -421,41 +427,45 @@ export default function SalesAuditPage() {
 
   return (
     <AppShell>
-      <div className="flex flex-col gap-8 max-w-6xl mx-auto">
+      <div className="flex flex-col gap-6 sm:gap-8 max-w-6xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-headline font-bold uppercase tracking-tight">Sales History</h1>
-            <p className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
-              <HistoryIcon className="w-4 h-4 text-primary" /> Multi-session Accountability (WAT)
+          <div className="space-y-1">
+            <h1 className="text-2xl sm:text-3xl font-headline font-bold uppercase tracking-tight flex items-center gap-2">
+               <HistoryIcon className="w-6 h-6 sm:w-8 sm:h-8 text-primary shrink-0" /> Sales History
+            </h1>
+            <p className="text-xs sm:text-sm text-muted-foreground flex items-center gap-2">
+              <Clock className="w-3.5 h-3.5 text-primary shrink-0" /> Multi-session Accountability (WAT)
             </p>
           </div>
-          <Button variant="outline" size="sm" className="gap-2 border-primary/20 bg-primary/5 text-primary hover:bg-primary/10" asChild>
+          <Button variant="outline" size="sm" className="w-full sm:w-auto h-11 gap-2 border-primary/20 bg-primary/5 text-primary hover:bg-primary/10 font-bold" asChild>
             <Link href="/bar/sales"><ShoppingCart className="w-4 h-4" /> New Sale (POS)</Link>
           </Button>
         </div>
 
         <Tabs value={viewMode} onValueChange={(v: any) => setViewMode(v)} className="w-full">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-8">
-            <TabsList className="bg-white/5 border border-white/10 p-1 shrink-0 h-12">
-              <TabsTrigger value="shift" className="gap-2 px-6 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-bold">
-                <User className="w-4 h-4" /> Active Session
+            <TabsList className="bg-white/5 border border-white/10 p-1 w-full sm:w-fit h-12">
+              <TabsTrigger value="shift" className="flex-1 sm:flex-none gap-2 px-4 sm:px-6 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-bold text-xs sm:text-sm">
+                <User className="w-4 h-4" /> Active
               </TabsTrigger>
               {isAdmin && (
-                <TabsTrigger value="all" className="gap-2 px-6 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-bold">
+                <TabsTrigger value="all" className="flex-1 sm:flex-none gap-2 px-4 sm:px-6 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-bold text-xs sm:text-sm">
                   <HistoryIcon className="w-4 h-4" /> Global Audit
                 </TabsTrigger>
               )}
             </TabsList>
 
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full lg:w-auto">
-              <div className="flex items-center gap-2 bg-white/5 border border-white/10 px-4 h-12 rounded-2xl">
-                <Switch id="hide-voided" checked={hideVoided} onCheckedChange={setHideVoided} />
-                <Label htmlFor="hide-voided" className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground cursor-pointer">Hide Voided</Label>
+              <div className="flex items-center justify-between sm:justify-start gap-3 bg-white/5 border border-white/10 px-4 h-12 rounded-2xl shrink-0">
+                <div className="flex items-center gap-2">
+                  <Switch id="hide-voided" checked={hideVoided} onCheckedChange={setHideVoided} />
+                  <Label htmlFor="hide-voided" className="text-[9px] sm:text-[10px] uppercase font-bold tracking-widest text-muted-foreground cursor-pointer whitespace-nowrap">Hide Voided</Label>
+                </div>
               </div>
-              <div className="relative flex-1 sm:w-80">
+              <div className="relative flex-1 lg:w-80">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input 
-                  placeholder="Filter by staff or receipt..." 
+                  placeholder="Staff or receipt ID..." 
                   className="pl-10 h-12 bg-white/5 border-white/10 rounded-2xl text-sm" 
                   value={search} 
                   onChange={(e) => setSearch(e.target.value)} 
@@ -468,27 +478,27 @@ export default function SalesAuditPage() {
             {viewMode === "shift" ? (
               activeShift ? (
                 <div className="space-y-6">
-                  <div className="bg-primary/10 border border-primary/20 p-4 rounded-2xl flex items-center justify-between">
+                  <div className="bg-primary/10 border border-primary/20 p-4 rounded-2xl flex items-center justify-between flex-wrap gap-2">
                     <div className="flex items-center gap-3">
-                      <div className="animate-pulse w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                      <span className="font-bold text-white uppercase tracking-tight">Live: {activeShift.staffName} is currently on duty</span>
+                      <div className="animate-pulse w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
+                      <span className="font-bold text-white uppercase tracking-tight text-xs sm:text-sm">Live: {activeShift.staffName}</span>
                     </div>
-                    <Badge variant="outline" className="border-primary/30 text-primary uppercase font-bold text-[10px]">Session Live</Badge>
+                    <Badge variant="outline" className="border-primary/30 text-primary uppercase font-bold text-[9px] sm:text-[10px]">Session Live</Badge>
                   </div>
                   <ShiftCard shift={activeShift} />
                 </div>
               ) : (
-                <div className="py-24 text-center glass-card rounded-3xl border-dashed border-white/10 flex flex-col items-center gap-4 opacity-40">
+                <div className="py-20 sm:py-24 text-center glass-card rounded-3xl border-dashed border-white/10 flex flex-col items-center gap-4 opacity-40 px-6">
                   <Clock className="w-12 h-12" />
-                  <p className="font-headline font-bold uppercase tracking-widest">No worker is currently signed into a shift</p>
+                  <p className="font-headline font-bold uppercase tracking-widest text-sm">No active shift at this point</p>
                 </div>
               )
             ) : (
               <div className="space-y-6">
                 {(shiftsLoading || salesLoading) ? (
-                  <div className="py-20 text-center animate-pulse text-muted-foreground font-bold uppercase text-xs tracking-widest">Loading Audit Archive...</div>
+                  <div className="py-20 text-center animate-pulse text-[10px] sm:text-xs text-muted-foreground font-bold uppercase tracking-widest">Loading Audit Archive...</div>
                 ) : paginatedShifts.length === 0 ? (
-                  <div className="py-20 text-center opacity-40 italic text-sm">No historical records match your search.</div>
+                  <div className="py-20 text-center opacity-40 italic text-sm px-6">No historical records match your search.</div>
                 ) : (
                   <>
                     <div className="grid grid-cols-1 gap-1">
@@ -498,16 +508,16 @@ export default function SalesAuditPage() {
                     </div>
                     
                     {totalPages > 1 && (
-                      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t border-white/5">
-                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Showing shifts {((currentPage-1) * SHIFTS_PER_PAGE) + 1} — {Math.min(currentPage * SHIFTS_PER_PAGE, filteredHistoryShifts.length)} of {filteredHistoryShifts.length}</p>
+                      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t border-white/5 pb-10 sm:pb-0">
+                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Page {currentPage} of {totalPages}</p>
                         <div className="flex gap-2 w-full sm:w-auto">
-                          <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="h-12 px-6 rounded-2xl flex-1 sm:flex-none font-bold uppercase text-[10px] tracking-widest gap-2">
+                          <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="h-11 px-6 rounded-2xl flex-1 sm:flex-none font-bold uppercase text-[10px] tracking-widest gap-2">
                             <ChevronLeft className="w-4 h-4" /> Prev
                           </Button>
-                          <div className="flex items-center gap-2 px-6 h-12 bg-white/5 border border-white/10 rounded-2xl font-bold text-xs">
+                          <div className="flex items-center justify-center px-6 h-11 bg-white/5 border border-white/10 rounded-2xl font-bold text-xs min-w-[80px]">
                              {currentPage} / {totalPages}
                           </div>
-                          <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="h-12 px-6 rounded-2xl flex-1 sm:flex-none font-bold uppercase text-[10px] tracking-widest gap-2">
+                          <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="h-11 px-6 rounded-2xl flex-1 sm:flex-none font-bold uppercase text-[10px] tracking-widest gap-2">
                             Next <ChevronRight className="w-4 h-4" />
                           </Button>
                         </div>
