@@ -83,7 +83,9 @@ export default function RoomManagerPage() {
   
   // Dialog State
   const [isExtendOpen, setIsExtendOpen] = useState(false);
+  const [isSettleOpen, setIsSettleOpen] = useState(false);
   const [activeBooking, setActiveBooking] = useState<any>(null);
+  const [settlementAmount, setSettlementAmount] = useState(0);
 
   // 1. Shift Check
   const shiftQuery = useMemo(() => {
@@ -186,7 +188,6 @@ export default function RoomManagerPage() {
         setSelectedForBulk(prev => [...prev, { apartmentId: apt.id, apartmentName: apt.name, roomNumber: roomNum }]);
       }
     } else {
-      // Direct navigation for single check-in
       const rooms = [{ apartmentId: apt.id, apartmentName: apt.name, roomNumber: roomNum }];
       router.push(`/front-desk/check-in?rooms=${encodeURIComponent(JSON.stringify(rooms))}`);
     }
@@ -447,14 +448,30 @@ export default function RoomManagerPage() {
                               )}
                             </div>
                             <div className="flex justify-end">
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                onClick={() => { setActiveBooking(g); setIsExtendOpen(true); }} 
-                                className="h-9 gap-2 border-primary/20 text-primary font-bold uppercase text-[10px] tracking-widest"
-                              >
-                                <CalendarPlus className="w-4 h-4" /> Extend
-                              </Button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-white">
+                                    <MoreVertical className="w-4 h-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="glass-card border-white/10 w-48">
+                                  <DropdownMenuItem onClick={() => { setActiveBooking(g); setIsExtendOpen(true); }} className="gap-2 font-bold py-3 cursor-pointer">
+                                    <CalendarPlus className="w-4 h-4 text-primary" /> Extend Stay
+                                  </DropdownMenuItem>
+                                  {!g.isGroupPaid && (
+                                    <DropdownMenuItem 
+                                      onClick={() => { 
+                                        setActiveBooking(g); 
+                                        setSettlementAmount(g.totalGroupCost - g.totalGroupPaid); 
+                                        setIsSettleOpen(true); 
+                                      }} 
+                                      className="gap-2 font-bold py-3 text-emerald-500 cursor-pointer"
+                                    >
+                                      <Banknote className="w-4 h-4" /> Settle Balance
+                                    </DropdownMenuItem>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </div>
                           </div>
                         </div>
@@ -610,6 +627,71 @@ export default function RoomManagerPage() {
                    </Button>
                    <Button type="submit" className="flex-[2] h-12 bg-primary text-primary-foreground font-bold uppercase text-[10px] tracking-widest shadow-xl">
                      Process Extension
+                   </Button>
+                </div>
+              </form>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Settlement Dialog */}
+        <Dialog open={isSettleOpen} onOpenChange={setIsSettleOpen}>
+          <DialogContent className="glass-card border-white/10 max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-headline flex items-center gap-2 uppercase">
+                <Banknote className="text-emerald-500 w-5 h-5" /> Settle Guest Balance
+              </DialogTitle>
+            </DialogHeader>
+            {activeBooking && (
+              <form className="space-y-5 py-4" onSubmit={(e) => {
+                e.preventDefault();
+                const amount = settlementAmount;
+                const bookingsToUpdate = activeBooking.allBookings || [activeBooking];
+                const perRoomAmount = amount / bookingsToUpdate.length;
+
+                const promises = bookingsToUpdate.map((b: any) => {
+                  const totalPaid = (b.checkInAmountPaid || 0) + (b.retainingAmountPaid || 0) + perRoomAmount;
+                  return updateDoc(doc(firestore, "roomBookings", b.id), {
+                    retainingAmountPaid: (b.retainingAmountPaid || 0) + perRoomAmount,
+                    isPaid: totalPaid >= (b.totalStayCost || 0),
+                    lastModified: serverTimestamp()
+                  });
+                });
+
+                Promise.all(promises).then(() => {
+                  toast({ title: "Payment Recorded", description: `₦${amount.toLocaleString()} added to guest records.` });
+                  setIsSettleOpen(false);
+                });
+              }}>
+                <div className="space-y-4">
+                  <div className="flex flex-col gap-1 p-4 bg-white/5 rounded-xl border border-white/5">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Outstanding Debt</span>
+                    <span className="text-2xl font-headline font-bold text-destructive">
+                      ₦{((activeBooking.totalGroupCost || activeBooking.totalStayCost) - (activeBooking.totalGroupPaid || (activeBooking.checkInAmountPaid + activeBooking.retainingAmountPaid))).toLocaleString()}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-[10px] uppercase font-bold tracking-widest text-primary">Payment Received (₦)</Label>
+                    <div className="relative">
+                      <Banknote className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary/60" />
+                      <Input 
+                        type="number" 
+                        value={settlementAmount}
+                        onChange={(e) => setSettlementAmount(Number(e.target.value))}
+                        className="bg-white/10 border-primary/20 font-bold h-12 text-lg pl-10" 
+                      />
+                    </div>
+                    <p className="text-[10px] text-muted-foreground italic px-1">Clear the outstanding balance or record a partial payment.</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                   <Button type="button" variant="outline" className="flex-1 border-white/10 h-12 font-bold uppercase text-[10px]" onClick={() => setIsSettleOpen(false)}>
+                     Cancel
+                   </Button>
+                   <Button type="submit" className="flex-[2] h-12 bg-emerald-600 text-white font-bold uppercase text-[10px] tracking-widest shadow-xl">
+                     Confirm Payment
                    </Button>
                 </div>
               </form>
