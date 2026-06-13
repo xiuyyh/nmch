@@ -37,10 +37,13 @@ import {
   Clock,
   User,
   History as HistoryIcon,
-  ChevronRightSquare
+  ChevronRightSquare,
+  EyeOff,
+  PlusCircle,
+  Trash2
 } from "lucide-react";
 import { useCollection, useFirestore, useUser, useDoc } from "@/firebase";
-import { collection, query, orderBy, doc, updateDoc, increment, serverTimestamp, getDoc, where, limit } from "firebase/firestore";
+import { collection, query, orderBy, doc, updateDoc, increment, serverTimestamp, getDoc, where, limit, addDoc } from "firebase/firestore";
 import { cn, formatNigeriaTime } from "@/lib/utils";
 import { 
   Collapsible,
@@ -123,6 +126,9 @@ export default function SalesAuditPage() {
   const filteredHistoryShifts = useMemo(() => {
     if (!historyShifts) return [];
     return historyShifts.filter(s => {
+      // Hide if marked as hidden in database
+      if (s.hidden) return false;
+      
       if (!search) return true;
       const sales = groupedSales[s.id] || [];
       return (
@@ -165,6 +171,78 @@ export default function SalesAuditPage() {
     });
   };
 
+  const handleHideShift = (shift: any) => {
+    if (!firestore || !isAdmin) return;
+    const shiftRef = doc(firestore, "shifts", shift.id);
+    updateDoc(shiftRef, { hidden: true })
+      .then(() => {
+        addDoc(collection(firestore, "adminActions"), {
+          adminName: userRecord?.displayName || user?.email,
+          adminId: user?.uid,
+          action: "HIDE_SHIFT",
+          entity: "AUDIT",
+          details: JSON.stringify({ 
+            shiftId: shift.id, 
+            staffName: shift.staffName,
+            startTime: shift.startTime?.toDate ? formatNigeriaTime(shift.startTime.toDate()) : "N/A"
+          }),
+          timestamp: serverTimestamp()
+        }).catch(() => {});
+        toast({ title: "Shift Hidden", description: "Record removed from global audit. Can be unhidden in Admin Actions." });
+      });
+  };
+
+  const printShiftSummary = (shift: any) => {
+    const sales = groupedSales[shift.id] || [];
+    const validSales = sales.filter(s => s.status !== "Canceled");
+    
+    // Aggregate items
+    const itemMap: Record<string, number> = {};
+    validSales.forEach(s => {
+      s.items?.forEach((i: any) => {
+        itemMap[i.name] = (itemMap[i.name] || 0) + i.quantity;
+      });
+    });
+
+    const totalRev = validSales.reduce((sum, s) => sum + (s.total || 0), 0);
+    const settledRev = validSales.filter(s => s.status === "Completed").reduce((sum, s) => sum + (s.total || 0), 0);
+    const pendingRev = validSales.filter(s => s.status === "Unsettled").reduce((sum, s) => sum + (s.total || 0), 0);
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const itemsHtml = Object.entries(itemMap)
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, qty]) => `<div style="display:flex; justify-content:space-between; margin-bottom:4px; font-weight:700;"><span>${name}</span><span>x${qty}</span></div>`)
+      .join('');
+
+    const html = `
+      <html>
+        <head><title>Shift Audit</title><style>@page { size: 80mm auto; margin: 0; } body { font-family: sans-serif; width: 80mm; padding: 10mm; font-size: 14px; color: #000; }</style></head>
+        <body>
+          <div style="text-align:center; font-size:22px; font-weight:900;">NIGHTINGALE HOTEL</div>
+          <div style="text-align:center; font-size:16px; margin-bottom:10px;">SHIFT PERFORMANCE AUDIT</div>
+          <div style="border-bottom:2px solid #000; margin:10px 0;"></div>
+          <div style="font-weight:700;">STAFF: ${shift.staffName.toUpperCase()}</div>
+          <div style="font-weight:700;">STARTED: ${shift.startTime?.toDate ? formatNigeriaTime(shift.startTime.toDate()) : 'N/A'}</div>
+          <div style="border-bottom:1px solid #000; margin:10px 0;"></div>
+          <div style="font-size:12px; font-weight:900; margin-bottom:8px; text-transform:uppercase;">Itemized Deductions:</div>
+          ${itemsHtml}
+          <div style="border-top:2px solid #000; margin-top:15px; padding-top:10px;">
+            <div style="display:flex; justify-content:space-between; font-weight:700;"><span>SETTLED:</span><span>₦${settledRev.toLocaleString()}</span></div>
+            <div style="display:flex; justify-content:space-between; font-weight:700; color:#555;"><span>PENDING:</span><span>₦${pendingRev.toLocaleString()}</span></div>
+            <div style="display:flex; justify-content:space-between; font-size:20px; font-weight:900; margin-top:8px;"><span>TOTAL:</span><span>₦${totalRev.toLocaleString()}</span></div>
+          </div>
+          <div style="text-align:center; font-weight:900; margin-top:20px; font-size:10px;">*** END OF SHIFT SUMMARY ***</div>
+        </body>
+      </html>
+    `;
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => { printWindow.print(); printWindow.close(); }, 250);
+  };
+
   const printDucket = (sale: any) => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
@@ -195,12 +273,12 @@ export default function SalesAuditPage() {
 
     return (
       <Collapsible className="w-full">
-        <CollapsibleTrigger asChild>
-          <Card className="glass-card cursor-pointer hover:border-primary/40 transition-all overflow-hidden mb-4 border-l-4 border-l-primary">
-            <CardContent className="p-4 md:p-6">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+        <Card className="glass-card transition-all overflow-hidden mb-4 border-l-4 border-l-primary relative">
+          <div className="p-4 md:p-6">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <CollapsibleTrigger asChild>
+                <div className="flex items-center gap-4 cursor-pointer group flex-1">
+                  <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary/20 transition-colors">
                     <User className="w-6 h-6" />
                   </div>
                   <div>
@@ -212,25 +290,61 @@ export default function SalesAuditPage() {
                     </p>
                   </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-6 text-right w-full md:w-auto">
-                  <div className="flex flex-col items-end flex-1 md:flex-none">
-                    <span className="text-[9px] font-bold text-muted-foreground uppercase">Settled</span>
-                    <span className="text-lg font-headline font-bold text-emerald-500">₦{settledRevenue.toLocaleString()}</span>
-                  </div>
-                  <div className="flex flex-col items-end flex-1 md:flex-none">
-                    <span className="text-[9px] font-bold text-muted-foreground uppercase">Pending</span>
-                    <span className="text-lg font-headline font-bold text-amber-500">₦{pendingRevenue.toLocaleString()}</span>
-                  </div>
-                  <div className="flex flex-col items-end flex-1 md:flex-none border-l border-white/10 pl-6">
-                    <span className="text-[9px] font-bold text-primary uppercase">Total Session</span>
-                    <span className="text-xl font-headline font-bold text-white">₦{totalRevenue.toLocaleString()}</span>
-                  </div>
-                  <ChevronDown className="w-5 h-5 text-muted-foreground hidden md:block" />
+              </CollapsibleTrigger>
+
+              <div className="flex flex-wrap items-center gap-6 text-right w-full md:w-auto">
+                <div className="flex flex-col items-end flex-1 md:flex-none">
+                  <span className="text-[9px] font-bold text-muted-foreground uppercase">Settled</span>
+                  <span className="text-lg font-headline font-bold text-emerald-500">₦{settledRevenue.toLocaleString()}</span>
+                </div>
+                <div className="flex flex-col items-end flex-1 md:flex-none">
+                  <span className="text-[9px] font-bold text-muted-foreground uppercase">Pending</span>
+                  <span className="text-lg font-headline font-bold text-amber-500">₦{pendingRevenue.toLocaleString()}</span>
+                </div>
+                <div className="flex flex-col items-end flex-1 md:flex-none border-l border-white/10 pl-6">
+                  <span className="text-[9px] font-bold text-primary uppercase">Total Session</span>
+                  <span className="text-xl font-headline font-bold text-white">₦{totalRevenue.toLocaleString()}</span>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="icon" className="h-10 w-10 border-white/10" onClick={() => printShiftSummary(shift)} title="Print Shift Report">
+                    <Printer className="w-4 h-4" />
+                  </Button>
+                  
+                  {isAdmin && shift.status === 'closed' && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-10 w-10 text-muted-foreground hover:text-destructive" title="Hide Duplicate Shift">
+                          <EyeOff className="w-4 h-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent className="glass-card border-white/10">
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Hide this duplicate shift?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will remove the shift record for {shift.staffName} from the Global Audit. You can restore it later from the Admin Actions page.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel className="bg-white/5 border-white/10">Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => handleHideShift(shift)} className="bg-destructive text-destructive-foreground font-bold">
+                            Hide Shift
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
+                  
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-10 w-10">
+                      <ChevronDown className="w-5 h-5 text-muted-foreground" />
+                    </Button>
+                  </CollapsibleTrigger>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        </CollapsibleTrigger>
+            </div>
+          </div>
+        </Card>
         <CollapsibleContent className="space-y-3 pb-8 px-2 md:px-4">
           <div className="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden divide-y divide-white/5 animate-in slide-in-from-top-2">
             {sales.length === 0 ? (

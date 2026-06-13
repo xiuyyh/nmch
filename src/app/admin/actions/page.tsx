@@ -5,6 +5,7 @@ import React, { useMemo, useState } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { RoleGuard } from "@/components/auth/RoleGuard";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -20,7 +21,9 @@ import {
   PlusCircle,
   AlertCircle,
   FileCheck,
-  ChevronDown
+  ChevronDown,
+  RotateCcw,
+  Eye
 } from "lucide-react";
 import { 
   Collapsible,
@@ -35,13 +38,17 @@ import {
   TableHeader, 
   TableRow 
 } from "@/components/ui/table";
-import { useCollection, useFirestore } from "@/firebase";
-import { collection, query, orderBy, limit } from "firebase/firestore";
+import { useCollection, useFirestore, useUser } from "@/firebase";
+import { collection, query, orderBy, limit, doc, updateDoc, serverTimestamp, addDoc } from "firebase/firestore";
 import { formatNigeriaTime, cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 export default function AdminActionsPage() {
   const firestore = useFirestore();
+  const { user } = useUser();
+  const { toast } = useToast();
   const [search, setSearch] = useState("");
+  const [restoringId, setRestoringId] = useState<string | null>(null);
 
   const actionsQuery = useMemo(() => {
     if (!firestore) return null;
@@ -64,13 +71,48 @@ export default function AdminActionsPage() {
     );
   }, [actions, search]);
 
+  const handleRestoreShift = (actionId: string, detailsStr: string) => {
+    if (!firestore || !user) return;
+    setRestoringId(actionId);
+
+    try {
+      const details = JSON.parse(detailsStr);
+      const shiftId = details.shiftId;
+      
+      if (!shiftId) throw new Error("No shift ID found in log");
+
+      const shiftRef = doc(firestore, "shifts", shiftId);
+      updateDoc(shiftRef, { hidden: false })
+        .then(() => {
+          addDoc(collection(firestore, "adminActions"), {
+            adminName: user.displayName || user.email,
+            adminId: user.uid,
+            action: "UNHIDE_SHIFT",
+            entity: "AUDIT",
+            details: `Restored visibility for shift #${shiftId.slice(-8).toUpperCase()} (Staff: ${details.staffName})`,
+            timestamp: serverTimestamp()
+          }).catch(() => {});
+          
+          toast({ title: "Shift Restored", description: "The work session is now visible in Global Audit." });
+        })
+        .catch(() => {
+          toast({ variant: "destructive", title: "Restoration Failed", description: "The source shift record may no longer exist." });
+        })
+        .finally(() => setRestoringId(null));
+
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error", description: "Could not parse shift metadata from log." });
+      setRestoringId(null);
+    }
+  };
+
   const getActionIcon = (action: string) => {
     const act = action.toUpperCase();
     if (act.includes("CREATE")) return <PlusCircle className="w-4 h-4 text-emerald-500" />;
     if (act.includes("UPDATE")) return <RefreshCw className="w-4 h-4 text-primary" />;
-    if (act.includes("DELETE")) return <AlertCircle className="w-4 h-4 text-destructive" />;
+    if (act.includes("DELETE") || act.includes("HIDE")) return <AlertCircle className="w-4 h-4 text-destructive" />;
     if (act.includes("RECONCILE")) return <FileCheck className="w-4 h-4 text-amber-500" />;
-    if (act.includes("RESTOCK") || act.includes("RECEIVE")) return <Warehouse className="w-4 h-4 text-amber-500" />;
+    if (act.includes("UNHIDE") || act.includes("RESTORE")) return <Eye className="w-4 h-4 text-emerald-500" />;
     return <Settings2 className="w-4 h-4 text-muted-foreground" />;
   };
 
@@ -79,14 +121,15 @@ export default function AdminActionsPage() {
     switch (e) {
       case "INVENTORY": return <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 gap-1"><Package className="w-3 h-3" /> BAR</Badge>;
       case "WAREHOUSE": return <Badge variant="outline" className="bg-amber-500/5 text-amber-500 border-amber-500/20 gap-1"><Warehouse className="w-3 h-3" /> STORE</Badge>;
-      case "CATEGORY": return <Badge variant="outline" className="bg-purple-500/5 text-purple-500 border-purple-500/20 gap-1">CAT</Badge>;
+      case "AUDIT": return <Badge variant="outline" className="bg-purple-500/5 text-purple-500 border-purple-500/20 gap-1">AUDIT</Badge>;
       case "REQUEST": return <Badge variant="outline" className="bg-blue-500/5 text-blue-500 border-blue-500/20 gap-1">REQ</Badge>;
       default: return <Badge variant="outline">{e}</Badge>;
     }
   };
 
-  // Helper to parse technical reconciliation reports
-  const renderDetails = (details: string, action: string) => {
+  const renderDetails = (log: any) => {
+    const { details, action, id } = log;
+    
     if (action === "RECONCILE_INVENTORY") {
       try {
         const audit = JSON.parse(details);
@@ -144,6 +187,34 @@ export default function AdminActionsPage() {
         return <p className="text-sm text-muted-foreground leading-relaxed italic">{details}</p>;
       }
     }
+
+    if (action === "HIDE_SHIFT") {
+      try {
+        const meta = JSON.parse(details);
+        return (
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 bg-destructive/5 border border-destructive/10 rounded-xl mt-2">
+            <div className="space-y-1">
+              <p className="text-sm font-bold text-white">Duplicate Shift Hidden: {meta.staffName}</p>
+              <p className="text-[10px] uppercase font-bold text-muted-foreground/60 tracking-widest">
+                Start Time: {meta.startTime} | ID: #{meta.shiftId.slice(-8).toUpperCase()}
+              </p>
+            </div>
+            <Button 
+              size="sm" 
+              onClick={() => handleRestoreShift(id, details)}
+              disabled={restoringId === id}
+              className="bg-emerald-600 hover:bg-emerald-700 h-9 px-4 font-bold text-xs uppercase tracking-widest gap-2 shadow-lg"
+            >
+              {restoringId === id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+              Restore Visibility
+            </Button>
+          </div>
+        );
+      } catch (e) {
+        return <p className="text-sm text-muted-foreground italic">{details}</p>;
+      }
+    }
+
     return <p className="text-sm text-muted-foreground leading-relaxed">{details}</p>;
   };
 
@@ -206,7 +277,7 @@ export default function AdminActionsPage() {
                           {getEntityBadge(log.entity)}
                         </div>
                         <div className="max-w-3xl">
-                          {renderDetails(log.details, log.action)}
+                          {renderDetails(log)}
                         </div>
                       </div>
                     </div>
@@ -218,5 +289,24 @@ export default function AdminActionsPage() {
         </div>
       </AppShell>
     </RoleGuard>
+  );
+}
+
+function Loader2(props: any) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+    </svg>
   );
 }

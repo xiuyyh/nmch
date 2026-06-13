@@ -207,7 +207,8 @@
             }
           }
         },
-        "status": { "type": "string", "enum": ["active", "closed"] }
+        "status": { "type": "string", "enum": ["active", "closed"] },
+        "hidden": { "type": "boolean", "description": "Whether the shift is hidden from global audit" }
       },
       "required": ["staffId", "staffName", "startTime", "openingStock", "status"]
     },
