@@ -30,7 +30,8 @@ import {
   Clock,
   ChevronLeft,
   AlertTriangle,
-  Banknote
+  Banknote,
+  LayoutGrid
 } from "lucide-react";
 import { 
   Dialog, 
@@ -56,6 +57,7 @@ import { addDays, format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface SelectedEntity {
   apartmentId: string;
@@ -66,6 +68,7 @@ interface SelectedEntity {
 const HISTORY_PER_PAGE = 5;
 
 export default function RoomManagerPage() {
+  const router = useRouter();
   const firestore = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
@@ -79,8 +82,6 @@ export default function RoomManagerPage() {
   const [searchQuery, setSearchQuery] = useState("");
   
   // Dialog State
-  const [selectedEntity, setSelectedEntity] = useState<{ apartment: any; roomNumber: string } | null>(null);
-  const [isCheckInOpen, setIsCheckInOpen] = useState(false);
   const [isExtendOpen, setIsExtendOpen] = useState(false);
   const [activeBooking, setActiveBooking] = useState<any>(null);
 
@@ -133,13 +134,11 @@ export default function RoomManagerPage() {
     return map;
   }, [activeBookings]);
 
-  // Grouped Occupancy for the List Tab
   const groupedOccupancy = useMemo(() => {
     if (!activeBookings) return [];
     
     const groups: Record<string, any[]> = {};
     activeBookings.forEach(b => {
-      // Group by Name + Phone to identify the same guest
       const key = `${b.guestName?.trim()}-${b.phoneNumber?.trim()}`.toLowerCase();
       if (!groups[key]) groups[key] = [];
       groups[key].push(b);
@@ -154,7 +153,7 @@ export default function RoomManagerPage() {
       
       return {
         ...first,
-        id: first.id, // Keep a reference ID
+        id: first.id,
         roomDisplay: rooms,
         totalGroupCost: totalCost,
         totalGroupPaid: totalPaid,
@@ -178,37 +177,19 @@ export default function RoomManagerPage() {
 
   const handleEntityClick = (apt: any, roomNum: string, isOccupied: boolean) => {
     if (isOccupied) return;
-    setSelectedEntity({ apartment: apt, roomNumber: roomNum });
-    setIsCheckInOpen(true);
-  };
 
-  const handleCheckIn = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!firestore || !selectedEntity || !user || !activeShift) return;
-
-    const formData = new FormData(e.currentTarget);
-    const bookingData = {
-      apartmentId: selectedEntity.apartment.id,
-      apartmentName: selectedEntity.apartment.name,
-      roomNumber: selectedEntity.roomNumber,
-      guestName: formData.get("guestName") as string,
-      phoneNumber: formData.get("phone") as string,
-      checkInDate: serverTimestamp(),
-      checkOutDate: addDays(new Date(), Number(formData.get("days"))),
-      checkInAmountPaid: Number(formData.get("amountPaid")),
-      retainingAmountPaid: 0,
-      totalStayCost: Number(formData.get("totalCost")),
-      status: "active",
-      isPaid: Number(formData.get("amountPaid")) >= Number(formData.get("totalCost")),
-      staffName: user.displayName || user.email,
-      lastModified: serverTimestamp()
-    };
-
-    addDoc(collection(firestore, "roomBookings"), bookingData).then(() => {
-      toast({ title: "Checked In", description: `${selectedEntity.apartment.name} - ${selectedEntity.roomNumber} secured.` });
-      setIsCheckInOpen(false);
-      setSelectedEntity(null);
-    });
+    if (selectionMode) {
+      const isSelected = selectedForBulk.some(s => s.apartmentId === apt.id && s.roomNumber === roomNum);
+      if (isSelected) {
+        setSelectedForBulk(prev => prev.filter(s => !(s.apartmentId === apt.id && s.roomNumber === roomNum)));
+      } else {
+        setSelectedForBulk(prev => [...prev, { apartmentId: apt.id, apartmentName: apt.name, roomNumber: roomNum }]);
+      }
+    } else {
+      // Direct navigation for single check-in
+      const rooms = [{ apartmentId: apt.id, apartmentName: apt.name, roomNumber: roomNum }];
+      router.push(`/front-desk/check-in?rooms=${encodeURIComponent(JSON.stringify(rooms))}`);
+    }
   };
 
   const handleCheckout = (booking: any) => {
@@ -218,6 +199,11 @@ export default function RoomManagerPage() {
       actualCheckOutDate: serverTimestamp(),
       lastModified: serverTimestamp() 
     }).then(() => toast({ title: "Checked Out", description: "Room released." }));
+  };
+
+  const handleBatchCheckIn = () => {
+    if (selectedForBulk.length === 0) return;
+    router.push(`/front-desk/check-in?rooms=${encodeURIComponent(JSON.stringify(selectedForBulk))}`);
   };
 
   const paginatedHistory = useMemo(() => {
@@ -259,15 +245,27 @@ export default function RoomManagerPage() {
               </h1>
               <p className="text-muted-foreground mt-1">Real-time apartment occupancy and guest billing control.</p>
             </div>
+
+            <div className="flex items-center gap-4 bg-white/5 border border-white/10 p-2 px-4 rounded-2xl">
+              <div className="flex items-center gap-3">
+                <Switch id="multi-select" checked={selectionMode} onCheckedChange={(val) => { setSelectionMode(val); setSelectedForBulk([]); }} />
+                <Label htmlFor="multi-select" className="text-[10px] uppercase font-bold tracking-widest cursor-pointer">Selection Mode</Label>
+              </div>
+              {selectionMode && selectedForBulk.length > 0 && (
+                <Button onClick={handleBatchCheckIn} className="bg-primary text-primary-foreground font-bold h-10 px-6 rounded-xl animate-in zoom-in duration-300">
+                   Check-In {selectedForBulk.length} Units
+                </Button>
+              )}
+            </div>
           </div>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
             <TabsList className="bg-white/5 border border-white/10 p-1 h-12 w-full sm:w-fit">
               <TabsTrigger value="grid" className="flex-1 sm:flex-none gap-2 px-6 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-bold text-xs uppercase tracking-widest">
-                <BedDouble className="w-4 h-4" /> Room Grid
+                <LayoutGrid className="w-4 h-4" /> Room Grid
               </TabsTrigger>
               <TabsTrigger value="occupancy" className="flex-1 sm:flex-none gap-2 px-6 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-bold text-xs uppercase tracking-widest">
-                <Users className="w-4 h-4" /> Occupancy List
+                <Users className="w-4 h-4" /> Active Occupancy
               </TabsTrigger>
               <TabsTrigger value="history" className="flex-1 sm:flex-none gap-2 px-6 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-bold text-xs uppercase tracking-widest">
                 <History className="w-4 h-4" /> Stay History
@@ -351,6 +349,7 @@ export default function RoomManagerPage() {
                           const booking = occupancyMap[`${apt.id}-${room}`] || occupancyMap[`${apt.id}-FULL`];
                           const isOccupied = !!booking;
                           const isFullBooking = isOccupied && booking.roomNumber === 'FULL';
+                          const isSelected = selectedForBulk.some(s => s.apartmentId === apt.id && s.roomNumber === room);
 
                           return (
                             <div 
@@ -360,12 +359,14 @@ export default function RoomManagerPage() {
                                 "p-3 rounded-xl border flex items-center justify-between transition-all group cursor-pointer",
                                 isOccupied 
                                   ? "bg-amber-500/10 border-amber-500/30 text-amber-500" 
-                                  : "bg-white/5 border-white/5 text-muted-foreground hover:border-primary/40 hover:text-white",
+                                  : isSelected 
+                                    ? "bg-primary/20 border-primary/40 text-primary"
+                                    : "bg-white/5 border-white/5 text-muted-foreground hover:border-primary/40 hover:text-white",
                                 isFullBooking && "opacity-50 cursor-not-allowed"
                               )}
                             >
                               <div className="flex items-center gap-3">
-                                <BedDouble className={cn("w-4 h-4", isOccupied ? "opacity-100" : "opacity-30")} />
+                                <BedDouble className={cn("w-4 h-4", isOccupied || isSelected ? "opacity-100" : "opacity-30")} />
                                 <span className="text-xs font-bold">{room}</span>
                               </div>
                               {isOccupied && (
@@ -382,6 +383,7 @@ export default function RoomManagerPage() {
                                   </DropdownMenu>
                                 </div>
                               )}
+                              {isSelected && !isOccupied && <CheckCircle2 className="w-4 h-4 text-primary" />}
                             </div>
                           );
                         })}
@@ -397,7 +399,7 @@ export default function RoomManagerPage() {
                  <CardHeader className="border-b border-white/5 pb-4">
                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                      <CardTitle className="text-xl font-headline flex items-center gap-2">
-                       <Users className="w-5 h-5 text-primary" /> Active Guests (Merged Records)
+                       <Users className="w-5 h-5 text-primary" /> Active Guests
                      </CardTitle>
                      <div className="relative w-full sm:w-80">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -517,51 +519,12 @@ export default function RoomManagerPage() {
           </Tabs>
         </div>
 
-        {/* Standard Check-In Dialog */}
-        <Dialog open={isCheckInOpen} onOpenChange={setIsCheckInOpen}>
-          <DialogContent className="glass-card border-white/10 max-w-md">
-            <DialogHeader>
-              <DialogTitle className="text-xl font-headline flex items-center gap-2 uppercase">
-                <BedDouble className="text-primary w-5 h-5" /> 
-                Check-In: {selectedEntity?.apartment.name} — {selectedEntity?.roomNumber}
-              </DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleCheckIn} className="space-y-5 py-4">
-              <div className="space-y-2">
-                <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Guest Name</Label>
-                <Input name="guestName" required className="bg-white/5 border-white/10" placeholder="John Doe" />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Phone Number</Label>
-                <Input name="phone" className="bg-white/5 border-white/10" placeholder="+234..." />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Stay (Days)</Label>
-                  <Input name="days" type="number" min="1" required className="bg-white/5 border-white/10" defaultValue="1" />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Total Cost (₦)</Label>
-                  <Input name="totalCost" type="number" required className="bg-white/5 border-white/10" />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] uppercase font-bold tracking-widest text-primary">Initial Payment (₦)</Label>
-                <Input name="amountPaid" type="number" defaultValue="0" required className="bg-white/10 border-primary/20 text-lg font-bold" />
-              </div>
-              <DialogFooter>
-                <Button type="submit" className="w-full h-12 bg-primary text-primary-foreground font-bold shadow-lg uppercase tracking-widest text-xs">Confirm Entry</Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
-
         {/* Extend Stay Dialog */}
         <Dialog open={isExtendOpen} onOpenChange={setIsExtendOpen}>
           <DialogContent className="glass-card border-white/10 max-w-md">
             <DialogHeader>
               <DialogTitle className="text-xl font-headline flex items-center gap-2 uppercase">
-                <CalendarPlus className="text-primary w-5 h-5" /> Extend Stay (Handover)
+                <CalendarPlus className="text-primary w-5 h-5" /> Extend Stay
               </DialogTitle>
             </DialogHeader>
             {activeBooking && (
@@ -573,14 +536,10 @@ export default function RoomManagerPage() {
                 const declaringPaid = Number(formData.get("declaringPaid"));
                 const paymentStatus = formData.get("paymentStatus");
                 
-                // Extension applies to the first booking in group or individual
                 const bookingsToUpdate = activeBooking.allBookings || [activeBooking];
                 
                 const promises = bookingsToUpdate.map((b: any) => {
                   const newCheckOut = addDays(b.checkOutDate.toDate(), extraDays);
-                  // Distribute the cost and payment across the group or apply to individual
-                  // For simplicity in multi-room, we apply total cost/paid to the group leader record or split
-                  // Here we update each record in the group
                   const totalNewCost = (b.totalStayCost || 0) + (extraCost / bookingsToUpdate.length);
                   const totalPaid = (b.checkInAmountPaid || 0) + (b.retainingAmountPaid || 0) + (declaringPaid / bookingsToUpdate.length);
 
@@ -594,13 +553,13 @@ export default function RoomManagerPage() {
                 });
 
                 Promise.all(promises).then(() => {
-                  toast({ title: "Stay Extended", description: "All grouped records updated." });
+                  toast({ title: "Stay Extended", description: "Records updated." });
                   setIsExtendOpen(false);
                 });
               }}>
                 <div className="p-4 bg-white/5 rounded-xl border border-white/5 space-y-3">
                   <div className="flex justify-between text-xs font-bold text-muted-foreground uppercase tracking-widest">
-                    <span>Current Group Balance:</span>
+                    <span>Balance:</span>
                     <span className={cn(activeBooking.isGroupPaid || activeBooking.isPaid ? "text-emerald-500" : "text-destructive")}>
                       ₦{((activeBooking.totalGroupCost || activeBooking.totalStayCost) - (activeBooking.totalGroupPaid || (activeBooking.checkInAmountPaid + activeBooking.retainingAmountPaid))).toLocaleString()}
                     </span>
@@ -643,7 +602,6 @@ export default function RoomManagerPage() {
                       className="bg-white/10 border-primary/20 font-bold h-12 text-lg pl-10" 
                     />
                   </div>
-                  <p className="text-[9px] text-muted-foreground italic">Enter the physical amount the guest is paying now.</p>
                 </div>
 
                 <div className="flex gap-2 pt-2">
