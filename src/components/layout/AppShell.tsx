@@ -72,8 +72,7 @@ const departments = [
     items: [
       { name: "Bar Sales", href: "/bar/sales", icon: ShoppingCart },
       { name: "Shift Management", href: "/bar/shift", icon: Clock },
-      { name: "My History", href: "/bar/sales/history", icon: HistoryIcon },
-      { name: "Global Audit", href: "/bar/audit", icon: BookOpenCheck },
+      { name: "Sales History", href: "/bar/sales/history", icon: HistoryIcon },
       { name: "Sales Filter", href: "/bar/sales/filter", icon: Filter },
       { name: "Restock", href: "/bar/restock", icon: RefreshCw },
     ],

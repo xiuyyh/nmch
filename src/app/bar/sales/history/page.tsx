@@ -40,7 +40,8 @@ import {
   ChevronRightSquare,
   EyeOff,
   PlusCircle,
-  Trash2
+  Trash2,
+  Receipt
 } from "lucide-react";
 import { useCollection, useFirestore, useUser, useDoc } from "@/firebase";
 import { collection, query, orderBy, doc, updateDoc, increment, serverTimestamp, getDoc, where, limit, addDoc } from "firebase/firestore";
@@ -352,41 +353,62 @@ export default function SalesAuditPage() {
             ) : (
               sales.map((sale) => (
                 <div key={sale.id} className={cn(
-                  "p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-white/5 transition-colors",
+                  "p-5 flex flex-col gap-4 hover:bg-white/5 transition-colors",
                   sale.status === "Canceled" && "opacity-60 bg-red-500/[0.02]",
                   sale.status === "Unsettled" && "bg-amber-500/[0.03]"
                 )}>
-                  <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-4 items-center">
-                    <div className="flex flex-col">
-                      <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Receipt</span>
-                      <div className="flex items-center gap-1.5"><span className="font-mono text-xs font-bold text-white">#{sale.id.slice(-8).toUpperCase()}</span>{sale.status === "Canceled" ? <Badge variant="destructive" className="h-3.5 text-[8px] px-1 uppercase">Void</Badge> : sale.status === "Unsettled" ? <Badge variant="outline" className="h-3.5 text-[8px] px-1 border-amber-500/50 text-amber-500 uppercase">Pending</Badge> : <Badge variant="outline" className="h-3.5 text-[8px] px-1 border-emerald-500/50 text-emerald-500 uppercase">Paid</Badge>}</div>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-4 items-center">
+                      <div className="flex flex-col">
+                        <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Receipt</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono text-xs font-bold text-white">#{sale.id.slice(-8).toUpperCase()}</span>
+                          {sale.status === "Canceled" ? <Badge variant="destructive" className="h-3.5 text-[8px] px-1 uppercase">Void</Badge> : sale.status === "Unsettled" ? <Badge variant="outline" className="h-3.5 text-[8px] px-1 border-amber-500/50 text-amber-500 uppercase">Pending</Badge> : <Badge variant="outline" className="h-3.5 text-[8px] px-1 border-emerald-500/50 text-emerald-500 uppercase">Paid</Badge>}
+                        </div>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Time</span>
+                        <span className="text-xs">{sale.timestamp?.toDate ? formatNigeriaTime(sale.timestamp.toDate()) : "..."}</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Point</span>
+                        <span className="text-xs font-medium text-primary">{sale.tableNumber}</span>
+                      </div>
+                      <div className="flex flex-col items-end sm:items-start">
+                        <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Grand Total</span>
+                        <span className={cn("text-lg font-headline font-bold text-white", sale.status === "Canceled" && "line-through")}>₦{sale.total.toLocaleString()}</span>
+                      </div>
                     </div>
-                    <div className="flex flex-col">
-                      <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Time</span>
-                      <span className="text-xs">{sale.timestamp?.toDate ? formatNigeriaTime(sale.timestamp.toDate()) : "..."}</span>
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Point</span>
-                      <span className="text-xs font-medium text-primary">{sale.tableNumber}</span>
-                    </div>
-                    <div className="flex flex-col items-end sm:items-start">
-                      <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Grand Total</span>
-                      <span className={cn("text-lg font-headline font-bold text-white", sale.status === "Canceled" && "line-through")}>₦{sale.total.toLocaleString()}</span>
+                    <div className="flex items-center gap-2 self-end sm:self-center">
+                      <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground" onClick={() => printDucket(sale)}><Printer className="w-4 h-4" /></Button>
+                      {sale.status === "Unsettled" && (
+                        <div className="flex gap-1">
+                          <Button size="sm" variant="ghost" className="h-8 text-[9px] bg-primary/10 text-primary hover:bg-primary/20" onClick={() => handleSettleSale(sale, "Cash")}>SETTLE</Button>
+                        </div>
+                      )}
+                      {sale.status !== "Canceled" && (isAdmin || sale.shiftId === activeShift?.id) && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-9 w-9 text-destructive"><XCircle className="w-4 h-4" /></Button></AlertDialogTrigger>
+                          <AlertDialogContent className="glass-card border-white/10"><AlertDialogHeader><AlertDialogTitle>Void Transaction?</AlertDialogTitle><AlertDialogDescription>This will restore stock items.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel className="bg-white/5">No</AlertDialogCancel><AlertDialogAction onClick={() => handleCancelSale(sale)} className="bg-destructive">Void</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+                        </AlertDialog>
+                      )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 self-end sm:self-center">
-                    <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground" onClick={() => printDucket(sale)}><Printer className="w-4 h-4" /></Button>
-                    {sale.status === "Unsettled" && (
-                      <div className="flex gap-1">
-                        <Button size="sm" variant="ghost" className="h-8 text-[9px] bg-primary/10 text-primary hover:bg-primary/20" onClick={() => handleSettleSale(sale, "Cash")}>SETTLE</Button>
-                      </div>
-                    )}
-                    {sale.status !== "Canceled" && (isAdmin || sale.shiftId === activeShift?.id) && (
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-9 w-9 text-destructive"><XCircle className="w-4 h-4" /></Button></AlertDialogTrigger>
-                        <AlertDialogContent className="glass-card border-white/10"><AlertDialogHeader><AlertDialogTitle>Void Transaction?</AlertDialogTitle><AlertDialogDescription>This will restore stock items.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel className="bg-white/5">No</AlertDialogCancel><AlertDialogAction onClick={() => handleCancelSale(sale)} className="bg-destructive">Void</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
-                      </AlertDialog>
-                    )}
+                  
+                  {/* Detailed Items Breakdown */}
+                  <div className="bg-black/20 rounded-xl p-4 border border-white/5">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Receipt className="w-3 h-3 text-primary/50" />
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Itemized Breakdown</span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                      {sale.items?.map((item: any, idx: number) => (
+                        <div key={idx} className="flex justify-between items-center p-2 bg-white/5 rounded-lg border border-white/5">
+                          <span className="text-xs font-medium text-white truncate mr-2">{item.name}</span>
+                          <span className="text-xs font-headline font-bold text-primary shrink-0">x{item.quantity}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               ))
@@ -402,7 +424,7 @@ export default function SalesAuditPage() {
       <div className="flex flex-col gap-8 max-w-6xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-headline font-bold uppercase tracking-tight">Sales Audit Hub</h1>
+            <h1 className="text-3xl font-headline font-bold uppercase tracking-tight">Sales History</h1>
             <p className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
               <HistoryIcon className="w-4 h-4 text-primary" /> Multi-session Accountability (WAT)
             </p>
