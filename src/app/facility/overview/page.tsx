@@ -7,7 +7,6 @@ import { RoleGuard } from "@/components/auth/RoleGuard";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { 
-  Sparkles, 
   WashingMachine, 
   Clock, 
   History, 
@@ -106,7 +105,7 @@ export default function FacilityOverviewPage() {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
               <h1 className="text-3xl font-headline font-bold uppercase tracking-tight text-white flex items-center gap-3">
-                <Sparkles className="w-8 h-8 text-primary" /> Facility Overview
+                Facility Overview
               </h1>
               <p className="text-muted-foreground mt-1">Combined cleaning and laundry operations status for today.</p>
             </div>

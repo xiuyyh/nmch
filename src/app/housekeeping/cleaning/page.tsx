@@ -10,7 +10,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { 
-  Sparkles, 
   Save, 
   History, 
   User, 
@@ -68,7 +67,7 @@ export default function CleaningOperationsPage() {
         <div className="max-w-5xl mx-auto space-y-10">
           <div>
             <h1 className="text-3xl font-headline font-bold uppercase tracking-tight text-white flex items-center gap-3">
-              <Sparkles className="w-8 h-8 text-primary" /> Cleaning Operations
+              Cleaning Operations
             </h1>
             <p className="text-muted-foreground mt-1">Report daily cleaning output for performance tracking.</p>
           </div>
