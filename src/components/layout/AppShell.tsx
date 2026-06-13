@@ -81,6 +81,7 @@ const departments = [
     items: [
       { name: "Bar Overview", href: "/", icon: BarChart, roles: ["admin", "bar"] },
       { name: "Reception Overview", href: "/reception", icon: LayoutDashboard, roles: ["admin", "front_desk"] },
+      { name: "Porter Overview", href: "/porter/overview", icon: Activity, roles: ["admin", "porter"] },
     ],
   },
   {
@@ -218,7 +219,7 @@ function AppSidebar() {
             const isActive = dept.items.some(i => i.href === pathname);
             
             return (
-              <Collapsible key={dept.title} asChild defaultOpen={isActive} className="group/collapsible">
+              <Collapsible key={dept.title} asChild defaultOpen={dept.title === "Overview" ? false : isActive} className="group/collapsible">
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton 

@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo } from "react";
@@ -27,7 +28,10 @@ import {
   Plus,
   Loader2,
   AlertTriangle,
-  History
+  History,
+  Coffee,
+  DoorOpen,
+  Package
 } from "lucide-react";
 import { useCollection, useFirestore, useUser } from "@/firebase";
 import { collection, query, where, addDoc, serverTimestamp, orderBy, limit } from "firebase/firestore";
@@ -79,20 +83,45 @@ export default function PorterHubPage() {
     setIsSubmitting(true);
     const formData = new FormData(e.currentTarget);
     
-    const apartmentId = formData.get("apartmentId") as string;
-    const apartment = apartments?.find(a => a.id === apartmentId);
-    
-    const actionData = {
+    let actionData: any = {
       type: activeAction,
-      apartmentId,
-      apartmentName: apartment?.name || "Unknown",
-      roomNumber: formData.get("roomNumber") as string,
-      guestName: formData.get("guestName") as string || "N/A",
-      details: formData.get("details") as string,
       timestamp: serverTimestamp(),
       staffName: user.displayName || user.email,
       shiftId: activeShift.id
     };
+
+    if (activeAction === "complimentary_meal") {
+      const count = formData.get("totalMeals") as string;
+      actionData = {
+        ...actionData,
+        apartmentId: "SYSTEM",
+        apartmentName: "Hotel Wide",
+        roomNumber: "N/A",
+        details: `Total Served: ${count} breakfasts`
+      };
+    } else if (activeAction === "guest_check") {
+      const apartmentId = formData.get("apartmentId") as string;
+      const apartment = apartments?.find(a => a.id === apartmentId);
+      const roomCount = formData.get("roomCount") as string;
+      actionData = {
+        ...actionData,
+        apartmentId,
+        apartmentName: apartment?.name || "Unknown",
+        roomNumber: "ALL",
+        details: `Checked ${roomCount} rooms in apartment`
+      };
+    } else if (activeAction === "room_delivery") {
+      const apartmentId = formData.get("apartmentId") as string;
+      const apartment = apartments?.find(a => a.id === apartmentId);
+      const itemName = formData.get("itemName") as string;
+      actionData = {
+        ...actionData,
+        apartmentId,
+        apartmentName: apartment?.name || "Unknown",
+        roomNumber: formData.get("roomNumber") || "General",
+        details: `Delivered: ${itemName}`
+      };
+    }
 
     try {
       await addDoc(collection(firestore, "porterActions"), actionData);
@@ -127,9 +156,9 @@ export default function PorterHubPage() {
   }
 
   const actionTypes = [
-    { id: "guest_check", label: "Guest Check", icon: ClipboardCheck, color: "text-blue-500" },
-    { id: "complimentary_meal", label: "Complimentary Meal", icon: Utensils, color: "text-emerald-500" },
-    { id: "room_delivery", label: "Room Delivery", icon: ConciergeBell, color: "text-amber-500" },
+    { id: "guest_check", label: "Guest Check", icon: DoorOpen, color: "text-blue-500" },
+    { id: "complimentary_meal", label: "Breakfast Service", icon: Coffee, color: "text-emerald-500" },
+    { id: "room_delivery", label: "Room Delivery", icon: Package, color: "text-amber-500" },
   ];
 
   return (
@@ -141,12 +170,12 @@ export default function PorterHubPage() {
               <h1 className="text-3xl font-headline font-bold uppercase tracking-tight text-white flex items-center gap-3">
                 <Backpack className="w-8 h-8 text-primary" /> Porter Duty Log
               </h1>
-              <p className="text-muted-foreground mt-1">Record services, meals, and room inspections for active guests.</p>
+              <p className="text-muted-foreground mt-1">Record guest checks, meal counts, and room deliveries.</p>
             </div>
             <div className="bg-primary/10 border border-primary/20 px-6 py-3 rounded-2xl flex items-center gap-4">
               <User className="w-5 h-5 text-primary" />
               <div className="flex flex-col">
-                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-none">Duty Personnel</span>
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-none">On Duty</span>
                 <span className="text-sm font-bold text-white">{activeShift.staffName}</span>
               </div>
             </div>
@@ -177,42 +206,66 @@ export default function PorterHubPage() {
               <Card className="glass-card overflow-hidden">
                 <CardHeader className="bg-white/[0.02] border-b border-white/5">
                   <CardTitle className="text-lg font-headline flex items-center gap-2">
-                    <Activity className="w-5 h-5 text-primary" /> Record New Entry
+                    <Activity className="w-5 h-5 text-primary" /> 
+                    {actionTypes.find(t => t.id === activeAction)?.label}
                   </CardTitle>
                 </CardHeader>
                 <form onSubmit={handleSubmit}>
                   <CardContent className="pt-8 space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-2">
-                        <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Target Apartment</Label>
-                        <Select name="apartmentId" required>
-                          <SelectTrigger className="bg-white/5 border-white/10 h-12">
-                            <SelectValue placeholder="Select Flat" />
-                          </SelectTrigger>
-                          <SelectContent className="glass-card border-white/10">
-                            {apartments?.map(apt => (
-                              <SelectItem key={apt.id} value={apt.id}>{apt.name} ({apt.type})</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                    {activeAction === "complimentary_meal" && (
+                      <div className="space-y-4">
+                        <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Total Breakfasts Served Today</Label>
+                        <Input name="totalMeals" type="number" required placeholder="Enter total quantity" className="bg-white/5 border-white/10 h-14 text-2xl font-bold" />
                       </div>
-                      <div className="space-y-2">
-                        <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Room Number</Label>
-                        <Input name="roomNumber" required placeholder="e.g. 101-A" className="bg-white/5 border-white/10 h-12" />
+                    )}
+
+                    {activeAction === "guest_check" && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Apartment Checked</Label>
+                          <Select name="apartmentId" required>
+                            <SelectTrigger className="bg-white/5 border-white/10 h-12">
+                              <SelectValue placeholder="Select Flat" />
+                            </SelectTrigger>
+                            <SelectContent className="glass-card border-white/10">
+                              {apartments?.map(apt => (
+                                <SelectItem key={apt.id} value={apt.id}>{apt.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Number of Rooms Checked</Label>
+                          <Input name="roomCount" type="number" required placeholder="e.g. 3" className="bg-white/5 border-white/10 h-12" />
+                        </div>
                       </div>
-                      <div className="space-y-2">
-                        <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Guest Name (Optional)</Label>
-                        <Input name="guestName" placeholder="Enter name if known" className="bg-white/5 border-white/10 h-12" />
+                    )}
+
+                    {activeAction === "room_delivery" && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Destination Apartment</Label>
+                          <Select name="apartmentId" required>
+                            <SelectTrigger className="bg-white/5 border-white/10 h-12">
+                              <SelectValue placeholder="Select Flat" />
+                            </SelectTrigger>
+                            <SelectContent className="glass-card border-white/10">
+                              {apartments?.map(apt => (
+                                <SelectItem key={apt.id} value={apt.id}>{apt.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Item Name/Details</Label>
+                          <Input name="itemName" required placeholder="e.g. 2 Bottles of Water" className="bg-white/5 border-white/10 h-12" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Specific Room (Optional)</Label>
+                          <Input name="roomNumber" placeholder="e.g. Room A" className="bg-white/5 border-white/10 h-12" />
+                        </div>
                       </div>
-                      <div className="space-y-2">
-                        <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Activity Details</Label>
-                        <Input name="details" placeholder={
-                          activeAction === 'complimentary_meal' ? "e.g. Breakfast served, 2 packs" :
-                          activeAction === 'room_delivery' ? "e.g. 2 Bottles of Water delivered" :
-                          "e.g. Morning room check - guest seen"
-                        } required className="bg-white/5 border-white/10 h-12" />
-                      </div>
-                    </div>
+                    )}
                   </CardContent>
                   <CardFooter className="bg-white/[0.01] border-t border-white/5 pt-6 pb-8">
                     <Button 
@@ -220,7 +273,7 @@ export default function PorterHubPage() {
                       disabled={isSubmitting}
                       className="w-full h-16 bg-primary text-primary-foreground font-bold text-lg rounded-2xl shadow-xl uppercase tracking-widest"
                     >
-                      {isSubmitting ? <Loader2 className="animate-spin" /> : <><Plus className="w-5 h-5 mr-2" /> Submit Duty Record</>}
+                      {isSubmitting ? <Loader2 className="animate-spin" /> : <><Plus className="w-5 h-5 mr-2" /> Log Activity</>}
                     </Button>
                   </CardFooter>
                 </form>
@@ -255,7 +308,9 @@ export default function PorterHubPage() {
                             </span>
                           </div>
                           <div className="flex flex-col">
-                            <span className="text-sm font-bold text-white">{action.apartmentName} — {action.roomNumber}</span>
+                            <span className="text-sm font-bold text-white">
+                              {action.apartmentName} {action.roomNumber !== 'N/A' && `— ${action.roomNumber}`}
+                            </span>
                             <p className="text-[10px] text-muted-foreground leading-snug">{action.details}</p>
                           </div>
                         </div>
