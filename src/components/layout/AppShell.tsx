@@ -82,6 +82,7 @@ const departments = [
       { name: "Bar Overview", href: "/", icon: BarChart, roles: ["admin", "bar"] },
       { name: "Reception Overview", href: "/reception", icon: LayoutDashboard, roles: ["admin", "front_desk"] },
       { name: "Porter Overview", href: "/porter/overview", icon: Activity, roles: ["admin", "porter"] },
+      { name: "Facility Overview", href: "/facility/overview", icon: Sparkles, roles: ["admin", "housekeeper", "laundry"] },
     ],
   },
   {
