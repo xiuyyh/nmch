@@ -34,7 +34,10 @@ import {
   BedDouble,
   BarChart,
   UserCheck,
-  Settings2
+  Settings2,
+  Backpack,
+  ConciergeBell,
+  Activity
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -71,10 +74,10 @@ const departments = [
   {
     title: "Overview",
     icon: LayoutDashboard,
-    role: "admin",
+    role: "shared",
     items: [
-      { name: "Bar Overview", href: "/", icon: BarChart },
-      { name: "Reception Overview", href: "/reception", icon: LayoutDashboard },
+      { name: "Bar Overview", href: "/", icon: BarChart, roles: ["admin", "bar"] },
+      { name: "Reception Overview", href: "/reception", icon: LayoutDashboard, roles: ["admin", "front_desk"] },
     ],
   },
   {
@@ -97,6 +100,15 @@ const departments = [
       { name: "Room Manager", href: "/front-desk/room-manager", icon: BedDouble },
       { name: "Apartment Setup", href: "/front-desk/setup", icon: Settings2, adminOnly: true },
       { name: "Shift Management", href: "/front-desk/shift", icon: Clock },
+    ],
+  },
+  {
+    title: "Porter Operations",
+    icon: Backpack,
+    role: "porter",
+    items: [
+      { name: "Porter Log", href: "/porter", icon: Activity },
+      { name: "Shift Management", href: "/porter/shift", icon: Clock },
     ],
   },
   {
@@ -152,11 +164,12 @@ function AppSidebar() {
     if (!userRecord) return [];
     if (isAdmin) return departments;
     
-    if (userRecord.role === 'front_desk') {
-       return departments.filter(dept => dept.role === 'front_desk' || (dept.title === 'Overview' && dept.items.some(i => i.href === '/reception')));
-    }
-
-    return departments.filter(dept => dept.role === userRecord.role);
+    return departments.filter(dept => {
+      if (dept.role === "shared") {
+        return dept.items.some(i => i.roles?.includes(userRecord.role));
+      }
+      return dept.role === userRecord.role;
+    });
   }, [userRecord, isAdmin]);
 
   return (
@@ -180,7 +193,6 @@ function AppSidebar() {
       <SidebarContent className="px-4 py-6">
         <SidebarMenu className="gap-2">
           {filteredDepartments.map((dept) => {
-            const isOverview = dept.title === "Overview";
             const isActive = dept.items.some(i => i.href === pathname);
             
             return (
@@ -213,7 +225,7 @@ function AppSidebar() {
                     <SidebarMenuSub className="border-l border-white/5 ml-6 mt-1 gap-1">
                       {dept.items.map((item) => {
                          if (item.adminOnly && !isAdmin) return null;
-                         if (dept.title === "Overview" && item.name === "Bar Overview" && userRecord?.role === 'front_desk') return null;
+                         if (item.roles && !item.roles.includes(userRecord?.role as string) && !isAdmin) return null;
                          
                          return (
                           <SidebarMenuSubItem key={item.name}>
@@ -322,11 +334,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (!userRecord) return [];
     if (isAdmin) return departments;
     
-    if (userRecord.role === 'front_desk') {
-       return departments.filter(dept => dept.role === 'front_desk' || (dept.title === 'Overview' && dept.items.some(i => i.href === '/reception')));
-    }
-
-    return departments.filter(dept => dept.role === userRecord.role);
+    return departments.filter(dept => {
+      if (dept.role === "shared") {
+        return dept.items.some(i => i.roles?.includes(userRecord.role));
+      }
+      return dept.role === userRecord.role;
+    });
   }, [userRecord, isAdmin]);
 
   const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
@@ -368,7 +381,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     <div className="grid grid-cols-1 gap-1 ml-4 border-l border-white/10 pl-4">
                       {dept.items.map((item) => {
                         if (item.adminOnly && !isAdmin) return null;
-                        if (dept.title === "Overview" && item.name === "Bar Overview" && userRecord?.role === 'front_desk') return null;
+                        if (item.roles && !item.roles.includes(userRecord?.role as string) && !isAdmin) return null;
 
                         return (
                           <Link

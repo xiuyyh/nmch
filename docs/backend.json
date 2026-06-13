@@ -10,7 +10,7 @@
         "displayName": { "type": "string" },
         "role": { 
           "type": "string", 
-          "enum": ["admin", "bar", "kitchen", "store", "front_desk", "housekeeper"] 
+          "enum": ["admin", "bar", "kitchen", "store", "front_desk", "housekeeper", "porter"] 
         },
         "createdAt": { "type": "string", "format": "date-time" }
       },
@@ -82,6 +82,36 @@
         "openingUnpaidDebt": { "type": "number" }
       },
       "required": ["staffId", "staffName", "startTime", "status"]
+    },
+    "PorterShift": {
+      "title": "Porter Shift",
+      "description": "Record of a porter's shift",
+      "type": "object",
+      "properties": {
+        "staffId": { "type": "string" },
+        "staffName": { "type": "string" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "endTime": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["active", "closed"] }
+      },
+      "required": ["staffId", "staffName", "startTime", "status"]
+    },
+    "PorterAction": {
+      "title": "Porter Activity Log",
+      "description": "Log of a porter's duties and services",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["guest_check", "complimentary_meal", "room_delivery"] },
+        "apartmentId": { "type": "string" },
+        "apartmentName": { "type": "string" },
+        "roomNumber": { "type": "string" },
+        "guestName": { "type": "string" },
+        "details": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "staffName": { "type": "string" },
+        "shiftId": { "type": "string" }
+      },
+      "required": ["type", "apartmentId", "roomNumber", "timestamp", "staffName", "shiftId"]
     },
     "WarehouseItem": {
       "title": "Warehouse Stock Item",
@@ -282,6 +312,14 @@
     "/frontDeskShifts/{shiftId}": {
       "schema": "FrontDeskShift",
       "description": "Receptionist sessions"
+    },
+    "/porterShifts/{shiftId}": {
+      "schema": "PorterShift",
+      "description": "Porter work sessions"
+    },
+    "/porterActions/{actionId}": {
+      "schema": "PorterAction",
+      "description": "Porter activities and meal deliveries"
     },
     "/warehouseInventory/{itemId}": {
       "schema": "WarehouseItem",

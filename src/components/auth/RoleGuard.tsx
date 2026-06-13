@@ -7,7 +7,7 @@ import { doc } from 'firebase/firestore';
 import { ShieldAlert, Loader2 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 
-export type UserRole = 'admin' | 'bar' | 'kitchen' | 'store' | 'front_desk' | 'housekeeper';
+export type UserRole = 'admin' | 'bar' | 'kitchen' | 'store' | 'front_desk' | 'housekeeper' | 'porter';
 
 interface RoleGuardProps {
   children: React.ReactNode;
