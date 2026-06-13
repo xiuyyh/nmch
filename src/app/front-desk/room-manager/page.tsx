@@ -25,7 +25,10 @@ import {
   MoreVertical,
   ShieldAlert,
   Loader2,
-  CalendarPlus
+  CalendarPlus,
+  Home,
+  ChevronRight,
+  Users
 } from "lucide-react";
 import { 
   Dialog, 
@@ -46,21 +49,19 @@ import { collection, query, where, addDoc, serverTimestamp, doc, updateDoc, orde
 import { format, addDays, differenceInDays } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { cn, formatNigeriaTime } from "@/lib/utils";
-
-const TOTAL_ROOMS = 40;
-const ROOMS = Array.from({ length: TOTAL_ROOMS }, (_, i) => (i + 1).toString().padStart(2, '0'));
+import Link from "next/link";
 
 export default function RoomManagerPage() {
   const firestore = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
   
-  const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
+  const [selectedEntity, setSelectedEntity] = useState<{ apartment: any; roomNumber: string } | null>(null);
   const [isCheckInOpen, setIsCheckInOpen] = useState(false);
   const [isExtendOpen, setIsExtendOpen] = useState(false);
   const [activeBooking, setActiveBooking] = useState<any>(null);
 
-  // 1. Check for Active Front Desk Shift
+  // 1. Shift Check
   const shiftQuery = useMemo(() => {
     if (!firestore || !user) return null;
     return query(
@@ -73,23 +74,42 @@ export default function RoomManagerPage() {
   const { data: shifts, loading: shiftLoading } = useCollection(shiftQuery);
   const activeShift = shifts?.[0];
 
-  // 2. Fetch All Active Bookings
+  // 2. Fetch Apartments Config
+  const apartmentsQuery = useMemo(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, "apartments"), orderBy("name"));
+  }, [firestore]);
+  const { data: apartments, loading: aptLoading } = useCollection(apartmentsQuery);
+
+  // 3. Fetch All Active Bookings
   const bookingsQuery = useMemo(() => {
     if (!firestore) return null;
     return query(collection(firestore, "roomBookings"), where("status", "==", "active"));
   }, [firestore]);
   const { data: activeBookings, loading: bookingsLoading } = useCollection(bookingsQuery);
 
-  const occupiedRoomsMap = useMemo(() => {
+  const occupancyMap = useMemo(() => {
     if (!activeBookings) return {};
     const map: Record<string, any> = {};
-    activeBookings.forEach(b => { map[b.roomNumber] = b; });
+    activeBookings.forEach(b => {
+      // Map both specific rooms and the whole apartment
+      const key = `${b.apartmentId}-${b.roomNumber}`;
+      map[key] = b;
+    });
     return map;
   }, [activeBookings]);
 
+  const isRoomOccupied = (aptId: string, roomNumber: string) => {
+    // Check if the specific room is booked
+    if (occupancyMap[`${aptId}-${roomNumber}`]) return occupancyMap[`${aptId}-${roomNumber}`];
+    // Check if the whole apartment is booked
+    if (occupancyMap[`${aptId}-FULL`]) return occupancyMap[`${aptId}-FULL`];
+    return null;
+  };
+
   const handleCheckIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!firestore || !selectedRoom || !user || !activeShift) return;
+    if (!firestore || !selectedEntity || !user || !activeShift) return;
 
     const formData = new FormData(e.currentTarget);
     const guestName = formData.get("guestName") as string;
@@ -99,7 +119,9 @@ export default function RoomManagerPage() {
     const totalCost = Number(formData.get("totalCost"));
 
     const bookingData = {
-      roomNumber: selectedRoom,
+      apartmentId: selectedEntity.apartment.id,
+      apartmentName: selectedEntity.apartment.name,
+      roomNumber: selectedEntity.roomNumber,
       guestName,
       phoneNumber: phone,
       checkInDate: serverTimestamp(),
@@ -115,9 +137,9 @@ export default function RoomManagerPage() {
 
     addDoc(collection(firestore, "roomBookings"), bookingData)
       .then(() => {
-        toast({ title: "Guest Checked In", description: `Room ${selectedRoom} is now occupied.` });
+        toast({ title: "Checked In", description: `Successfully booked ${selectedEntity.roomNumber === 'FULL' ? 'Entire' : ''} ${selectedEntity.apartment.name}.` });
         setIsCheckInOpen(false);
-        setSelectedRoom(null);
+        setSelectedEntity(null);
       });
   };
 
@@ -142,7 +164,7 @@ export default function RoomManagerPage() {
       isPaid: totalPaid >= totalNewCost,
       lastModified: serverTimestamp()
     }).then(() => {
-      toast({ title: "Stay Extended", description: `Guest in Room ${activeBooking.roomNumber} extended by ${extraDays} days.` });
+      toast({ title: "Stay Extended", description: "Record updated successfully." });
       setIsExtendOpen(false);
       setActiveBooking(null);
     });
@@ -156,11 +178,13 @@ export default function RoomManagerPage() {
       actualCheckOutDate: serverTimestamp(),
       lastModified: serverTimestamp() 
     }).then(() => {
-      toast({ title: "Guest Checked Out", description: `Room ${booking.roomNumber} is now vacant.` });
+      toast({ title: "Checked Out", description: "Session finalized and room released." });
     });
   };
 
-  if (shiftLoading) return <AppShell><div className="flex h-[60vh] items-center justify-center animate-pulse">Syncing Front Desk...</div></AppShell>;
+  if (shiftLoading || aptLoading || bookingsLoading) {
+    return <AppShell><div className="flex h-[60vh] items-center justify-center animate-pulse">Syncing Hospitality Grid...</div></AppShell>;
+  }
 
   if (!activeShift) {
     return (
@@ -171,10 +195,29 @@ export default function RoomManagerPage() {
           </div>
           <div className="space-y-2">
             <h2 className="text-3xl font-headline font-bold">Front Desk Closed</h2>
-            <p className="text-muted-foreground max-w-md mx-auto">Please start your receptionist shift to access the Room Manager.</p>
+            <p className="text-muted-foreground max-w-md mx-auto">Please start your shift to manage apartments.</p>
           </div>
           <Button asChild className="h-14 px-8 bg-primary text-primary-foreground font-bold rounded-2xl shadow-xl">
-            <a href="/front-desk/shift">Open Shift Management</a>
+            <Link href="/front-desk/shift">Open Shift Management</Link>
+          </Button>
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (apartments?.length === 0) {
+    return (
+      <AppShell>
+        <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-6">
+          <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center">
+            <Home className="w-10 h-10 text-primary" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-3xl font-headline font-bold">No Apartments Configured</h2>
+            <p className="text-muted-foreground max-w-md mx-auto">Please set up your flats in the Apartment Setup section.</p>
+          </div>
+          <Button asChild variant="outline" className="h-14 px-8 rounded-2xl">
+            <Link href="/front-desk/setup">Go to Setup</Link>
           </Button>
         </div>
       </AppShell>
@@ -188,71 +231,115 @@ export default function RoomManagerPage() {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
               <h1 className="text-3xl font-headline font-bold uppercase tracking-tight text-white flex items-center gap-3">
-                <BedDouble className="w-8 h-8 text-primary" /> Room Manager
+                <Home className="w-8 h-8 text-primary" /> Room Manager
               </h1>
-              <p className="text-muted-foreground mt-1">Live grid of hospitality units. Green is vacant, Amber is occupied.</p>
-            </div>
-            <div className="flex items-center gap-4 bg-white/5 border border-white/10 px-6 py-2.5 rounded-2xl">
-              <div className="flex flex-col items-center">
-                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-none mb-1">Occupancy</span>
-                <span className="text-xl font-headline font-bold text-primary">
-                  {Object.keys(occupiedRoomsMap).length} / {TOTAL_ROOMS}
-                </span>
-              </div>
+              <p className="text-muted-foreground mt-1">Hierarchical Apartment Grid. Manage flats and individual rooms.</p>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-8 gap-4">
-            {ROOMS.map(num => {
-              const booking = occupiedRoomsMap[num];
-              const isOccupied = !!booking;
-              const hasDebt = isOccupied && !booking.isPaid;
-
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {apartments?.map(apt => {
+              const isFullAptOccupied = !!occupancyMap[`${apt.id}-FULL`];
+              const fullAptBooking = occupancyMap[`${apt.id}-FULL`];
+              
               return (
-                <div key={num} className="relative group">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button className={cn(
-                        "w-full h-32 rounded-2xl border transition-all duration-300 flex flex-col items-center justify-center gap-2 shadow-lg",
-                        isOccupied 
-                          ? "bg-amber-500/10 border-amber-500/40 text-amber-500 hover:bg-amber-500/20" 
-                          : "bg-emerald-500/5 border-emerald-500/10 text-emerald-500/40 hover:bg-emerald-500/10 hover:border-emerald-500/30"
-                      )}>
-                        <BedDouble className={cn("w-7 h-7", isOccupied ? "opacity-100" : "opacity-20")} />
-                        <span className="text-lg font-headline font-bold">Room {num}</span>
-                        {isOccupied && (
-                          <div className="absolute top-2 right-2">
-                             {hasDebt ? (
-                               <Badge className="bg-destructive text-white border-none p-1"><Banknote className="w-3 h-3" /></Badge>
-                             ) : (
-                               <Badge className="bg-emerald-500 text-white border-none p-1"><CheckCircle2 className="w-3 h-3" /></Badge>
-                             )}
-                          </div>
+                <Card key={apt.id} className={cn(
+                  "glass-card border-l-4 transition-all duration-500",
+                  isFullAptOccupied ? "border-l-amber-500" : "border-l-primary/40"
+                )}>
+                  <CardHeader className="p-4 flex flex-row items-center justify-between bg-white/[0.02] border-b border-white/5">
+                    <div>
+                      <CardTitle className="text-base font-headline">{apt.name}</CardTitle>
+                      <Badge variant="outline" className="text-[8px] uppercase px-1 h-4 border-white/10">{apt.type}</Badge>
+                    </div>
+                    
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreVertical className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="glass-card border-white/10 w-48">
+                        {!isFullAptOccupied ? (
+                          <DropdownMenuItem className="cursor-pointer font-bold gap-2 text-primary" onClick={() => { setSelectedEntity({ apartment: apt, roomNumber: 'FULL' }); setIsCheckInOpen(true); }}>
+                            <Plus className="w-4 h-4" /> Book Entire Flat
+                          </DropdownMenuItem>
+                        ) : (
+                          <>
+                            <div className="p-2 border-b border-white/5 mb-1">
+                              <p className="text-[10px] font-bold text-muted-foreground uppercase">WHOLE FLAT BOOKED</p>
+                              <p className="text-xs font-bold text-white truncate">{fullAptBooking.guestName}</p>
+                            </div>
+                            <DropdownMenuItem className="cursor-pointer font-bold gap-2" onClick={() => { setActiveBooking(fullAptBooking); setIsExtendOpen(true); }}>
+                              <CalendarPlus className="w-4 h-4" /> Extend Stay
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="cursor-pointer font-bold gap-2 text-destructive" onClick={() => handleCheckout(fullAptBooking)}>
+                              <LogOut className="w-4 h-4" /> Check Out Flat
+                            </DropdownMenuItem>
+                          </>
                         )}
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="center" className="glass-card border-white/10 w-48">
-                      {!isOccupied ? (
-                        <DropdownMenuItem className="cursor-pointer font-bold gap-2 text-emerald-500" onClick={() => { setSelectedRoom(num); setIsCheckInOpen(true); }}>
-                          <Plus className="w-4 h-4" /> Guest Check-In
-                        </DropdownMenuItem>
-                      ) : (
-                        <>
-                          <div className="p-2 border-b border-white/5 mb-1">
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase">{booking.guestName}</p>
-                            <p className="text-xs font-bold text-white">Out: {format(booking.checkOutDate.toDate(), "MMM dd")}</p>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </CardHeader>
+                  <CardContent className="p-4 space-y-4">
+                    <div className="grid grid-cols-1 gap-2">
+                      {apt.roomNumbers.map((room: string) => {
+                        const booking = isRoomOccupied(apt.id, room);
+                        const isOccupied = !!booking;
+                        const hasDebt = isOccupied && !booking.isPaid;
+                        const isWholeFlatBooking = isOccupied && booking.roomNumber === 'FULL';
+
+                        return (
+                          <div key={room} className="relative">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button disabled={isWholeFlatBooking} className={cn(
+                                  "w-full p-3 rounded-xl border flex items-center justify-between transition-all group",
+                                  isOccupied 
+                                    ? "bg-amber-500/10 border-amber-500/30 text-amber-500" 
+                                    : "bg-white/5 border-white/5 text-muted-foreground hover:border-primary/40 hover:text-white"
+                                )}>
+                                  <div className="flex items-center gap-3">
+                                    <BedDouble className={cn("w-4 h-4", isOccupied ? "opacity-100" : "opacity-30")} />
+                                    <span className="text-sm font-bold">{room}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    {isOccupied && (
+                                      <>
+                                        {hasDebt && <Badge className="h-4 bg-destructive text-white border-none p-1"><Banknote className="w-3 h-3" /></Badge>}
+                                        <ChevronRight className="w-3 h-3 opacity-30" />
+                                      </>
+                                    )}
+                                  </div>
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="start" className="glass-card border-white/10 w-48">
+                                {!isOccupied ? (
+                                  <DropdownMenuItem className="cursor-pointer font-bold gap-2 text-emerald-500" onClick={() => { setSelectedEntity({ apartment: apt, roomNumber: room }); setIsCheckInOpen(true); }}>
+                                    <Plus className="w-4 h-4" /> Room Check-In
+                                  </DropdownMenuItem>
+                                ) : (
+                                  <>
+                                    <div className="p-2 border-b border-white/5 mb-1">
+                                      <p className="text-[10px] font-bold text-muted-foreground uppercase">{booking.guestName}</p>
+                                      <p className="text-xs font-bold text-white">Out: {format(booking.checkOutDate.toDate(), "MMM dd")}</p>
+                                    </div>
+                                    <DropdownMenuItem className="cursor-pointer font-bold gap-2" onClick={() => { setActiveBooking(booking); setIsExtendOpen(true); }}>
+                                      <CalendarPlus className="w-4 h-4" /> Extend Stay
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem className="cursor-pointer font-bold gap-2 text-destructive" onClick={() => handleCheckout(booking)}>
+                                      <LogOut className="w-4 h-4" /> Check Out
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </div>
-                          <DropdownMenuItem className="cursor-pointer font-bold gap-2" onClick={() => { setActiveBooking(booking); setIsExtendOpen(true); }}>
-                            <CalendarPlus className="w-4 h-4" /> Extend Stay
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="cursor-pointer font-bold gap-2 text-destructive" onClick={() => handleCheckout(booking)}>
-                            <LogOut className="w-4 h-4" /> Check Out
-                          </DropdownMenuItem>
-                        </>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
               );
             })}
           </div>
@@ -263,7 +350,8 @@ export default function RoomManagerPage() {
           <DialogContent className="glass-card border-white/10 max-w-md">
             <DialogHeader>
               <DialogTitle className="text-xl font-headline flex items-center gap-2">
-                <BedDouble className="text-primary w-5 h-5" /> Room {selectedRoom} Check-In
+                <BedDouble className="text-primary w-5 h-5" /> 
+                {selectedEntity?.roomNumber === 'FULL' ? `Entire ${selectedEntity?.apartment.name}` : `Room ${selectedEntity?.roomNumber}`} Check-In
               </DialogTitle>
             </DialogHeader>
             <form onSubmit={handleCheckIn} className="space-y-5 py-4">
@@ -301,14 +389,14 @@ export default function RoomManagerPage() {
           <DialogContent className="glass-card border-white/10 max-w-md">
             <DialogHeader>
               <DialogTitle className="text-xl font-headline flex items-center gap-2">
-                <CalendarPlus className="text-primary w-5 h-5" /> Extend Room {activeBooking?.roomNumber}
+                <CalendarPlus className="text-primary w-5 h-5" /> Extend Stay
               </DialogTitle>
             </DialogHeader>
             {activeBooking && (
               <form onSubmit={handleExtendStay} className="space-y-5 py-4">
                  <div className="p-3 bg-white/5 rounded-xl border border-white/5 space-y-1">
-                  <p className="text-[10px] uppercase font-bold text-muted-foreground">Current Stay</p>
-                  <p className="text-sm font-bold">{format(activeBooking.checkInDate.toDate(), "dd MMM")} — {format(activeBooking.checkOutDate.toDate(), "dd MMM")}</p>
+                  <p className="text-[10px] uppercase font-bold text-muted-foreground">Unit</p>
+                  <p className="text-sm font-bold">{activeBooking.apartmentName} - {activeBooking.roomNumber === 'FULL' ? 'WHOLE' : activeBooking.roomNumber}</p>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">

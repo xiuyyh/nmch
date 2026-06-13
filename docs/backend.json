@@ -16,6 +16,21 @@
       },
       "required": ["email", "role"]
     },
+    "Apartment": {
+      "title": "Apartment Configuration",
+      "description": "A flat containing one or more rooms",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "e.g., Flat 1" },
+        "type": { "type": "string", "enum": ["1-bed", "2-bed", "3-bed"] },
+        "roomNumbers": { 
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "type", "roomNumbers"]
+    },
     "StockItem": {
       "title": "Bar Stock Item",
       "description": "An item in the bar's inventory",
@@ -33,10 +48,12 @@
     },
     "RoomBooking": {
       "title": "Room Booking",
-      "description": "An active stay for a guest in a room",
+      "description": "An active stay for a guest in a room or apartment",
       "type": "object",
       "properties": {
-        "roomNumber": { "type": "string" },
+        "apartmentId": { "type": "string" },
+        "apartmentName": { "type": "string" },
+        "roomNumber": { "type": "string", "description": "Specific room number or 'FULL' for entire flat" },
         "guestName": { "type": "string" },
         "phoneNumber": { "type": "string" },
         "checkInDate": { "type": "string", "format": "date-time" },
@@ -46,9 +63,10 @@
         "totalStayCost": { "type": "number" },
         "status": { "type": "string", "enum": ["active", "checked_out"] },
         "isPaid": { "type": "boolean" },
+        "staffName": { "type": "string" },
         "lastModified": { "type": "string", "format": "date-time" }
       },
-      "required": ["roomNumber", "guestName", "checkInDate", "checkOutDate", "status"]
+      "required": ["apartmentId", "guestName", "checkInDate", "checkOutDate", "status"]
     },
     "FrontDeskShift": {
       "title": "Front Desk Shift",
@@ -79,23 +97,11 @@
       },
       "required": ["name", "stock", "min"]
     },
-    "Supplier": {
-      "title": "Supplier",
-      "description": "A vendor that provides stock",
-      "type": "object",
-      "properties": {
-        "name": { "type": "string" },
-        "contact": { "type": "string" },
-        "address": { "type": "string" }
-      },
-      "required": ["name"]
-    },
     "StockReceival": {
       "title": "Stock Receival",
-      "description": "A record of items received from a supplier into the warehouse",
+      "description": "A record of items received into the warehouse",
       "type": "object",
       "properties": {
-        "supplierId": { "type": "string" },
         "supplierName": { "type": "string" },
         "receivedDate": { "type": "string", "format": "date-time" },
         "receivedBy": { "type": "string" },
@@ -111,7 +117,7 @@
           }
         }
       },
-      "required": ["supplierId", "receivedDate", "items", "receivedBy"]
+      "required": ["receivedDate", "items", "receivedBy"]
     },
     "InventoryCategory": {
       "title": "Inventory Category",
@@ -147,7 +153,7 @@
         "canceledAt": { "type": "string", "format": "date-time" },
         "staffName": { "type": "string" },
         "shiftId": { "type": "string" },
-        "isReconciled": { "type": "boolean", "description": "Whether the inventory was deducted for this sale" }
+        "isReconciled": { "type": "boolean" }
       },
       "required": ["items", "total", "method", "timestamp"]
     },
@@ -187,7 +193,9 @@
             "properties": {
               "itemId": { "type": "string" },
               "name": { "type": "string" },
-              "requestedQuantity": { "type": "number" }
+              "requestedQuantity": { "type": "number" },
+              "approvedQuantity": { "type": "number" },
+              "isDeclined": { "type": "boolean" }
             }
           }
         },
@@ -223,32 +231,22 @@
     },
     "Shift": {
       "title": "Shift Record",
-      "description": "Record of a staff member's shift including opening stock",
+      "description": "Record of a staff member's shift",
       "type": "object",
       "properties": {
         "staffId": { "type": "string" },
         "staffName": { "type": "string" },
         "startTime": { "type": "string", "format": "date-time" },
         "endTime": { "type": "string", "format": "date-time" },
-        "openingStock": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "itemId": { "type": "string" },
-              "name": { "type": "string" },
-              "quantity": { "type": "number" }
-            }
-          }
-        },
+        "openingStock": { "type": "array" },
         "status": { "type": "string", "enum": ["active", "closed"] },
-        "hidden": { "type": "boolean", "description": "Whether the shift is hidden from global audit" }
+        "hidden": { "type": "boolean" }
       },
-      "required": ["staffId", "staffName", "startTime", "openingStock", "status"]
+      "required": ["staffId", "staffName", "startTime", "status"]
     },
     "AdminAction": {
       "title": "Admin Action Log",
-      "description": "History of sensitive actions performed by administrators",
+      "description": "History of sensitive actions",
       "type": "object",
       "properties": {
         "adminName": { "type": "string" },
@@ -267,63 +265,59 @@
   "firestore": {
     "/users/{uid}": {
       "schema": "UserRecord",
-      "description": "User metadata and permissions"
+      "description": "User metadata"
+    },
+    "/apartments/{apartmentId}": {
+      "schema": "Apartment",
+      "description": "Apartment unit configurations"
     },
     "/inventory/{itemId}": {
       "schema": "StockItem",
-      "description": "Collection of bar inventory items"
+      "description": "Bar inventory"
     },
     "/roomBookings/{bookingId}": {
       "schema": "RoomBooking",
-      "description": "Guest stay history and active sessions"
+      "description": "Guest stay history"
     },
     "/frontDeskShifts/{shiftId}": {
       "schema": "FrontDeskShift",
-      "description": "Receptionist work sessions"
+      "description": "Receptionist sessions"
     },
     "/warehouseInventory/{itemId}": {
       "schema": "WarehouseItem",
-      "description": "Collection of main warehouse inventory items"
-    },
-    "/warehouseCategories/{categoryId}": {
-      "schema": "InventoryCategory",
-      "description": "Categories for warehouse inventory"
-    },
-    "/suppliers/{supplierId}": {
-      "schema": "Supplier",
-      "description": "List of vendors/suppliers"
+      "description": "Main warehouse inventory"
     },
     "/stockReceivals/{receivalId}": {
       "schema": "StockReceival",
-      "description": "History of stock received from suppliers"
+      "description": "Inventory intake history"
     },
     "/inventoryCategories/{categoryId}": {
       "schema": "InventoryCategory",
-      "description": "Managed categories for bar inventory"
+      "description": "Inventory groupings"
     },
     "/sales/{saleId}": {
       "schema": "Sale",
-      "description": "History of sales"
+      "description": "Sales history"
     },
     "/tableSessions/{tableNumber}": {
       "schema": "TableSession",
-      "description": "Active tabs for tables"
+      "description": "Active table sessions"
     },
     "/restockRequests/{requestId}": {
       "schema": "RestockRequest",
-      "description": "Collection of restock requests"
+      "description": "Internal supply requests"
     },
     "/kitchenOrders/{orderId}": {
       "schema": "KitchenOrder",
-      "description": "Orders currently being processed by the kitchen"
+      "description": "Active food orders"
     },
     "/shifts/{shiftId}": {
       "schema": "Shift",
-      "description": "History of staff shifts and opening stock"
+      "description": "Staff work sessions"
     },
     "/adminActions/{actionId}": {
       "schema": "AdminAction",
-      "description": "Audit trail of admin operations"
+      "description": "System audit trail"
     }
   }
 }

@@ -33,7 +33,8 @@ import {
   FileSearch,
   BedDouble,
   BarChart,
-  UserCheck
+  UserCheck,
+  Settings2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -94,6 +95,7 @@ const departments = [
     role: "front_desk",
     items: [
       { name: "Room Manager", href: "/front-desk/room-manager", icon: BedDouble },
+      { name: "Apartment Setup", href: "/front-desk/setup", icon: Settings2, adminOnly: true },
       { name: "Shift Management", href: "/front-desk/shift", icon: Clock },
     ],
   },
@@ -114,16 +116,6 @@ const departments = [
     role: "kitchen",
     items: [
       { name: "Orders", href: "/kitchen/orders", icon: CookingPot },
-    ],
-  },
-  {
-    title: "Cleaning",
-    icon: Brush,
-    role: "housekeeper",
-    items: [
-      { name: "Daily Schedule", href: "/cleaning/schedule" },
-      { name: "Supplies Inventory", href: "/cleaning/supplies" },
-      { name: "Maintenance Logs", href: "/cleaning/logs" },
     ],
   },
   {
@@ -151,21 +143,21 @@ function AppSidebar() {
   }, [firestore, user]);
 
   const { data: userRecord } = useDoc(userRef);
+  const isAdmin = userRecord?.role === 'admin';
   
   const isCollapsed = state === "collapsed";
   const defaultAvatar = LOGO_URL;
 
   const filteredDepartments = useMemo(() => {
     if (!userRecord) return [];
-    if (userRecord.role === 'admin') return departments;
+    if (isAdmin) return departments;
     
-    // Front desk role sees Front Desk and Reception Overview (if allowed)
     if (userRecord.role === 'front_desk') {
        return departments.filter(dept => dept.role === 'front_desk' || (dept.title === 'Overview' && dept.items.some(i => i.href === '/reception')));
     }
 
     return departments.filter(dept => dept.role === userRecord.role);
-  }, [userRecord]);
+  }, [userRecord, isAdmin]);
 
   return (
     <Sidebar collapsible="icon" className="border-r border-white/5 bg-background/50 backdrop-blur-3xl shadow-2xl">
@@ -220,7 +212,7 @@ function AppSidebar() {
                   <CollapsibleContent className="animate-in fade-in-0 slide-in-from-top-1 duration-300">
                     <SidebarMenuSub className="border-l border-white/5 ml-6 mt-1 gap-1">
                       {dept.items.map((item) => {
-                         // Filter reception items for non-admins if needed
+                         if (item.adminOnly && !isAdmin) return null;
                          if (dept.title === "Overview" && item.name === "Bar Overview" && userRecord?.role === 'front_desk') return null;
                          
                          return (
@@ -324,17 +316,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [firestore, user]);
 
   const { data: userRecord } = useDoc(userRef);
+  const isAdmin = userRecord?.role === 'admin';
 
   const filteredDepartments = useMemo(() => {
     if (!userRecord) return [];
-    if (userRecord.role === 'admin') return departments;
+    if (isAdmin) return departments;
     
     if (userRecord.role === 'front_desk') {
        return departments.filter(dept => dept.role === 'front_desk' || (dept.title === 'Overview' && dept.items.some(i => i.href === '/reception')));
     }
 
     return departments.filter(dept => dept.role === userRecord.role);
-  }, [userRecord]);
+  }, [userRecord, isAdmin]);
 
   const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
 
@@ -374,6 +367,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     </div>
                     <div className="grid grid-cols-1 gap-1 ml-4 border-l border-white/10 pl-4">
                       {dept.items.map((item) => {
+                        if (item.adminOnly && !isAdmin) return null;
                         if (dept.title === "Overview" && item.name === "Bar Overview" && userRecord?.role === 'front_desk') return null;
 
                         return (
