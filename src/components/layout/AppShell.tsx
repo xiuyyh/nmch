@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
@@ -161,7 +160,6 @@ const departments = [
       { name: "User Management", href: "/admin/users", icon: UsersIcon },
       { name: "Material Config", href: "/admin/materials", icon: Settings2 },
       { name: "Admin Actions", href: "/admin/actions", icon: FileSearch },
-      { name: "Analytics", href: "/reports", icon: LayoutDashboard },
     ],
   },
 ];
@@ -220,7 +218,7 @@ function AppSidebar() {
             const isActive = dept.items.some(i => i.href === pathname);
             
             return (
-              <Collapsible key={dept.title} asChild defaultOpen={dept.title === "Overview" ? false : isActive} className="group/collapsible">
+              <Collapsible key={dept.title} asChild defaultOpen={false} className="group/collapsible">
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton 
