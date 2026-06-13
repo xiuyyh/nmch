@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { useCollection, useFirestore, useUser } from "@/firebase";
 import { collection, query, where, orderBy, addDoc, serverTimestamp, doc, updateDoc, limit, getDocs } from "firebase/firestore";
-import { differenceInHours, formatDistanceToNow } from "date-fns";
+import { format, differenceInHours, formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { cn, formatNigeriaTime } from "@/lib/utils";
 import Link from "next/link";
@@ -134,7 +134,7 @@ export default function FrontDeskShiftPage() {
       <AppShell>
         <div className="max-w-5xl mx-auto space-y-12">
           <div>
-            <h1 className="text-3xl font-headline font-bold uppercase tracking-tight">Receptionist Shift</h1>
+            <h1 className="text-3xl font-headline font-bold uppercase tracking-tight text-white">Receptionist Shift</h1>
             <p className="text-muted-foreground mt-1 flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-primary" /> Multi-handover Accountability System
             </p>
