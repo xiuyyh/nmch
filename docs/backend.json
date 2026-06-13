@@ -10,7 +10,7 @@
         "displayName": { "type": "string" },
         "role": { 
           "type": "string", 
-          "enum": ["admin", "bar", "kitchen", "store", "front_desk", "housekeeper", "porter"] 
+          "enum": ["admin", "bar", "kitchen", "store", "front_desk", "housekeeper", "porter", "laundry"] 
         },
         "createdAt": { "type": "string", "format": "date-time" }
       },
@@ -30,6 +30,62 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["name", "type", "roomNumbers"]
+    },
+    "HousekeepingLog": {
+      "title": "Housekeeping Activity",
+      "description": "Daily cleaning performance log",
+      "type": "object",
+      "properties": {
+        "staffName": { "type": "string" },
+        "roomsCleaned": { "type": "number" },
+        "date": { "type": "string", "format": "date" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["staffName", "roomsCleaned", "timestamp"]
+    },
+    "LaundryLog": {
+      "title": "Laundry Activity",
+      "description": "Daily washing performance log",
+      "type": "object",
+      "properties": {
+        "staffName": { "type": "string" },
+        "itemsWashed": { "type": "number" },
+        "date": { "type": "string", "format": "date" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["staffName", "itemsWashed", "timestamp"]
+    },
+    "MaterialRequest": {
+      "title": "Material Request",
+      "description": "Requests from Housekeeping to Store or Laundry",
+      "type": "object",
+      "properties": {
+        "requestedBy": { "type": "string" },
+        "source": { "type": "string", "enum": ["Laundry", "Store"] },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "quantity": { "type": "number" }
+            }
+          }
+        },
+        "status": { "type": "string", "enum": ["Pending", "Completed", "Cancelled"] },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["requestedBy", "source", "items", "status", "timestamp"]
+    },
+    "RequestableMaterial": {
+      "title": "Configured Material",
+      "description": "Materials that can be requested by staff",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "source": { "type": "string", "enum": ["Laundry", "Store"] }
+      },
+      "required": ["name", "source"]
     },
     "StockItem": {
       "title": "Bar Stock Item",
@@ -53,7 +109,7 @@
       "properties": {
         "apartmentId": { "type": "string" },
         "apartmentName": { "type": "string" },
-        "roomNumber": { "type": "string", "description": "Specific room number or 'FULL' for entire flat" },
+        "roomNumber": { "type": "string" },
         "guestName": { "type": "string" },
         "phoneNumber": { "type": "string" },
         "checkInDate": { "type": "string", "format": "date-time" },
@@ -70,7 +126,7 @@
     },
     "FrontDeskShift": {
       "title": "Front Desk Shift",
-      "description": "Record of a receptionist's shift and handover stats",
+      "description": "Record of a receptionist's shift",
       "type": "object",
       "properties": {
         "staffId": { "type": "string" },
@@ -180,7 +236,6 @@
         "tableNumber": { "type": "string" },
         "timestamp": { "type": "string", "format": "date-time" },
         "status": { "type": "string", "enum": ["Completed", "Canceled", "Unsettled"] },
-        "canceledAt": { "type": "string", "format": "date-time" },
         "staffName": { "type": "string" },
         "shiftId": { "type": "string" },
         "isReconciled": { "type": "boolean" }
@@ -201,8 +256,7 @@
               "itemId": { "type": "string" },
               "name": { "type": "string" },
               "quantity": { "type": "number" },
-              "price": { "type": "number" },
-              "lastSentQuantity": { "type": "number" }
+              "price": { "type": "number" }
             }
           }
         },
@@ -212,7 +266,7 @@
     },
     "RestockRequest": {
       "title": "Restock Request",
-      "description": "A request for more stock from the bar to the store",
+      "description": "A request for more stock",
       "type": "object",
       "properties": {
         "requestDate": { "type": "string", "format": "date-time" },
@@ -230,9 +284,7 @@
           }
         },
         "status": { "type": "string", "enum": ["Pending", "Approved", "Rejected"] },
-        "requestedBy": { "type": "string" },
-        "processedBy": { "type": "string" },
-        "processedAt": { "type": "string", "format": "date-time" }
+        "requestedBy": { "type": "string" }
       },
       "required": ["requestDate", "items", "status", "requestedBy"]
     },
@@ -254,8 +306,7 @@
         },
         "timestamp": { "type": "string", "format": "date-time" },
         "staffName": { "type": "string" },
-        "status": { "type": "string", "enum": ["Pending", "Delivered"] },
-        "deliveredAt": { "type": "string", "format": "date-time" }
+        "status": { "type": "string", "enum": ["Pending", "Delivered"] }
       },
       "required": ["tableNumber", "items", "timestamp"]
     },
@@ -268,9 +319,7 @@
         "staffName": { "type": "string" },
         "startTime": { "type": "string", "format": "date-time" },
         "endTime": { "type": "string", "format": "date-time" },
-        "openingStock": { "type": "array" },
-        "status": { "type": "string", "enum": ["active", "closed"] },
-        "hidden": { "type": "boolean" }
+        "status": { "type": "string", "enum": ["active", "closed"] }
       },
       "required": ["staffId", "staffName", "startTime", "status"]
     },
@@ -293,69 +342,25 @@
     "providers": ["password"]
   },
   "firestore": {
-    "/users/{uid}": {
-      "schema": "UserRecord",
-      "description": "User metadata"
-    },
-    "/apartments/{apartmentId}": {
-      "schema": "Apartment",
-      "description": "Apartment unit configurations"
-    },
-    "/inventory/{itemId}": {
-      "schema": "StockItem",
-      "description": "Bar inventory"
-    },
-    "/roomBookings/{bookingId}": {
-      "schema": "RoomBooking",
-      "description": "Guest stay history"
-    },
-    "/frontDeskShifts/{shiftId}": {
-      "schema": "FrontDeskShift",
-      "description": "Receptionist sessions"
-    },
-    "/porterShifts/{shiftId}": {
-      "schema": "PorterShift",
-      "description": "Porter work sessions"
-    },
-    "/porterActions/{actionId}": {
-      "schema": "PorterAction",
-      "description": "Porter activities and meal deliveries"
-    },
-    "/warehouseInventory/{itemId}": {
-      "schema": "WarehouseItem",
-      "description": "Main warehouse inventory"
-    },
-    "/stockReceivals/{receivalId}": {
-      "schema": "StockReceival",
-      "description": "Inventory intake history"
-    },
-    "/inventoryCategories/{categoryId}": {
-      "schema": "InventoryCategory",
-      "description": "Inventory groupings"
-    },
-    "/sales/{saleId}": {
-      "schema": "Sale",
-      "description": "Sales history"
-    },
-    "/tableSessions/{tableNumber}": {
-      "schema": "TableSession",
-      "description": "Active table sessions"
-    },
-    "/restockRequests/{requestId}": {
-      "schema": "RestockRequest",
-      "description": "Internal supply requests"
-    },
-    "/kitchenOrders/{orderId}": {
-      "schema": "KitchenOrder",
-      "description": "Active food orders"
-    },
-    "/shifts/{shiftId}": {
-      "schema": "Shift",
-      "description": "Staff work sessions"
-    },
-    "/adminActions/{actionId}": {
-      "schema": "AdminAction",
-      "description": "System audit trail"
-    }
+    "/users/{uid}": { "schema": "UserRecord", "description": "User metadata" },
+    "/apartments/{apartmentId}": { "schema": "Apartment", "description": "Apartment units" },
+    "/housekeepingLogs/{logId}": { "schema": "HousekeepingLog", "description": "Cleaning records" },
+    "/laundryLogs/{logId}": { "schema": "LaundryLog", "description": "Wash records" },
+    "/materialRequests/{requestId}": { "schema": "MaterialRequest", "description": "Staff supply requests" },
+    "/requestableMaterials/{materialId}": { "schema": "RequestableMaterial", "description": "Configured request items" },
+    "/inventory/{itemId}": { "schema": "StockItem", "description": "Bar inventory" },
+    "/roomBookings/{bookingId}": { "schema": "RoomBooking", "description": "Guest stay history" },
+    "/frontDeskShifts/{shiftId}": { "schema": "FrontDeskShift", "description": "Receptionist sessions" },
+    "/porterShifts/{shiftId}": { "schema": "PorterShift", "description": "Porter work sessions" },
+    "/porterActions/{actionId}": { "schema": "PorterAction", "description": "Porter activities" },
+    "/warehouseInventory/{itemId}": { "schema": "WarehouseItem", "description": "Main warehouse" },
+    "/stockReceivals/{receivalId}": { "schema": "StockReceival", "description": "Intake history" },
+    "/inventoryCategories/{categoryId}": { "schema": "InventoryCategory", "description": "Inventory groupings" },
+    "/sales/{saleId}": { "schema": "Sale", "description": "Sales history" },
+    "/tableSessions/{tableNumber}": { "schema": "TableSession", "description": "Active table sessions" },
+    "/restockRequests/{requestId}": { "schema": "RestockRequest", "description": "Internal supply requests" },
+    "/kitchenOrders/{orderId}": { "schema": "KitchenOrder", "description": "Active food orders" },
+    "/shifts/{shiftId}": { "schema": "Shift", "description": "Staff work sessions" },
+    "/adminActions/{actionId}": { "schema": "AdminAction", "description": "System audit trail" }
   }
 }

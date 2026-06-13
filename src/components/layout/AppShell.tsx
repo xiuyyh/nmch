@@ -37,7 +37,10 @@ import {
   Settings2,
   Backpack,
   ConciergeBell,
-  Activity
+  Activity,
+  WashingMachine,
+  Sparkles,
+  ListTodo
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -112,6 +115,24 @@ const departments = [
     ],
   },
   {
+    title: "Housekeeping",
+    icon: Brush,
+    role: "housekeeper",
+    items: [
+      { name: "Cleaning Operations", href: "/housekeeping/cleaning", icon: Sparkles },
+      { name: "Request Materials", href: "/housekeeping/request", icon: RefreshCw },
+    ],
+  },
+  {
+    title: "Laundry",
+    icon: WashingMachine,
+    role: "laundry",
+    items: [
+      { name: "Laundry Operations", href: "/laundry/operations", icon: Activity },
+      { name: "Staff Requests", href: "/laundry/requests", icon: ListTodo },
+    ],
+  },
+  {
     title: "Store",
     icon: Warehouse,
     role: "store",
@@ -136,6 +157,7 @@ const departments = [
     role: "admin",
     items: [
       { name: "User Management", href: "/admin/users", icon: UsersIcon },
+      { name: "Material Config", href: "/admin/materials", icon: Settings2 },
       { name: "Admin Actions", href: "/admin/actions", icon: FileSearch },
       { name: "Analytics", href: "/reports", icon: LayoutDashboard },
     ],

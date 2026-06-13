@@ -7,7 +7,7 @@ import { doc } from 'firebase/firestore';
 import { ShieldAlert, Loader2 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 
-export type UserRole = 'admin' | 'bar' | 'kitchen' | 'store' | 'front_desk' | 'housekeeper' | 'porter';
+export type UserRole = 'admin' | 'bar' | 'kitchen' | 'store' | 'front_desk' | 'housekeeper' | 'porter' | 'laundry';
 
 interface RoleGuardProps {
   children: React.ReactNode;
@@ -47,7 +47,7 @@ export function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
           <div className="space-y-2">
             <h2 className="text-2xl font-headline font-bold uppercase tracking-tight">Access Restricted</h2>
             <p className="text-muted-foreground max-w-md mx-auto">
-              Your account (Role: <span className="text-white font-bold uppercase">{role}</span>) does not have permission to access this department.
+              Your account (Role: <span className="text-white font-bold uppercase">{role || 'Unassigned'}</span>) does not have permission to access this department.
             </p>
           </div>
         </div>
