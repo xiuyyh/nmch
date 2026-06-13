@@ -31,7 +31,9 @@ import {
   Clock,
   Filter,
   FileSearch,
-  BookOpenCheck
+  BedDouble,
+  BarChart,
+  UserCheck
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -66,6 +68,15 @@ const LOGO_URL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQw8oatrp
 
 const departments = [
   {
+    title: "Overview",
+    icon: LayoutDashboard,
+    role: "admin",
+    items: [
+      { name: "Bar Overview", href: "/", icon: BarChart },
+      { name: "Reception Overview", href: "/reception", icon: LayoutDashboard },
+    ],
+  },
+  {
     title: "Bar Operations",
     icon: Wine,
     role: "bar",
@@ -75,6 +86,15 @@ const departments = [
       { name: "Sales History", href: "/bar/sales/history", icon: HistoryIcon },
       { name: "Sales Filter", href: "/bar/sales/filter", icon: Filter },
       { name: "Restock", href: "/bar/restock", icon: RefreshCw },
+    ],
+  },
+  {
+    title: "Front Desk",
+    icon: Contact,
+    role: "front_desk",
+    items: [
+      { name: "Room Manager", href: "/front-desk/room-manager", icon: BedDouble },
+      { name: "Shift Management", href: "/front-desk/shift", icon: Clock },
     ],
   },
   {
@@ -94,16 +114,6 @@ const departments = [
     role: "kitchen",
     items: [
       { name: "Orders", href: "/kitchen/orders", icon: CookingPot },
-    ],
-  },
-  {
-    title: "Front Desk",
-    icon: Contact,
-    role: "front_desk",
-    items: [
-      { name: "Bookings", href: "/front-desk/bookings" },
-      { name: "Guest List", href: "/front-desk/guests" },
-      { name: "Check-in", href: "/front-desk/check-in" },
     ],
   },
   {
@@ -148,10 +158,14 @@ function AppSidebar() {
   const filteredDepartments = useMemo(() => {
     if (!userRecord) return [];
     if (userRecord.role === 'admin') return departments;
+    
+    // Front desk role sees Front Desk and Reception Overview (if allowed)
+    if (userRecord.role === 'front_desk') {
+       return departments.filter(dept => dept.role === 'front_desk' || (dept.title === 'Overview' && dept.items.some(i => i.href === '/reception')));
+    }
+
     return departments.filter(dept => dept.role === userRecord.role);
   }, [userRecord]);
-
-  const isAdmin = userRecord?.role === 'admin';
 
   return (
     <Sidebar collapsible="icon" className="border-r border-white/5 bg-background/50 backdrop-blur-3xl shadow-2xl">
@@ -173,41 +187,10 @@ function AppSidebar() {
       
       <SidebarContent className="px-4 py-6">
         <SidebarMenu className="gap-2">
-          {isAdmin && (
-            <SidebarMenuItem>
-              <SidebarMenuButton 
-                asChild 
-                isActive={pathname === "/"}
-                tooltip="Overview"
-                className={cn(
-                  "transition-all duration-300 h-12 rounded-xl group/btn overflow-hidden",
-                  pathname === "/" 
-                    ? "bg-primary text-primary-foreground neon-glow-primary font-bold shadow-lg" 
-                    : "text-muted-foreground hover:bg-white/10 hover:text-white"
-                )}
-              >
-                <Link href="/">
-                  <LayoutDashboard className={cn(
-                    "w-5 h-5 shrink-0 transition-transform duration-300 group-hover/btn:scale-110",
-                    pathname === "/" ? "text-primary-foreground" : "text-primary/70"
-                  )} />
-                  {!isCollapsed && <span className="font-medium">Overview</span>}
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          )}
-
-          <div className="my-4 px-2">
-            {!isCollapsed && (
-              <span className="text-[10px] uppercase tracking-[0.3em] font-bold text-muted-foreground/40">
-                Departments
-              </span>
-            )}
-            <div className="h-px bg-white/5 mt-2" />
-          </div>
-
           {filteredDepartments.map((dept) => {
+            const isOverview = dept.title === "Overview";
             const isActive = dept.items.some(i => i.href === pathname);
+            
             return (
               <Collapsible key={dept.title} asChild defaultOpen={isActive} className="group/collapsible">
                 <SidebarMenuItem>
@@ -236,30 +219,35 @@ function AppSidebar() {
                   </CollapsibleTrigger>
                   <CollapsibleContent className="animate-in fade-in-0 slide-in-from-top-1 duration-300">
                     <SidebarMenuSub className="border-l border-white/5 ml-6 mt-1 gap-1">
-                      {dept.items.map((item) => (
-                        <SidebarMenuSubItem key={item.name}>
-                          <SidebarMenuSubButton 
-                            asChild 
-                            isActive={pathname === item.href}
-                            className={cn(
-                              "rounded-lg transition-all duration-200 h-9 relative overflow-hidden group/subitem",
-                              pathname === item.href 
-                                ? "text-primary bg-primary/10 font-bold" 
-                                : "text-muted-foreground hover:text-white hover:bg-white/5"
-                            )}
-                          >
-                            <Link href={item.href || "#"}>
-                              <div className={cn(
-                                "w-1.5 h-1.5 rounded-full mr-2 transition-all duration-300",
+                      {dept.items.map((item) => {
+                         // Filter reception items for non-admins if needed
+                         if (dept.title === "Overview" && item.name === "Bar Overview" && userRecord?.role === 'front_desk') return null;
+                         
+                         return (
+                          <SidebarMenuSubItem key={item.name}>
+                            <SidebarMenuSubButton 
+                              asChild 
+                              isActive={pathname === item.href}
+                              className={cn(
+                                "rounded-lg transition-all duration-200 h-9 relative overflow-hidden group/subitem",
                                 pathname === item.href 
-                                  ? "bg-primary scale-100 shadow-[0_0_8px_rgba(var(--primary),0.8)]" 
-                                  : "bg-white/10 scale-50 group-hover/subitem:scale-75 group-hover/subitem:bg-white/30"
-                              )} />
-                              <span>{item.name}</span>
-                            </Link>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                      ))}
+                                  ? "text-primary bg-primary/10 font-bold" 
+                                  : "text-muted-foreground hover:text-white hover:bg-white/5"
+                              )}
+                            >
+                              <Link href={item.href || "#"}>
+                                <div className={cn(
+                                  "w-1.5 h-1.5 rounded-full mr-2 transition-all duration-300",
+                                  pathname === item.href 
+                                    ? "bg-primary scale-100 shadow-[0_0_8px_rgba(var(--primary),0.8)]" 
+                                    : "bg-white/10 scale-50 group-hover/subitem:scale-75 group-hover/subitem:bg-white/30"
+                                )} />
+                                <span>{item.name}</span>
+                              </Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                         );
+                      })}
                     </SidebarMenuSub>
                   </CollapsibleContent>
                 </SidebarMenuItem>
@@ -294,10 +282,10 @@ function AppSidebar() {
               {!isCollapsed && (
                 <div className="flex flex-col min-w-0">
                   <span className="text-sm font-semibold truncate text-white/90">
-                    {user?.displayName || "Bar Staff"}
+                    {user?.displayName || "Staff Member"}
                   </span>
                   <span className="text-[10px] text-primary/70 truncate uppercase tracking-[0.2em] font-bold">
-                    {userRecord?.role || "Manager"}
+                    {userRecord?.role || "Staff"}
                   </span>
                 </div>
               )}
@@ -340,10 +328,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const filteredDepartments = useMemo(() => {
     if (!userRecord) return [];
     if (userRecord.role === 'admin') return departments;
+    
+    if (userRecord.role === 'front_desk') {
+       return departments.filter(dept => dept.role === 'front_desk' || (dept.title === 'Overview' && dept.items.some(i => i.href === '/reception')));
+    }
+
     return departments.filter(dept => dept.role === userRecord.role);
   }, [userRecord]);
-
-  const isAdmin = userRecord?.role === 'admin';
 
   const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
 
@@ -375,40 +366,30 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {isMobileMenuOpen && (
           <div className="md:hidden fixed inset-x-0 top-20 bottom-0 bg-background/95 backdrop-blur-3xl z-50 overflow-y-auto animate-in slide-in-from-top duration-300">
             <nav className="p-6 space-y-6">
-              {isAdmin && (
-                <Link 
-                  href="/" 
-                  className={cn(
-                    "flex items-center gap-3 p-4 rounded-xl font-bold transition-all",
-                    pathname === "/" ? "bg-primary text-primary-foreground" : "text-white/70 hover:bg-white/5"
-                  )}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  <LayoutDashboard className="w-5 h-5" /> Overview
-                </Link>
-              )}
-
               <div className="space-y-4">
-                <p className="text-[10px] uppercase tracking-[0.3em] font-bold text-muted-foreground/40 px-4">Departments</p>
                 {filteredDepartments.map((dept) => (
                   <div key={dept.title} className="space-y-2">
                     <div className="flex items-center gap-3 px-4 py-2 text-primary font-bold text-sm">
                       <dept.icon className="w-4 h-4" /> {dept.title}
                     </div>
                     <div className="grid grid-cols-1 gap-1 ml-4 border-l border-white/10 pl-4">
-                      {dept.items.map((item) => (
-                        <Link
-                          key={item.name}
-                          href={item.href || "#"}
-                          className={cn(
-                            "flex items-center gap-2 p-3 rounded-lg text-sm transition-all",
-                            pathname === item.href ? "text-primary bg-primary/10 font-bold" : "text-white/60 hover:text-white"
-                          )}
-                          onClick={() => setIsMobileMenuOpen(false)}
-                        >
-                          {item.name}
-                        </Link>
-                      ))}
+                      {dept.items.map((item) => {
+                        if (dept.title === "Overview" && item.name === "Bar Overview" && userRecord?.role === 'front_desk') return null;
+
+                        return (
+                          <Link
+                            key={item.name}
+                            href={item.href || "#"}
+                            className={cn(
+                              "flex items-center gap-2 p-3 rounded-lg text-sm transition-all",
+                              pathname === item.href ? "text-primary bg-primary/10 font-bold" : "text-white/60 hover:text-white"
+                            )}
+                            onClick={() => setIsMobileMenuOpen(false)}
+                          >
+                            {item.name}
+                          </Link>
+                        );
+                      })}
                     </div>
                   </div>
                 ))}

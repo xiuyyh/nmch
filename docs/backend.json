@@ -31,6 +31,40 @@
       },
       "required": ["name", "stock", "min", "price"]
     },
+    "RoomBooking": {
+      "title": "Room Booking",
+      "description": "An active stay for a guest in a room",
+      "type": "object",
+      "properties": {
+        "roomNumber": { "type": "string" },
+        "guestName": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "checkInDate": { "type": "string", "format": "date-time" },
+        "checkOutDate": { "type": "string", "format": "date-time" },
+        "checkInAmountPaid": { "type": "number" },
+        "retainingAmountPaid": { "type": "number" },
+        "totalStayCost": { "type": "number" },
+        "status": { "type": "string", "enum": ["active", "checked_out"] },
+        "isPaid": { "type": "boolean" },
+        "lastModified": { "type": "string", "format": "date-time" }
+      },
+      "required": ["roomNumber", "guestName", "checkInDate", "checkOutDate", "status"]
+    },
+    "FrontDeskShift": {
+      "title": "Front Desk Shift",
+      "description": "Record of a receptionist's shift and handover stats",
+      "type": "object",
+      "properties": {
+        "staffId": { "type": "string" },
+        "staffName": { "type": "string" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "endTime": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["active", "closed"] },
+        "openingOccupiedRooms": { "type": "number" },
+        "openingUnpaidDebt": { "type": "number" }
+      },
+      "required": ["staffId", "staffName", "startTime", "status"]
+    },
     "WarehouseItem": {
       "title": "Warehouse Stock Item",
       "description": "An item in the main store/warehouse",
@@ -238,6 +272,14 @@
     "/inventory/{itemId}": {
       "schema": "StockItem",
       "description": "Collection of bar inventory items"
+    },
+    "/roomBookings/{bookingId}": {
+      "schema": "RoomBooking",
+      "description": "Guest stay history and active sessions"
+    },
+    "/frontDeskShifts/{shiftId}": {
+      "schema": "FrontDeskShift",
+      "description": "Receptionist work sessions"
     },
     "/warehouseInventory/{itemId}": {
       "schema": "WarehouseItem",
