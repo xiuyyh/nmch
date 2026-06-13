@@ -49,14 +49,12 @@ export default function NewSupplyPage() {
   const [receiveItems, setReceiveItems] = useState<{ itemId: string; name: string; quantity: number }[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Fetch Warehouse Inventory
   const warehouseQuery = useMemo(() => {
     if (!firestore) return null;
     return query(collection(firestore, "warehouseInventory"), orderBy("name"));
   }, [firestore]);
   const { data: warehouseItems } = useCollection(warehouseQuery);
 
-  // Fetch Intake History
   const receivalsQuery = useMemo(() => {
     if (!firestore) return null;
     return query(collection(firestore, "stockReceivals"), orderBy("receivedDate", "desc"));
@@ -71,51 +69,56 @@ export default function NewSupplyPage() {
     );
   }, [warehouseItems, searchQuery]);
 
-  const handleReceiveStock = async () => {
+  const handleReceiveStock = () => {
     if (!firestore || !user || receiveItems.length === 0) return;
     setIsSubmitting(true);
 
     const receivalData = {
-      supplierName: "Direct Supply", // Generic as vendor directory is removed
+      supplierName: "Direct Supply",
       receivedDate: serverTimestamp(),
       receivedBy: user.displayName || user.email,
       items: receiveItems
     };
 
-    try {
-      // 1. Log the receival
-      const receivalRef = collection(firestore, "stockReceivals");
-      await addDoc(receivalRef, receivalData);
+    // Log Admin Action
+    addDoc(collection(firestore, "adminActions"), {
+      adminName: user.displayName || user.email,
+      adminId: user.uid,
+      action: "RECEIVE_SUPPLY",
+      entity: "WAREHOUSE",
+      details: `Received intake for ${receiveItems.length} warehouse items. Staff: ${user.displayName || user.email}`,
+      timestamp: serverTimestamp()
+    }).catch(() => {});
 
-      // 2. Update warehouse stock
-      for (const item of receiveItems) {
-        const itemRef = doc(firestore, "warehouseInventory", item.itemId);
-        await updateDoc(itemRef, {
-          stock: increment(item.quantity),
-          lastUpdated: serverTimestamp()
-        }).catch(err => {
-          errorEmitter.emit("permission-error", new FirestorePermissionError({
-            path: itemRef.path,
-            operation: "update",
-            requestResourceData: { stock: increment(item.quantity) }
-          }));
+    // Using .then() for robustness
+    const receivalRef = collection(firestore, "stockReceivals");
+    addDoc(receivalRef, receivalData)
+      .then(() => {
+        const updatePromises = receiveItems.map(item => {
+          const itemRef = doc(firestore, "warehouseInventory", item.itemId);
+          return updateDoc(itemRef, {
+            stock: increment(item.quantity),
+            lastUpdated: serverTimestamp()
+          });
         });
-      }
 
-      setReceiveItems([]);
-      toast({ 
-        title: "Warehouse Updated", 
-        description: `Successfully added ${receiveItems.length} items to warehouse stock.` 
+        Promise.all(updatePromises)
+          .then(() => {
+            setReceiveItems([]);
+            toast({ 
+              title: "Warehouse Updated", 
+              description: `Successfully added ${receiveItems.length} items to warehouse stock.` 
+            });
+          })
+          .catch(err => {
+            toast({ variant: "destructive", title: "Update Error", description: "Warehouse stock levels failed to update." });
+          })
+          .finally(() => setIsSubmitting(false));
+      })
+      .catch(error => {
+        toast({ variant: "destructive", title: "Error", description: "Failed to process stock intake." });
+        setIsSubmitting(false);
       });
-    } catch (error) {
-      toast({ 
-        variant: "destructive", 
-        title: "Error", 
-        description: "Failed to process stock intake." 
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
   };
 
   const addItemToBatch = (item: any) => {
@@ -159,7 +162,6 @@ export default function NewSupplyPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Active Batch & Selector */}
           <div className="space-y-6">
             <Card className="glass-card overflow-hidden">
               <CardHeader className="bg-white/5 border-b border-white/5">
@@ -243,7 +245,6 @@ export default function NewSupplyPage() {
             </Card>
           </div>
 
-          {/* Intake History */}
           <div className="space-y-6">
             <h2 className="text-lg font-headline font-bold flex items-center gap-2 text-white">
               <History className="w-5 h-5 text-primary" /> Today's Supply Log

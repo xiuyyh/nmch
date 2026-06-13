@@ -29,7 +29,8 @@ import {
   WifiOff,
   CloudUpload,
   Clock,
-  Filter
+  Filter,
+  FileSearch
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -120,6 +121,7 @@ const departments = [
     role: "admin",
     items: [
       { name: "User Management", href: "/admin/users", icon: UsersIcon },
+      { name: "Admin Actions", href: "/admin/actions", icon: FileSearch },
       { name: "Analytics", href: "/reports", icon: LayoutDashboard },
     ],
   },
@@ -346,7 +348,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider>
-      <div className="flex h-screen overflow-hidden bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-zinc-900 via-background to-black w-full flex-col md:flex-row">
+      <div className="flex h-screen overflow-hidden bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-zinc-900 via-background to-black w-full flex-col md:flex-row">
         
         {/* Mobile Navbar */}
         <header className="md:hidden flex items-center justify-between h-20 px-6 border-b border-white/5 bg-background/30 backdrop-blur-2xl sticky top-0 z-[60]">

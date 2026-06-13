@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useMemo, useState, useEffect } from "react";
@@ -23,7 +24,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { useCollection, useFirestore, useUser } from "@/firebase";
-import { collection, query, orderBy, doc, updateDoc, increment, serverTimestamp, getDocs, where } from "firebase/firestore";
+import { collection, query, orderBy, doc, updateDoc, increment, serverTimestamp, getDocs, where, addDoc } from "firebase/firestore";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { errorEmitter } from "@/firebase/error-emitter";
@@ -87,9 +88,18 @@ export default function StoreRequestsPage() {
       items: action === "Approved" ? requestAdjustments : request.items
     };
 
-    // Use .then() chain instead of await
     updateDoc(requestRef, updateData)
       .then(() => {
+        // Log Admin Action
+        addDoc(collection(firestore, "adminActions"), {
+          adminName: user.displayName || user.email,
+          adminId: user.uid,
+          action: action === "Approved" ? "APPROVE_RESTOCK" : "REJECT_RESTOCK",
+          entity: "REQUEST",
+          details: `${action} restock request from ${request.requestedBy} for ${request.items.length} items.`,
+          timestamp: serverTimestamp()
+        }).catch(() => {});
+
         if (action === "Approved") {
           const syncPromises = requestAdjustments.map((item: any) => {
             if (!item.isDeclined && item.approvedQuantity > 0) {

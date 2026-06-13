@@ -209,6 +209,20 @@
         "status": { "type": "string", "enum": ["active", "closed"] }
       },
       "required": ["staffId", "staffName", "startTime", "openingStock", "status"]
+    },
+    "AdminAction": {
+      "title": "Admin Action Log",
+      "description": "History of sensitive actions performed by administrators",
+      "type": "object",
+      "properties": {
+        "adminName": { "type": "string" },
+        "adminId": { "type": "string" },
+        "action": { "type": "string" },
+        "entity": { "type": "string" },
+        "details": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["adminName", "action", "timestamp"]
     }
   },
   "auth": {
@@ -262,6 +276,10 @@
     "/shifts/{shiftId}": {
       "schema": "Shift",
       "description": "History of staff shifts and opening stock"
+    },
+    "/adminActions/{actionId}": {
+      "schema": "AdminAction",
+      "description": "Audit trail of admin operations"
     }
   }
 }

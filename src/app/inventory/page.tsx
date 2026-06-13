@@ -42,7 +42,7 @@ import {
   Trash2,
   Tags
 } from "lucide-react";
-import { useCollection, useFirestore } from "@/firebase";
+import { useCollection, useFirestore, useUser } from "@/firebase";
 import { 
   collection, 
   query, 
@@ -64,6 +64,7 @@ const ITEMS_PER_PAGE = 10;
 
 export default function InventoryPage() {
   const firestore = useFirestore();
+  const { user } = useUser();
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -74,7 +75,6 @@ export default function InventoryPage() {
   
   const [editCategory, setEditCategory] = useState<string>("");
 
-  // Fetch Categories dynamically from Firestore
   const categoriesQuery = useMemo(() => {
     if (!firestore) return null;
     return query(collection(firestore, "inventoryCategories"), orderBy("name"));
@@ -112,9 +112,9 @@ export default function InventoryPage() {
     };
   }, [stockItems]);
 
-  const handleUpdateItem = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleUpdateItem = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!firestore || !editingItem) return;
+    if (!firestore || !editingItem || !user) return;
 
     const formData = new FormData(e.currentTarget);
     const category = editCategory;
@@ -139,7 +139,16 @@ export default function InventoryPage() {
     const itemRef = doc(firestore, "inventory", editingItem.id);
     updateDoc(itemRef, updatedData)
       .then(() => {
-        // Sync definition with Warehouse Inventory (if not Food)
+        // Log Admin Action
+        addDoc(collection(firestore, "adminActions"), {
+          adminName: user.displayName || user.email,
+          adminId: user.uid,
+          action: "UPDATE_ITEM",
+          entity: "INVENTORY",
+          details: `Updated ${editingItem.name}. New Price: ₦${price.toLocaleString()}, New Stock: ${stock} ${unit}`,
+          timestamp: serverTimestamp()
+        }).catch(() => {});
+
         if (!isFood) {
           const warehouseRef = doc(firestore, "warehouseInventory", editingItem.id);
           setDoc(warehouseRef, {
@@ -172,8 +181,8 @@ export default function InventoryPage() {
       });
   };
 
-  const handleAddCategory = async () => {
-    if (!firestore || !newCategoryName.trim()) return;
+  const handleAddCategory = () => {
+    if (!firestore || !newCategoryName.trim() || !user) return;
     
     const categoryData = {
       name: newCategoryName.trim().toUpperCase()
@@ -181,6 +190,16 @@ export default function InventoryPage() {
 
     addDoc(collection(firestore, "inventoryCategories"), categoryData)
       .then(() => {
+        // Log Admin Action
+        addDoc(collection(firestore, "adminActions"), {
+          adminName: user.displayName || user.email,
+          adminId: user.uid,
+          action: "CREATE_CATEGORY",
+          entity: "CATEGORY",
+          details: `Created new inventory category: ${categoryData.name}`,
+          timestamp: serverTimestamp()
+        }).catch(() => {});
+
         setNewCategoryName("");
         toast({ title: "Category Added", description: "Successfully added new category." });
       })
@@ -193,11 +212,21 @@ export default function InventoryPage() {
       });
   };
 
-  const handleDeleteCategory = async (id: string, name: string) => {
-    if (!firestore) return;
+  const handleDeleteCategory = (id: string, name: string) => {
+    if (!firestore || !user) return;
     const categoryRef = doc(firestore, "inventoryCategories", id);
     deleteDoc(categoryRef)
       .then(() => {
+        // Log Admin Action
+        addDoc(collection(firestore, "adminActions"), {
+          adminName: user.displayName || user.email,
+          adminId: user.uid,
+          action: "DELETE_CATEGORY",
+          entity: "CATEGORY",
+          details: `Deleted inventory category: ${name}`,
+          timestamp: serverTimestamp()
+        }).catch(() => {});
+
         toast({ title: "Category Deleted", description: `Category ${name} removed.` });
       })
       .catch(error => {
@@ -219,7 +248,7 @@ export default function InventoryPage() {
       <div className="flex flex-col gap-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-headline font-bold uppercase tracking-tight">Bar Inventory</h1>
+            <h1 className="text-3xl font-headline font-bold uppercase tracking-tight text-white">Bar Inventory</h1>
             <p className="text-muted-foreground">Manage stock levels and sales pricing.</p>
           </div>
           <div className="flex gap-2">
@@ -451,11 +480,11 @@ export default function InventoryPage() {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="edit-stock" className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Stock</Label>
-                      <Input id="edit-stock" name="stock" type="number" step="1" defaultValue={editingItem.stock} required className="bg-white/5 border-white/10 h-12" />
+                      <Input id="edit-stock" name="stock" type="number" defaultValue={editingItem.stock} required className="bg-white/5 border-white/10 h-12" />
                     </div>
                     <div className="space-y-2 col-span-2">
                       <Label htmlFor="edit-min" className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Threshold</Label>
-                      <Input id="edit-min" name="min" type="number" step="1" defaultValue={editingItem.min} required className="bg-white/5 border-white/10 h-12" />
+                      <Input id="edit-min" name="min" type="number" defaultValue={editingItem.min} required className="bg-white/5 border-white/10 h-12" />
                     </div>
                   </>
                 )}

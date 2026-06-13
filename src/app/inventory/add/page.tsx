@@ -16,29 +16,29 @@ import {
   SelectValue 
 } from "@/components/ui/select";
 import { ChevronLeft, Package, Save } from "lucide-react";
-import { useCollection, useFirestore } from "@/firebase";
-import { collection, query, orderBy, doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { useCollection, useFirestore, useUser } from "@/firebase";
+import { collection, query, orderBy, doc, setDoc, serverTimestamp, addDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { errorEmitter } from "@/firebase/error-emitter";
 import { FirestorePermissionError } from "@/firebase/errors";
 
 export default function AddInventoryItemPage() {
   const firestore = useFirestore();
+  const { user } = useUser();
   const { toast } = useToast();
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
 
-  // Fetch Categories dynamically from Firestore
   const categoriesQuery = useMemo(() => {
     if (!firestore) return null;
     return query(collection(firestore, "inventoryCategories"), orderBy("name"));
   }, [firestore]);
   const { data: categories } = useCollection(categoriesQuery);
 
-  const handleAddItem = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleAddItem = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!firestore || isSubmitting) return;
+    if (!firestore || isSubmitting || !user) return;
 
     setIsSubmitting(true);
     const formData = new FormData(e.currentTarget);
@@ -61,21 +61,29 @@ export default function AddInventoryItemPage() {
       lastUpdated: serverTimestamp()
     };
 
-    // Create a new document reference with a generated ID so we can use the same ID for mirroring
     const inventoryCol = collection(firestore, "inventory");
     const itemRef = doc(inventoryCol);
 
     setDoc(itemRef, newItem)
-      .then(async () => {
-        // Mirror to Warehouse Inventory (unless it's Food)
+      .then(() => {
+        // Log Admin Action
+        addDoc(collection(firestore, "adminActions"), {
+          adminName: user.displayName || user.email,
+          adminId: user.uid,
+          action: "CREATE_ITEM",
+          entity: "INVENTORY",
+          details: `Added new ${category} item: ${name} (Price: ₦${price.toLocaleString()})`,
+          timestamp: serverTimestamp()
+        }).catch(() => {});
+
         if (!isFood) {
           const warehouseRef = doc(firestore, "warehouseInventory", itemRef.id);
           const warehouseData = {
             name,
             category,
             unit,
-            stock: 0, // Starts at 0 until updated via Warehouse Intake
-            min: 5,   // Default warehouse threshold
+            stock: 0,
+            min: 5,
             lastUpdated: serverTimestamp()
           };
           
@@ -113,7 +121,7 @@ export default function AddInventoryItemPage() {
           <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-full">
             <ChevronLeft className="w-5 h-5" />
           </Button>
-          <h1 className="text-3xl font-headline font-bold uppercase tracking-tight">Add New Item</h1>
+          <h1 className="text-3xl font-headline font-bold uppercase tracking-tight text-white">Add New Item</h1>
         </div>
 
         <Card className="glass-card">
