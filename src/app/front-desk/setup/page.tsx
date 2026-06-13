@@ -25,10 +25,12 @@ import {
   Zap,
   Loader2,
   Settings2,
-  Building2
+  Building2,
+  Edit2,
+  X
 } from "lucide-react";
 import { useCollection, useFirestore, useUser } from "@/firebase";
-import { collection, query, orderBy, addDoc, serverTimestamp, doc, deleteDoc, writeBatch } from "firebase/firestore";
+import { collection, query, orderBy, addDoc, serverTimestamp, doc, deleteDoc, writeBatch, updateDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
@@ -39,6 +41,7 @@ export default function ApartmentSetupPage() {
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isQuickSetting, setIsQuickSetting] = useState(false);
+  const [editingApartment, setEditingApartment] = useState<any>(null);
 
   const apartmentsQuery = useMemo(() => {
     if (!firestore) return null;
@@ -47,7 +50,7 @@ export default function ApartmentSetupPage() {
 
   const { data: apartments, loading } = useCollection(apartmentsQuery);
 
-  const handleAddApartment = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!firestore || isSubmitting) return;
 
@@ -63,19 +66,34 @@ export default function ApartmentSetupPage() {
     }
 
     setIsSubmitting(true);
+    
     const apartmentData = {
       name,
       type,
       roomNumbers,
-      createdAt: serverTimestamp()
+      lastModified: serverTimestamp()
     };
 
-    addDoc(collection(firestore, "apartments"), apartmentData)
-      .then(() => {
-        toast({ title: "Apartment Added", description: `${name} has been configured.` });
-        (e.target as HTMLFormElement).reset();
+    if (editingApartment) {
+      const docRef = doc(firestore, "apartments", editingApartment.id);
+      updateDoc(docRef, apartmentData)
+        .then(() => {
+          toast({ title: "Apartment Updated", description: `${name} configuration has been saved.` });
+          setEditingApartment(null);
+          (e.target as HTMLFormElement).reset();
+        })
+        .finally(() => setIsSubmitting(false));
+    } else {
+      addDoc(collection(firestore, "apartments"), {
+        ...apartmentData,
+        createdAt: serverTimestamp()
       })
-      .finally(() => setIsSubmitting(false));
+        .then(() => {
+          toast({ title: "Apartment Added", description: `${name} has been configured.` });
+          (e.target as HTMLFormElement).reset();
+        })
+        .finally(() => setIsSubmitting(false));
+    }
   };
 
   const handleQuickSetup = async () => {
@@ -125,7 +143,13 @@ export default function ApartmentSetupPage() {
     if (!firestore) return;
     deleteDoc(doc(firestore, "apartments", id)).then(() => {
       toast({ title: "Deleted", description: "Apartment configuration removed." });
+      if (editingApartment?.id === id) setEditingApartment(null);
     });
+  };
+
+  const startEditing = (apt: any) => {
+    setEditingApartment(apt);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
@@ -152,21 +176,32 @@ export default function ApartmentSetupPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
             <div className="lg:col-span-1">
-              <Card className="glass-card sticky top-28">
+              <Card className={cn(
+                "glass-card sticky top-28 transition-all duration-500",
+                editingApartment && "border-primary/40 ring-1 ring-primary/20"
+              )}>
                 <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Plus className="text-primary w-5 h-5" /> Define New Flat
+                  <CardTitle className="text-lg flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {editingApartment ? <Edit2 className="text-primary w-5 h-5" /> : <Plus className="text-primary w-5 h-5" />}
+                      {editingApartment ? "Edit Apartment" : "Define New Flat"}
+                    </div>
+                    {editingApartment && (
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setEditingApartment(null)}>
+                        <X className="w-4 h-4" />
+                      </Button>
+                    )}
                   </CardTitle>
                 </CardHeader>
-                <form onSubmit={handleAddApartment}>
+                <form key={editingApartment?.id || 'new'} onSubmit={handleSubmit}>
                   <CardContent className="space-y-5">
                     <div className="space-y-2">
                       <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Apartment Name</Label>
-                      <Input name="name" placeholder="e.g. Flat 1" required className="bg-white/5 border-white/10 h-11" />
+                      <Input name="name" defaultValue={editingApartment?.name} placeholder="e.g. Flat 1" required className="bg-white/5 border-white/10 h-11" />
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Unit Type</Label>
-                      <Select name="type" defaultValue="3-bed">
+                      <Select name="type" defaultValue={editingApartment?.type || "3-bed"}>
                         <SelectTrigger className="bg-white/5 border-white/10 h-11">
                           <SelectValue />
                         </SelectTrigger>
@@ -179,14 +214,25 @@ export default function ApartmentSetupPage() {
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Constituent Room Numbers</Label>
-                      <Input name="rooms" placeholder="101, 102, 103" required className="bg-white/5 border-white/10 h-11" />
+                      <Input 
+                        name="rooms" 
+                        defaultValue={editingApartment?.roomNumbers?.join(", ")} 
+                        placeholder="101, 102, 103" 
+                        required 
+                        className="bg-white/5 border-white/10 h-11" 
+                      />
                       <p className="text-[9px] text-muted-foreground/60 italic leading-tight">Enter room numbers separated by commas. These will be individually bookable.</p>
                     </div>
                   </CardContent>
-                  <CardFooter>
+                  <CardFooter className="flex flex-col gap-3">
                     <Button type="submit" disabled={isSubmitting} className="w-full h-12 bg-primary text-primary-foreground font-bold shadow-lg">
-                      <Save className="w-4 h-4 mr-2" /> Save Configuration
+                      <Save className="w-4 h-4 mr-2" /> {editingApartment ? "Save Changes" : "Save Configuration"}
                     </Button>
+                    {editingApartment && (
+                      <Button type="button" variant="ghost" onClick={() => setEditingApartment(null)} className="w-full text-muted-foreground h-10">
+                        Cancel Edit
+                      </Button>
+                    )}
                   </CardFooter>
                 </form>
               </Card>
@@ -207,10 +253,16 @@ export default function ApartmentSetupPage() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {apartments?.map(apt => (
-                    <Card key={apt.id} className="glass-card hover:border-primary/20 transition-all group">
+                    <Card key={apt.id} className={cn(
+                      "glass-card hover:border-primary/20 transition-all group relative",
+                      editingApartment?.id === apt.id && "border-primary ring-1 ring-primary/40"
+                    )}>
                       <CardHeader className="p-4 border-b border-white/5 flex flex-row items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary/20 transition-colors">
+                          <div className={cn(
+                            "w-10 h-10 rounded-xl flex items-center justify-center transition-colors",
+                            editingApartment?.id === apt.id ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary group-hover:bg-primary/20"
+                          )}>
                             <Home className="w-5 h-5" />
                           </div>
                           <div>
@@ -218,9 +270,14 @@ export default function ApartmentSetupPage() {
                             <Badge variant="outline" className="text-[8px] uppercase h-4 px-1 border-white/10 text-muted-foreground">{apt.type}</Badge>
                           </div>
                         </div>
-                        <Button variant="ghost" size="icon" onClick={() => handleDelete(apt.id)} className="h-8 w-8 text-muted-foreground hover:text-destructive">
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => startEditing(apt)} className="h-8 w-8 text-muted-foreground hover:text-primary">
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleDelete(apt.id)} className="h-8 w-8 text-muted-foreground hover:text-destructive">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
                       </CardHeader>
                       <CardContent className="p-4">
                         <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block mb-2">Bookable Rooms:</span>
