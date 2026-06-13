@@ -13,34 +13,20 @@ import {
   Clock,
   User,
   ChefHat,
-  Utensils
+  Utensils,
+  ShieldCheck
 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, XAxis } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { useCollection, useFirestore } from "@/firebase";
 import { collection, query, where, orderBy, limit } from "firebase/firestore";
-import { startOfDay, endOfDay, format } from "date-fns";
+import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
 export default function BarOverviewDashboard() {
   const firestore = useFirestore();
 
-  // 1. Fetch Today's Sales
-  const todaySalesQuery = useMemo(() => {
-    if (!firestore) return null;
-    const start = startOfDay(new Date());
-    const end = endOfDay(new Date());
-    return query(
-      collection(firestore, "sales"),
-      where("timestamp", ">=", start),
-      where("timestamp", "<=", end),
-      orderBy("timestamp", "desc")
-    );
-  }, [firestore]);
-
-  const { data: todaySales, loading: salesLoading } = useCollection(todaySalesQuery);
-
-  // 2. Fetch Active Session (Worker on Duty)
+  // 1. Fetch the globally active shift (who is currently on duty)
   const activeShiftQuery = useMemo(() => {
     if (!firestore) return null;
     return query(
@@ -51,23 +37,33 @@ export default function BarOverviewDashboard() {
   }, [firestore]);
 
   const { data: activeShifts, loading: shiftLoading } = useCollection(activeShiftQuery);
-  const workerOnDuty = activeShifts?.[0]?.staffName || "No active shift";
+  const activeShift = activeShifts?.[0];
 
-  // 3. Fetch Today's Food Orders
-  const foodOrdersQuery = useMemo(() => {
-    if (!firestore) return null;
-    const start = startOfDay(new Date());
-    const end = endOfDay(new Date());
+  // 2. Fetch Sales for the ACTIVE SHIFT only
+  const shiftSalesQuery = useMemo(() => {
+    if (!firestore || !activeShift) return null;
+    return query(
+      collection(firestore, "sales"),
+      where("shiftId", "==", activeShift.id),
+      orderBy("timestamp", "desc")
+    );
+  }, [firestore, activeShift]);
+
+  const { data: shiftSales, loading: salesLoading } = useCollection(shiftSalesQuery);
+
+  // 3. Fetch Kitchen Orders since the shift started
+  const shiftFoodOrdersQuery = useMemo(() => {
+    if (!firestore || !activeShift?.startTime) return null;
     return query(
       collection(firestore, "kitchenOrders"),
-      where("timestamp", ">=", start),
-      where("timestamp", "<=", end)
+      where("timestamp", ">=", activeShift.startTime),
+      orderBy("timestamp", "desc")
     );
-  }, [firestore]);
+  }, [firestore, activeShift]);
 
-  const { data: foodOrders, loading: foodLoading } = useCollection(foodOrdersQuery);
+  const { data: foodOrders, loading: foodLoading } = useCollection(shiftFoodOrdersQuery);
 
-  // 4. Fetch Active Table Tabs
+  // 4. Fetch Active Table Tabs (regardless of shift, as tables persist handovers)
   const activeSessionsQuery = useMemo(() => {
     if (!firestore) return null;
     return query(collection(firestore, "tableSessions"));
@@ -77,32 +73,32 @@ export default function BarOverviewDashboard() {
 
   // 5. Calculate Stats
   const stats = useMemo(() => {
-    const validSales = todaySales?.filter(s => s.status !== "Canceled") || [];
+    const validSales = shiftSales?.filter(s => s.status !== "Canceled") || [];
     const revenue = validSales.reduce((sum, s) => sum + (s.total || 0), 0);
     const activeCount = activeSessions?.length || 0;
     const foodCount = foodOrders?.length || 0;
 
     return [
       { 
-        label: "Today's Bar Revenue", 
+        label: "Active Shift Revenue", 
         value: `₦${revenue.toLocaleString()}`, 
         icon: Banknote, 
         color: "text-primary",
         sub: `${validSales.length} Transactions`
       },
       { 
-        label: "Worker on Duty", 
-        value: workerOnDuty, 
+        label: "Staff on Duty", 
+        value: activeShift?.staffName || "None", 
         icon: User, 
         color: "text-secondary",
-        sub: activeShifts?.[0] ? "Currently Active" : "Handover Required"
+        sub: activeShift ? "Session Active" : "Handover Required"
       },
       { 
-        label: "Total Food Orders", 
+        label: "Shift Food Orders", 
         value: foodCount.toString(), 
         icon: ChefHat, 
         color: "text-emerald-500",
-        sub: "From Kitchen Queue"
+        sub: "Kitchen Queue"
       },
       { 
         label: "Open Table Tabs", 
@@ -112,14 +108,14 @@ export default function BarOverviewDashboard() {
         sub: "Pending Checkout"
       },
     ];
-  }, [todaySales, activeSessions, foodOrders, workerOnDuty, activeShifts]);
+  }, [shiftSales, activeSessions, foodOrders, activeShift]);
 
-  // 6. Process Chart Data (Hourly buckets)
+  // 6. Process Chart Data (Hourly buckets for the current shift)
   const chartData = useMemo(() => {
-    if (!todaySales) return [];
+    if (!shiftSales) return [];
     
     const buckets: Record<string, number> = {};
-    const validSales = todaySales.filter(s => s.status !== "Canceled");
+    const validSales = shiftSales.filter(s => s.status !== "Canceled");
     
     validSales.forEach(sale => {
       if (sale.timestamp?.toDate) {
@@ -128,11 +124,12 @@ export default function BarOverviewDashboard() {
       }
     });
 
+    // Sort buckets by hour to ensure chronological order in the shift
     return Object.entries(buckets).map(([time, sales]) => ({
       time,
       sales
-    })).reverse().slice(-7);
-  }, [todaySales]);
+    })).reverse();
+  }, [shiftSales]);
 
   const chartConfig = {
     sales: {
@@ -141,11 +138,14 @@ export default function BarOverviewDashboard() {
     },
   };
 
-  if (salesLoading || sessionsLoading || shiftLoading || foodLoading) {
+  if (shiftLoading || salesLoading || sessionsLoading || foodLoading) {
     return (
       <AppShell>
         <div className="flex h-[60vh] items-center justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="w-10 h-10 animate-spin text-primary" />
+            <p className="text-xs font-bold uppercase tracking-[0.3em] text-muted-foreground animate-pulse">Syncing Shift Dashboard...</p>
+          </div>
         </div>
       </AppShell>
     );
@@ -160,14 +160,20 @@ export default function BarOverviewDashboard() {
               <h1 className="text-3xl font-headline font-bold mb-2 uppercase tracking-tight text-white flex items-center gap-3">
                 <Utensils className="w-8 h-8 text-primary" /> Bar Overview
               </h1>
-              <p className="text-muted-foreground">Daily operations summary and real-time performance tracking.</p>
+              <p className="text-muted-foreground">Session-based performance tracking (WAT). Focus on the active worker's throughput.</p>
             </div>
+            {!activeShift && (
+              <div className="bg-amber-500/10 border border-amber-500/20 px-4 py-2 rounded-xl flex items-center gap-3 animate-pulse">
+                <AlertCircle className="w-5 h-5 text-amber-500" />
+                <span className="text-xs font-bold text-amber-500 uppercase tracking-widest">No Active Shift - Data Reset to Zero</span>
+              </div>
+            )}
           </div>
 
           {/* Stats Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {stats.map((stat) => (
-              <Card key={stat.label} className="glass-card overflow-hidden">
+              <Card key={stat.label} className="glass-card overflow-hidden transition-all hover:border-primary/20">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{stat.label}</CardTitle>
                   <div className={cn("p-2 rounded-lg bg-white/5", stat.color)}>
@@ -187,7 +193,7 @@ export default function BarOverviewDashboard() {
             <Card className="lg:col-span-2 glass-card">
               <CardHeader className="border-b border-white/5 pb-4">
                 <CardTitle className="text-xl font-headline flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-primary" /> Sales Velocity (Hourly)
+                  <Clock className="w-5 h-5 text-primary" /> Shift Sales Velocity
                 </CardTitle>
               </CardHeader>
               <CardContent className="h-[350px] w-full pt-8">
@@ -212,8 +218,9 @@ export default function BarOverviewDashboard() {
                     </BarChart>
                   </ChartContainer>
                 ) : (
-                  <div className="h-full flex items-center justify-center text-muted-foreground italic">
-                    No sales recorded yet today.
+                  <div className="h-full flex flex-col items-center justify-center text-muted-foreground opacity-30 gap-4">
+                    <TrendingUp className="w-12 h-12" />
+                    <p className="italic text-sm font-bold uppercase tracking-widest">Waiting for first sale of this shift...</p>
                   </div>
                 )}
               </CardContent>
@@ -223,7 +230,7 @@ export default function BarOverviewDashboard() {
             <Card className="glass-card">
               <CardHeader className="border-b border-white/5">
                 <CardTitle className="text-xl font-headline flex items-center gap-2">
-                  <ChefHat className="w-5 h-5 text-primary" /> Latest Kitchen Orders
+                  <ChefHat className="w-5 h-5 text-primary" /> Shift Kitchen Orders
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0">
@@ -232,21 +239,29 @@ export default function BarOverviewDashboard() {
                     <div key={order.id} className="p-4 flex items-center justify-between hover:bg-white/[0.01] transition-colors">
                       <div className="flex flex-col">
                         <span className="font-bold text-sm text-white">{order.tableNumber}</span>
-                        <span className="text-[10px] text-muted-foreground uppercase font-bold">
-                          {order.items?.length || 0} items • {order.status}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className={cn(
+                            "text-[8px] font-bold uppercase px-1.5 py-0.5 rounded-full border",
+                            order.status === 'Delivered' ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                          )}>
+                            {order.status}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground uppercase font-bold">
+                            {order.items?.length || 0} items
+                          </span>
+                        </div>
                       </div>
                       <div className="text-right">
                         <span className="text-[10px] text-muted-foreground uppercase font-bold">
-                          {order.timestamp?.toDate ? format(order.timestamp.toDate(), "HH:mm") : "Just now"}
+                          {order.timestamp?.toDate ? format(order.timestamp.toDate(), "HH:mm") : "..."}
                         </span>
                       </div>
                     </div>
                   ))}
                   {foodOrders?.length === 0 && (
-                    <div className="py-20 text-center flex flex-col items-center opacity-40">
-                      <ChefHat className="w-10 h-10 mb-2" />
-                      <p className="italic text-xs">No food orders processed today</p>
+                    <div className="py-20 text-center flex flex-col items-center opacity-40 gap-4">
+                      <ChefHat className="w-12 h-12" />
+                      <p className="italic text-[10px] font-bold uppercase tracking-[0.2em]">No food orders recorded this shift</p>
                     </div>
                   )}
                 </div>
