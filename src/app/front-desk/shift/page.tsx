@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -19,20 +20,27 @@ import {
   Loader2,
   Contact
 } from "lucide-react";
-import { useCollection, useFirestore, useUser } from "@/firebase";
+import { useCollection, useFirestore, useUser, useDoc } from "@/firebase";
 import { collection, query, where, orderBy, addDoc, serverTimestamp, doc, updateDoc, limit, getDocs } from "firebase/firestore";
-import { format, differenceInHours, formatDistanceToNow } from "date-fns";
+import { format, differenceInMinutes, formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { cn, formatNigeriaTime } from "@/lib/utils";
 import Link from "next/link";
 
-const COOLDOWN_HOURS = 8;
+const COOLDOWN_MINUTES = 8 * 60; // 8 Hours
 
 export default function FrontDeskShiftPage() {
   const firestore = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
   const [isStarting, setIsStarting] = useState(false);
+
+  const userRef = useMemo(() => {
+    if (!firestore || !user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
+  const { data: userRecord } = useDoc(userRef);
+  const isAdmin = userRecord?.role === 'admin';
 
   // 1. Fetch All Active Shifts
   const allActiveShiftsQuery = useMemo(() => {
@@ -63,15 +71,18 @@ export default function FrontDeskShiftPage() {
   const lastClosedShift = lastUserShifts?.[0];
 
   const cooldownStatus = useMemo(() => {
-    if (!lastClosedShift?.endTime) return { onCooldown: false };
+    if (!lastClosedShift?.endTime || isAdmin) return { onCooldown: false };
     const end = lastClosedShift.endTime.toDate();
-    const hoursSince = differenceInHours(new Date(), end);
+    const minsSince = differenceInMinutes(new Date(), end);
+    const remainingMins = COOLDOWN_MINUTES - minsSince;
+    
     return {
-      onCooldown: hoursSince < COOLDOWN_HOURS,
-      remaining: COOLDOWN_HOURS - hoursSince,
+      onCooldown: remainingMins > 0,
+      remainingHours: Math.floor(remainingMins / 60),
+      remainingMins: remainingMins % 60,
       endTime: end
     };
-  }, [lastClosedShift]);
+  }, [lastClosedShift, isAdmin]);
 
   // 3. Fetch Global Shift History
   const historyQuery = useMemo(() => {
@@ -83,13 +94,13 @@ export default function FrontDeskShiftPage() {
   const handleStartShift = async () => {
     if (!firestore || !user) return;
     
-    if (otherActiveShift) {
+    if (otherActiveShift && !isAdmin) {
       toast({ variant: "destructive", title: "Counter Occupied", description: `${otherActiveShift.staffName} is currently on duty.` });
       return;
     }
 
-    if (cooldownStatus.onCooldown) {
-      toast({ variant: "destructive", title: "Cooldown Active", description: `Please wait ${cooldownStatus.remaining}h.` });
+    if (cooldownStatus.onCooldown && !isAdmin) {
+      toast({ variant: "destructive", title: "Cooldown Active", description: `Please wait ${cooldownStatus.remainingHours}h ${cooldownStatus.remainingMins}m.` });
       return;
     }
 
@@ -156,12 +167,15 @@ export default function FrontDeskShiftPage() {
                     </div>
                   )}
 
-                  {cooldownStatus.onCooldown && (
+                  {cooldownStatus.onCooldown && !isAdmin && (
                     <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-2xl flex items-center gap-4">
                       <AlertCircle className="w-6 h-6 text-destructive" />
-                      <p className="text-xs text-muted-foreground">
-                        Cooldown active for another <strong>{cooldownStatus.remaining} hours</strong>. (Last session ended {formatDistanceToNow(cooldownStatus.endTime)} ago).
-                      </p>
+                      <div className="space-y-1">
+                        <p className="text-sm font-bold text-destructive uppercase tracking-widest">Personal Security Lock</p>
+                        <p className="text-xs text-muted-foreground">
+                          You cannot start a new shift for another <strong>{cooldownStatus.remainingHours}h {cooldownStatus.remainingMins}m</strong>. (Session ended {formatDistanceToNow(cooldownStatus.endTime)} ago).
+                        </p>
+                      </div>
                     </div>
                   )}
 
@@ -176,10 +190,18 @@ export default function FrontDeskShiftPage() {
                     <CardFooter>
                       <Button 
                         onClick={handleStartShift} 
-                        disabled={isStarting || !!otherActiveShift || cooldownStatus.onCooldown} 
+                        disabled={isStarting || (!!otherActiveShift && !isAdmin) || (cooldownStatus.onCooldown && !isAdmin)} 
                         className="w-full h-16 bg-primary text-primary-foreground font-bold text-xl rounded-2xl shadow-xl"
                       >
-                        {isStarting ? <Loader2 className="animate-spin" /> : "Verify Handover & Start"}
+                        {isStarting ? (
+                          <Loader2 className="animate-spin" />
+                        ) : (otherActiveShift && !isAdmin) ? (
+                          "Waiting for Handover..."
+                        ) : (cooldownStatus.onCooldown && !isAdmin) ? (
+                          `Locked (${cooldownStatus.remainingHours}h ${cooldownStatus.remainingMins}m)`
+                        ) : (
+                          "Verify Handover & Start"
+                        )}
                       </Button>
                     </CardFooter>
                   </Card>

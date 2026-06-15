@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useMemo, useState, useEffect } from "react";
@@ -28,7 +29,7 @@ import {
 } from "@/components/ui/collapsible";
 import { useCollection, useFirestore, useUser, useDoc } from "@/firebase";
 import { collection, query, where, orderBy, addDoc, serverTimestamp, doc, updateDoc, limit } from "firebase/firestore";
-import { startOfDay, endOfDay, differenceInHours, formatDistanceToNow } from "date-fns";
+import { startOfDay, endOfDay, differenceInMinutes, formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { errorEmitter } from "@/firebase/error-emitter";
 import { FirestorePermissionError } from "@/firebase/errors";
@@ -36,7 +37,7 @@ import { cn, formatNigeriaTime } from "@/lib/utils";
 import Link from "next/link";
 
 const HISTORY_PER_PAGE = 5;
-const COOLDOWN_HOURS = 8;
+const COOLDOWN_MINUTES = 8 * 60; // 8 Hours
 
 export default function ShiftManagementPage() {
   const firestore = useFirestore();
@@ -58,7 +59,6 @@ export default function ShiftManagementPage() {
   }, [firestore]);
   const { data: inventory, loading: inventoryLoading } = useCollection(inventoryQuery);
 
-  // 1. Fetch ALL Active Shifts (to check for conflicts)
   const allActiveShiftsQuery = useMemo(() => {
     if (!firestore) return null;
     return query(
@@ -77,7 +77,6 @@ export default function ShiftManagementPage() {
     return allActiveShifts?.find(s => s.staffId !== user?.uid);
   }, [allActiveShifts, user]);
 
-  // 2. Fetch Last Closed Shift for THIS user (to enforce 8-hour cooldown)
   const lastUserShiftQuery = useMemo(() => {
     if (!firestore || !user) return null;
     return query(
@@ -94,15 +93,17 @@ export default function ShiftManagementPage() {
   const cooldownStatus = useMemo(() => {
     if (!lastClosedShift?.endTime || isAdmin) return { onCooldown: false };
     const end = lastClosedShift.endTime.toDate ? lastClosedShift.endTime.toDate() : new Date();
-    const hoursSince = differenceInHours(new Date(), end);
+    const minsSince = differenceInMinutes(new Date(), end);
+    const remainingMins = COOLDOWN_MINUTES - minsSince;
+    
     return {
-      onCooldown: hoursSince < COOLDOWN_HOURS,
-      remaining: COOLDOWN_HOURS - hoursSince,
+      onCooldown: remainingMins > 0,
+      remainingHours: Math.floor(remainingMins / 60),
+      remainingMins: remainingMins % 60,
       endTime: end
     };
   }, [lastClosedShift, isAdmin]);
 
-  // 3. Fetch Global Shift History (with decent limit for client pagination)
   const historyQuery = useMemo(() => {
     if (!firestore) return null;
     return query(
@@ -137,7 +138,7 @@ export default function ShiftManagementPage() {
       toast({
         variant: "destructive",
         title: "Cooldown Active",
-        description: `You must wait ${cooldownStatus.remaining} more hours before starting another shift.`
+        description: `You must wait ${cooldownStatus.remainingHours}h ${cooldownStatus.remainingMins}m more before starting another shift.`
       });
       return;
     }
@@ -236,10 +237,10 @@ export default function ShiftManagementPage() {
                     <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-2xl flex items-center gap-4">
                       <AlertCircle className="w-6 h-6 text-destructive shrink-0" />
                       <div className="space-y-1">
-                        <p className="text-sm font-bold text-destructive uppercase tracking-widest">Shift Lock Active</p>
+                        <p className="text-sm font-bold text-destructive uppercase tracking-widest">Personal Security Lock</p>
                         <p className="text-xs text-muted-foreground">
-                          To avoid duplicate records, you cannot start a new shift for another <strong>{cooldownStatus.remaining} hours</strong>. 
-                          (Last ended: {formatDistanceToNow(cooldownStatus.endTime)} ago).
+                          To maintain audit integrity, you cannot start a new shift for another <strong>{cooldownStatus.remainingHours}h {cooldownStatus.remainingMins}m</strong>. 
+                          (Session ended: {formatDistanceToNow(cooldownStatus.endTime)} ago).
                         </p>
                       </div>
                     </div>
@@ -273,7 +274,7 @@ export default function ShiftManagementPage() {
                         ) : (otherActiveShift && !isAdmin) ? (
                           "Waiting for Handover..."
                         ) : (cooldownStatus.onCooldown && !isAdmin) ? (
-                          `Shift Locked (${cooldownStatus.remaining}h)`
+                          `Locked (${cooldownStatus.remainingHours}h ${cooldownStatus.remainingMins}m)`
                         ) : (
                           <><Play className="w-6 h-6 mr-2" /> Start Shift & Log Stock</>
                         )}
