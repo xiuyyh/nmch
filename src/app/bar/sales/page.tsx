@@ -253,7 +253,7 @@ export default function SalesPage() {
       status: "Unsettled",
       staffName: user?.displayName || user?.email || "Bar Staff",
       shiftId: activeShift?.id || "admin-override",
-      isReconciled: true // Mark as reconciled because we are deducting right now
+      isReconciled: true 
     };
 
     addDoc(collection(firestore, "sales"), saleData)
@@ -311,7 +311,7 @@ export default function SalesPage() {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    // Use toDate if available (history), otherwise use current local time (newly created sale)
+    // Use current local time if server timestamp is not yet populated
     const dateStr = (sale.timestamp && typeof sale.timestamp.toDate === 'function') 
       ? formatNigeriaTime(sale.timestamp.toDate()) 
       : formatNigeriaTime(new Date());
@@ -326,7 +326,7 @@ export default function SalesPage() {
     const html = `
       <html>
         <head>
-          <title>Ducket #${sale.id?.slice(-6) || 'TEMP'}</title>
+          <title>Ducket #${sale.id?.slice(-8).toUpperCase() || 'TEMP'}</title>
           <style>
             @page { size: 80mm auto; margin: 0; }
             body { font-family: 'Arial', sans-serif; width: 80mm; padding: 10mm; font-size: 14px; color: #000; line-height: 1.4; }

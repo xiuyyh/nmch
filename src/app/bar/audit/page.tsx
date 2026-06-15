@@ -70,7 +70,6 @@ export default function GlobalAuditPage() {
   const { data: userRecord } = useDoc(userRef);
   const isAdmin = userRecord?.role === 'admin';
 
-  // 1. Get Global Shifts
   const shiftsQuery = useMemo(() => {
     if (!firestore) return null;
     return query(
@@ -81,14 +80,12 @@ export default function GlobalAuditPage() {
   }, [firestore]);
   const { data: allShifts, loading: shiftsLoading } = useCollection(shiftsQuery);
 
-  // 2. Get All Recent Sales for grouping
   const salesQuery = useMemo(() => {
     if (!firestore) return null;
     return query(collection(firestore, "sales"), orderBy("timestamp", "desc"), limit(1000));
   }, [firestore]);
   const { data: allSales, loading: salesLoading } = useCollection(salesQuery);
 
-  // Group sales by Shift ID
   const groupedSales = useMemo(() => {
     if (!allSales) return {};
     const groups: Record<string, any[]> = {};
@@ -143,7 +140,7 @@ export default function GlobalAuditPage() {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    // Use toDate if available (history), otherwise use current local time
+    // Use current local time if server timestamp is not yet populated
     const dateStr = (sale.timestamp && typeof sale.timestamp.toDate === 'function') 
       ? formatNigeriaTime(sale.timestamp.toDate()) 
       : formatNigeriaTime(new Date());

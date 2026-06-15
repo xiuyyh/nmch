@@ -84,7 +84,6 @@ export default function SalesAuditPage() {
   const { data: userRecord } = useDoc(userRef);
   const isAdmin = userRecord?.role === 'admin';
 
-  // 1. Get Live Data for Active Session
   const liveShiftQuery = useMemo(() => {
     if (!firestore) return null;
     return query(collection(firestore, "shifts"), where("status", "==", "active"), limit(5));
@@ -93,25 +92,22 @@ export default function SalesAuditPage() {
 
   const activeShift = useMemo(() => {
     if (!allActiveShifts) return null;
-    if (isAdmin) return allActiveShifts[0]; // Admins see globally active
+    if (isAdmin) return allActiveShifts[0]; 
     return allActiveShifts.find(s => s.staffId === user?.uid);
   }, [allActiveShifts, isAdmin, user]);
 
-  // 2. Get Global Shifts for Paginated History
   const historyShiftsQuery = useMemo(() => {
     if (!firestore || viewMode !== "all") return null;
     return query(collection(firestore, "shifts"), orderBy("startTime", "desc"), limit(200));
   }, [firestore, viewMode]);
   const { data: historyShifts, loading: shiftsLoading } = useCollection(historyShiftsQuery);
 
-  // 3. Get Sales (All recent sales to group)
   const salesQuery = useMemo(() => {
     if (!firestore) return null;
     return query(collection(firestore, "sales"), orderBy("timestamp", "desc"), limit(1000));
   }, [firestore]);
   const { data: allSales, loading: salesLoading } = useCollection(salesQuery);
 
-  // Group sales by Shift ID
   const groupedSales = useMemo(() => {
     if (!allSales) return {};
     const groups: Record<string, any[]> = {};
@@ -126,9 +122,7 @@ export default function SalesAuditPage() {
   const filteredHistoryShifts = useMemo(() => {
     if (!historyShifts) return [];
     return historyShifts.filter(s => {
-      // Hide if marked as hidden in database
       if (s.hidden) return false;
-      
       if (!search) return true;
       const sales = groupedSales[s.id] || [];
       return (
@@ -188,7 +182,7 @@ export default function SalesAuditPage() {
           }),
           timestamp: serverTimestamp()
         }).catch(() => {});
-        toast({ title: "Shift Hidden", description: "Record removed from global audit. Can be unhidden in Admin Actions." });
+        toast({ title: "Shift Hidden", description: "Record removed from global audit." });
       });
   };
 
@@ -196,7 +190,6 @@ export default function SalesAuditPage() {
     const sales = groupedSales[shift.id] || [];
     const validSales = sales.filter(s => s.status !== "Canceled");
     
-    // Aggregate items
     const itemMap: Record<string, number> = {};
     validSales.forEach(s => {
       s.items?.forEach((i: any) => {
@@ -211,6 +204,11 @@ export default function SalesAuditPage() {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
+    // Use current local time if server timestamp is not yet populated
+    const startedStr = (shift.startTime?.toDate && typeof shift.startTime.toDate === 'function')
+      ? formatNigeriaTime(shift.startTime.toDate())
+      : formatNigeriaTime(new Date());
+
     const itemsHtml = Object.entries(itemMap)
       .sort((a, b) => b[1] - a[1])
       .map(([name, qty]) => `<div style="display:flex; justify-content:space-between; margin-bottom:4px; font-weight:700;"><span>${name}</span><span>x${qty}</span></div>`)
@@ -224,7 +222,7 @@ export default function SalesAuditPage() {
           <div style="text-align:center; font-size:16px; margin-bottom:10px;">SHIFT PERFORMANCE AUDIT</div>
           <div style="border-bottom:2px solid #000; margin:10px 0;"></div>
           <div style="font-weight:700;">STAFF: ${shift.staffName.toUpperCase()}</div>
-          <div style="font-weight:700;">STARTED: ${shift.startTime?.toDate ? formatNigeriaTime(shift.startTime.toDate()) : 'N/A'}</div>
+          <div style="font-weight:700;">STARTED: ${startedStr}</div>
           <div style="border-bottom:1px solid #000; margin:10px 0;"></div>
           <div style="font-size:12px; font-weight:900; margin-bottom:8px; text-transform:uppercase;">Itemized Deductions:</div>
           ${itemsHtml}
@@ -247,7 +245,7 @@ export default function SalesAuditPage() {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    // Use toDate if available (history), otherwise use current local time
+    // Use current local time if server timestamp is not yet populated
     const dateStr = (sale.timestamp && typeof sale.timestamp.toDate === 'function') 
       ? formatNigeriaTime(sale.timestamp.toDate()) 
       : formatNigeriaTime(new Date());
@@ -359,7 +357,7 @@ export default function SalesAuditPage() {
         <CollapsibleContent className="space-y-3 pb-8 px-1 sm:px-2 md:px-4">
           <div className="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden divide-y divide-white/5 animate-in slide-in-from-top-2">
             {sales.length === 0 ? (
-              <div className="p-12 text-center text-muted-foreground italic text-xs uppercase font-bold">No sales records found for this shift</div>
+              <div className="p-12 text-center text-muted-foreground italic text-xs uppercase font-bold">No sales records found</div>
             ) : (
               sales.map((sale) => (
                 <div key={sale.id} className={cn(
@@ -405,7 +403,6 @@ export default function SalesAuditPage() {
                     </div>
                   </div>
                   
-                  {/* Detailed Items Breakdown */}
                   <div className="bg-black/20 rounded-xl p-3 sm:p-4 border border-white/5">
                     <div className="flex items-center gap-2 mb-3">
                       <Receipt className="w-3 h-3 text-primary/50" />
