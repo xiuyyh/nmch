@@ -72,14 +72,14 @@ export default function FrontDeskShiftPage() {
 
   const cooldownStatus = useMemo(() => {
     if (!lastClosedShift?.endTime || isAdmin) return { onCooldown: false };
-    const end = lastClosedShift.endTime.toDate();
+    const end = lastClosedShift.endTime.toDate ? lastClosedShift.endTime.toDate() : new Date();
     const minsSince = differenceInMinutes(new Date(), end);
     const remainingMins = COOLDOWN_MINUTES - minsSince;
     
     return {
       onCooldown: remainingMins > 0,
-      remainingHours: Math.floor(remainingMins / 60),
-      remainingMins: remainingMins % 60,
+      remainingHours: Math.floor(Math.max(0, remainingMins) / 60),
+      remainingMins: Math.max(0, remainingMins) % 60,
       endTime: end
     };
   }, [lastClosedShift, isAdmin]);
@@ -95,12 +95,12 @@ export default function FrontDeskShiftPage() {
     if (!firestore || !user) return;
     
     if (otherActiveShift && !isAdmin) {
-      toast({ variant: "destructive", title: "Counter Occupied", description: `${otherActiveShift.staffName} is currently on duty.` });
+      toast({ variant: "destructive", title: "Counter Occupied", description: `${otherActiveShift.staffName} is currently on duty. Handover required.` });
       return;
     }
 
     if (cooldownStatus.onCooldown && !isAdmin) {
-      toast({ variant: "destructive", title: "Cooldown Active", description: `Please wait ${cooldownStatus.remainingHours}h ${cooldownStatus.remainingMins}m.` });
+      toast({ variant: "destructive", title: "Personal Cooldown Active", description: `You must wait ${cooldownStatus.remainingHours}h ${cooldownStatus.remainingMins}m more.` });
       return;
     }
 
@@ -134,7 +134,7 @@ export default function FrontDeskShiftPage() {
     if (!firestore || !myActiveShift) return;
     const shiftRef = doc(firestore, "frontDeskShifts", myActiveShift.id);
     updateDoc(shiftRef, { status: "closed", endTime: serverTimestamp() }).then(() => {
-      toast({ title: "Shift Closed", description: "8-hour cooldown initiated." });
+      toast({ title: "Shift Closed", description: "Your personal 8-hour cooldown has initiated." });
     });
   };
 
@@ -164,6 +164,7 @@ export default function FrontDeskShiftPage() {
                           <p className="text-sm font-bold text-white">{otherActiveShift.staffName} is currently signed in.</p>
                         </div>
                       </div>
+                      <Badge className="bg-amber-500 text-amber-950 font-bold uppercase text-[10px]">Action Needed</Badge>
                     </div>
                   )}
 
@@ -173,7 +174,7 @@ export default function FrontDeskShiftPage() {
                       <div className="space-y-1">
                         <p className="text-sm font-bold text-destructive uppercase tracking-widest">Personal Security Lock</p>
                         <p className="text-xs text-muted-foreground">
-                          You cannot start a new shift for another <strong>{cooldownStatus.remainingHours}h {cooldownStatus.remainingMins}m</strong>. (Session ended {formatDistanceToNow(cooldownStatus.endTime)} ago).
+                          To ensure accurate session data, you cannot start a new shift for another <strong>{cooldownStatus.remainingHours}h {cooldownStatus.remainingMins}m</strong>. (Your last session ended {formatDistanceToNow(cooldownStatus.endTime)} ago).
                         </p>
                       </div>
                     </div>
@@ -185,7 +186,7 @@ export default function FrontDeskShiftPage() {
                     </CardHeader>
                     <CardContent className="py-12 text-center space-y-4">
                       <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto"><Contact className="w-10 h-10 text-primary" /></div>
-                      <p className="text-muted-foreground text-sm max-w-sm mx-auto">Starting your shift will record exactly how many rooms are occupied and any outstanding guest debts.</p>
+                      <p className="text-muted-foreground text-sm max-w-sm mx-auto">Starting your shift will record exactly how many rooms are occupied and any outstanding guest debts at this precise moment.</p>
                     </CardContent>
                     <CardFooter>
                       <Button 

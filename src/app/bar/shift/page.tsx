@@ -98,8 +98,8 @@ export default function ShiftManagementPage() {
     
     return {
       onCooldown: remainingMins > 0,
-      remainingHours: Math.floor(remainingMins / 60),
-      remainingMins: remainingMins % 60,
+      remainingHours: Math.floor(Math.max(0, remainingMins) / 60),
+      remainingMins: Math.max(0, remainingMins) % 60,
       endTime: end
     };
   }, [lastClosedShift, isAdmin]);
@@ -129,7 +129,7 @@ export default function ShiftManagementPage() {
       toast({
         variant: "destructive",
         title: "Session Conflict",
-        description: `${otherActiveShift.staffName} is currently signed into a shift.`
+        description: `${otherActiveShift.staffName} is currently signed into a shift. They must sign out before you can begin.`
       });
       return;
     }
@@ -137,7 +137,7 @@ export default function ShiftManagementPage() {
     if (cooldownStatus.onCooldown && !isAdmin) {
       toast({
         variant: "destructive",
-        title: "Cooldown Active",
+        title: "Personal Cooldown Active",
         description: `You must wait ${cooldownStatus.remainingHours}h ${cooldownStatus.remainingMins}m more before starting another shift.`
       });
       return;
@@ -184,7 +184,7 @@ export default function ShiftManagementPage() {
       status: "closed",
       endTime: serverTimestamp()
     }).then(() => {
-      toast({ title: "Shift Ended", description: "Session closed successfully. 8-hour cooldown initiated." });
+      toast({ title: "Shift Ended", description: "Session closed successfully. Your personal 8-hour cooldown has initiated." });
     }).catch(error => {
       toast({ variant: "destructive", title: "Update Failed", description: "Could not finalize shift status." });
     });
@@ -229,7 +229,7 @@ export default function ShiftManagementPage() {
                           <p className="text-sm font-bold text-white">{otherActiveShift.staffName} is currently on duty.</p>
                         </div>
                       </div>
-                      <Badge className="bg-amber-500 text-amber-950 font-bold">BUSY</Badge>
+                      <Badge className="bg-amber-500 text-amber-950 font-bold uppercase text-[10px]">Handover Required</Badge>
                     </div>
                   )}
 
@@ -240,7 +240,7 @@ export default function ShiftManagementPage() {
                         <p className="text-sm font-bold text-destructive uppercase tracking-widest">Personal Security Lock</p>
                         <p className="text-xs text-muted-foreground">
                           To maintain audit integrity, you cannot start a new shift for another <strong>{cooldownStatus.remainingHours}h {cooldownStatus.remainingMins}m</strong>. 
-                          (Session ended: {formatDistanceToNow(cooldownStatus.endTime)} ago).
+                          (Your last session ended: {formatDistanceToNow(cooldownStatus.endTime)} ago).
                         </p>
                       </div>
                     </div>

@@ -69,14 +69,14 @@ export default function PorterShiftPage() {
 
   const cooldownStatus = useMemo(() => {
     if (!lastClosedShift?.endTime || isAdmin) return { onCooldown: false };
-    const end = lastClosedShift.endTime.toDate();
+    const end = lastClosedShift.endTime.toDate ? lastClosedShift.endTime.toDate() : new Date();
     const minsSince = differenceInMinutes(new Date(), end);
     const remainingMins = COOLDOWN_MINUTES - minsSince;
     
     return {
       onCooldown: remainingMins > 0,
-      remainingHours: Math.floor(remainingMins / 60),
-      remainingMins: remainingMins % 60,
+      remainingHours: Math.floor(Math.max(0, remainingMins) / 60),
+      remainingMins: Math.max(0, remainingMins) % 60,
       endTime: end
     };
   }, [lastClosedShift, isAdmin]);
@@ -92,12 +92,12 @@ export default function PorterShiftPage() {
     if (!firestore || !user) return;
     
     if (otherActiveShift && !isAdmin) {
-      toast({ variant: "destructive", title: "Duty Occupied", description: `${otherActiveShift.staffName} is currently on duty.` });
+      toast({ variant: "destructive", title: "Duty Occupied", description: `${otherActiveShift.staffName} is currently on duty. You cannot have two porters active simultaneously.` });
       return;
     }
 
     if (cooldownStatus.onCooldown && !isAdmin) {
-      toast({ variant: "destructive", title: "Cooldown Active", description: `Please wait ${cooldownStatus.remainingHours}h ${cooldownStatus.remainingMins}m.` });
+      toast({ variant: "destructive", title: "Personal Cooldown Active", description: `Please wait ${cooldownStatus.remainingHours}h ${cooldownStatus.remainingMins}m.` });
       return;
     }
 
@@ -119,7 +119,7 @@ export default function PorterShiftPage() {
     if (!firestore || !myActiveShift) return;
     const shiftRef = doc(firestore, "porterShifts", myActiveShift.id);
     updateDoc(shiftRef, { status: "closed", endTime: serverTimestamp() }).then(() => {
-      toast({ title: "Shift Closed", description: "8-hour cooldown initiated." });
+      toast({ title: "Shift Closed", description: "Your personal 8-hour cooldown has initiated." });
     });
   };
 
@@ -145,10 +145,11 @@ export default function PorterShiftPage() {
                       <div className="flex items-center gap-3">
                         <User className="w-5 h-5 text-amber-500" />
                         <div>
-                          <p className="text-xs font-bold text-amber-500 uppercase tracking-widest">Handover Pending</p>
+                          <p className="text-xs font-bold text-amber-500 uppercase tracking-widest">Duty Personnel Active</p>
                           <p className="text-sm font-bold text-white">{otherActiveShift.staffName} is currently signed in.</p>
                         </div>
                       </div>
+                      <Badge className="bg-amber-500 text-amber-950 font-bold uppercase text-[10px]">Active Shift</Badge>
                     </div>
                   )}
 
@@ -158,7 +159,7 @@ export default function PorterShiftPage() {
                       <div className="space-y-1">
                         <p className="text-sm font-bold text-destructive uppercase tracking-widest">Personal Security Lock</p>
                         <p className="text-xs text-muted-foreground">
-                          Cooldown active for another <strong>{cooldownStatus.remainingHours}h {cooldownStatus.remainingMins}m</strong>. (Last session ended {formatDistanceToNow(cooldownStatus.endTime)} ago).
+                          Cooldown active for another <strong>{cooldownStatus.remainingHours}h {cooldownStatus.remainingMins}m</strong>. (Your last session ended {formatDistanceToNow(cooldownStatus.endTime)} ago).
                         </p>
                       </div>
                     </div>
@@ -170,7 +171,7 @@ export default function PorterShiftPage() {
                     </CardHeader>
                     <CardContent className="py-12 text-center space-y-4">
                       <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto"><Backpack className="w-10 h-10 text-primary" /></div>
-                      <p className="text-muted-foreground text-sm max-w-sm mx-auto">Starting your shift allows you to log guest checks, meal services, and room deliveries.</p>
+                      <p className="text-muted-foreground text-sm max-w-sm mx-auto">Starting your shift allows you to log guest checks, meal services, and room deliveries for this session.</p>
                     </CardContent>
                     <CardFooter>
                       <Button 
