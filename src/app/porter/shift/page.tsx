@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { useCollection, useFirestore, useUser, useDoc } from "@/firebase";
 import { collection, query, where, orderBy, addDoc, serverTimestamp, doc, updateDoc, limit } from "firebase/firestore";
-import { format, differenceInMinutes, formatDistanceToNow } from "date-fns";
+import { differenceInMinutes, formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { cn, formatNigeriaTime } from "@/lib/utils";
 import Link from "next/link";
