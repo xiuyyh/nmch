@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useMemo, useState, useEffect } from "react";
@@ -77,6 +76,7 @@ export default function ShiftManagementPage() {
     return allActiveShifts?.find(s => s.staffId !== user?.uid);
   }, [allActiveShifts, user]);
 
+  // Fetch last closed shift for THIS USER for cooldown
   const lastUserShiftQuery = useMemo(() => {
     if (!firestore || !user) return null;
     return query(
@@ -239,8 +239,7 @@ export default function ShiftManagementPage() {
                       <div className="space-y-1">
                         <p className="text-sm font-bold text-destructive uppercase tracking-widest">Personal Security Lock</p>
                         <p className="text-xs text-muted-foreground">
-                          To maintain audit integrity, you cannot start a new shift for another <strong>{cooldownStatus.remainingHours}h {cooldownStatus.remainingMins}m</strong>. 
-                          (Your last session ended: {formatDistanceToNow(cooldownStatus.endTime)} ago).
+                          To maintain audit integrity, you must wait another <strong>{cooldownStatus.remainingHours}h {cooldownStatus.remainingMins}m</strong> before starting your next session. (Last session ended {formatDistanceToNow(cooldownStatus.endTime)} ago).
                         </p>
                       </div>
                     </div>

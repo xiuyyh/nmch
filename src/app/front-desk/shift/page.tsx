@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -42,7 +41,7 @@ export default function FrontDeskShiftPage() {
   const { data: userRecord } = useDoc(userRef);
   const isAdmin = userRecord?.role === 'admin';
 
-  // 1. Fetch All Active Shifts
+  // 1. Fetch All Active Shifts (Globally)
   const allActiveShiftsQuery = useMemo(() => {
     if (!firestore) return null;
     return query(
@@ -56,7 +55,7 @@ export default function FrontDeskShiftPage() {
   const myActiveShift = useMemo(() => allActiveShifts?.find(s => s.staffId === user?.uid), [allActiveShifts, user]);
   const otherActiveShift = useMemo(() => allActiveShifts?.find(s => s.staffId !== user?.uid), [allActiveShifts, user]);
 
-  // 2. Fetch Last Closed Shift for Cooldown
+  // 2. Fetch Last Closed Shift for THIS USER ONLY for Cooldown
   const lastUserShiftQuery = useMemo(() => {
     if (!firestore || !user) return null;
     return query(
@@ -174,7 +173,7 @@ export default function FrontDeskShiftPage() {
                       <div className="space-y-1">
                         <p className="text-sm font-bold text-destructive uppercase tracking-widest">Personal Security Lock</p>
                         <p className="text-xs text-muted-foreground">
-                          To ensure accurate session data, you cannot start a new shift for another <strong>{cooldownStatus.remainingHours}h {cooldownStatus.remainingMins}m</strong>. (Your last session ended {formatDistanceToNow(cooldownStatus.endTime)} ago).
+                          To ensure accurate session data, you must wait <strong>{cooldownStatus.remainingHours}h {cooldownStatus.remainingMins}m</strong> before starting another session. (Last shift ended {formatDistanceToNow(cooldownStatus.endTime)} ago).
                         </p>
                       </div>
                     </div>
@@ -226,6 +225,9 @@ export default function FrontDeskShiftPage() {
                         <div className="flex items-center gap-2 text-xl font-bold"><Banknote className="w-5 h-5 text-destructive" /> ₦{myActiveShift.openingUnpaidDebt.toLocaleString()}</div>
                       </div>
                     </div>
+                    <div className="text-xs text-center text-muted-foreground uppercase font-bold tracking-widest">
+                       Shift Started: {myActiveShift.startTime?.toDate ? formatNigeriaTime(myActiveShift.startTime.toDate()) : "..."}
+                    </div>
                   </CardContent>
                   <CardFooter className="bg-white/[0.02]">
                     <Button variant="ghost" onClick={handleEndShift} className="w-full h-14 text-destructive font-bold uppercase tracking-widest hover:bg-destructive/10">End Session & Finalize Records</Button>
@@ -246,7 +248,7 @@ export default function FrontDeskShiftPage() {
                           <Badge variant="outline" className="text-[9px] uppercase">{s.status}</Badge>
                         </div>
                         <div className="flex items-center gap-4 text-[10px] font-bold text-muted-foreground uppercase">
-                           <span>{s.startTime?.toDate ? format(s.startTime.toDate(), "dd MMM, HH:mm") : "..."}</span>
+                           <span>{s.startTime?.toDate ? formatNigeriaTime(s.startTime.toDate()) : "..."}</span>
                            <span>{s.openingOccupiedRooms} Rooms</span>
                         </div>
                       </div>

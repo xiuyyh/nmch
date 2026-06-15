@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -23,6 +22,7 @@ import { collection, query, where, orderBy, addDoc, serverTimestamp, doc, update
 import { format, differenceInMinutes, formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { cn, formatNigeriaTime } from "@/lib/utils";
+import Link from "next/link";
 
 const COOLDOWN_MINUTES = 8 * 60; // 8 Hours
 
@@ -39,7 +39,7 @@ export default function PorterShiftPage() {
   const { data: userRecord } = useDoc(userRef);
   const isAdmin = userRecord?.role === 'admin';
 
-  // 1. Fetch All Active Porter Shifts
+  // 1. Fetch All Active Porter Shifts (Globally)
   const allActiveShiftsQuery = useMemo(() => {
     if (!firestore) return null;
     return query(
@@ -53,7 +53,7 @@ export default function PorterShiftPage() {
   const myActiveShift = useMemo(() => allActiveShifts?.find(s => s.staffId === user?.uid), [allActiveShifts, user]);
   const otherActiveShift = useMemo(() => allActiveShifts?.find(s => s.staffId !== user?.uid), [allActiveShifts, user]);
 
-  // 2. Fetch Last Closed Shift for Cooldown
+  // 2. Fetch Last Closed Shift for THIS USER ONLY for Cooldown
   const lastUserShiftQuery = useMemo(() => {
     if (!firestore || !user) return null;
     return query(
@@ -129,11 +129,13 @@ export default function PorterShiftPage() {
     <RoleGuard allowedRoles={["porter", "admin"]}>
       <AppShell>
         <div className="max-w-5xl mx-auto space-y-12">
-          <div>
-            <h1 className="text-3xl font-headline font-bold uppercase tracking-tight text-white">Porter Shift</h1>
-            <p className="text-muted-foreground mt-1 flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-primary" /> Verified Duty Logging System
-            </p>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+              <h1 className="text-3xl font-headline font-bold uppercase tracking-tight text-white">Porter Shift</h1>
+              <p className="text-muted-foreground mt-1 flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-primary" /> Verified Duty Logging System
+              </p>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -159,7 +161,7 @@ export default function PorterShiftPage() {
                       <div className="space-y-1">
                         <p className="text-sm font-bold text-destructive uppercase tracking-widest">Personal Security Lock</p>
                         <p className="text-xs text-muted-foreground">
-                          Cooldown active for another <strong>{cooldownStatus.remainingHours}h {cooldownStatus.remainingMins}m</strong>. (Your last session ended {formatDistanceToNow(cooldownStatus.endTime)} ago).
+                          To ensure accurate shift reporting, you must wait <strong>{cooldownStatus.remainingHours}h {cooldownStatus.remainingMins}m</strong> before starting another session.
                         </p>
                       </div>
                     </div>
@@ -205,7 +207,7 @@ export default function PorterShiftPage() {
                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Duty Personnel</span>
                        <span className="text-2xl font-headline font-bold text-white">{myActiveShift.staffName}</span>
                        <div className="flex items-center gap-2 text-xs text-primary font-bold">
-                         <Clock className="w-3.5 h-3.5" /> Started at {myActiveShift.startTime?.toDate ? format(myActiveShift.startTime.toDate(), "HH:mm, dd MMM") : "Syncing..."}
+                         <Clock className="w-3.5 h-3.5" /> Started at {myActiveShift.startTime?.toDate ? formatNigeriaTime(myActiveShift.startTime.toDate()) : "Syncing..."}
                        </div>
                     </div>
                   </CardContent>
@@ -228,7 +230,7 @@ export default function PorterShiftPage() {
                           <Badge variant="outline" className="text-[9px] uppercase">{s.status}</Badge>
                         </div>
                         <div className="flex items-center gap-4 text-[10px] font-bold text-muted-foreground uppercase">
-                           <span>{s.startTime?.toDate ? format(s.startTime.toDate(), "dd MMM, HH:mm") : "..."}</span>
+                           <span>{s.startTime?.toDate ? formatNigeriaTime(s.startTime.toDate()) : "..."}</span>
                         </div>
                       </div>
                     ))}
@@ -239,5 +241,6 @@ export default function PorterShiftPage() {
           </div>
         </div>
       </AppShell>
-    );
-  }
+    </RoleGuard>
+  );
+}
