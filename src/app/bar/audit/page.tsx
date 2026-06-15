@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo } from "react";
@@ -143,7 +142,12 @@ export default function GlobalAuditPage() {
   const printDucket = (sale: any) => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
-    const dateStr = sale.timestamp?.toDate ? formatNigeriaTime(sale.timestamp.toDate()) : "N/A";
+
+    // Use toDate if available (history), otherwise use current local time
+    const dateStr = (sale.timestamp && typeof sale.timestamp.toDate === 'function') 
+      ? formatNigeriaTime(sale.timestamp.toDate()) 
+      : formatNigeriaTime(new Date());
+
     const itemsHtml = sale.items.map((item: any) => `
       <div style="display:flex; justify-content:space-between; margin-bottom:4px; font-weight:800;">
         <span>${item.name} x ${item.quantity}</span>

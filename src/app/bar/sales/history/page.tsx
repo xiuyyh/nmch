@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo } from "react";
@@ -247,7 +246,12 @@ export default function SalesAuditPage() {
   const printDucket = (sale: any) => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
-    const dateStr = sale.timestamp?.toDate ? formatNigeriaTime(sale.timestamp.toDate()) : "OFFLINE - NO DATE";
+
+    // Use toDate if available (history), otherwise use current local time
+    const dateStr = (sale.timestamp && typeof sale.timestamp.toDate === 'function') 
+      ? formatNigeriaTime(sale.timestamp.toDate()) 
+      : formatNigeriaTime(new Date());
+
     const itemsHtml = sale.items.map((item: any) => `<div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-weight: 800; font-size: 16px;"><span>${item.name} x ${item.quantity}</span><span>₦${(item.price * item.quantity).toLocaleString()}</span></div>`).join('');
     const html = `<html><head><title>Ducket</title><style>@page { size: 80mm auto; margin: 0; } body { font-family: sans-serif; width: 80mm; padding: 10mm; font-size: 14px; color: #000; }</style></head><body><div style="text-align:center; font-size:24px; font-weight:900;">NIGHTINGALE HOTEL</div><div style="text-align:center; font-size:18px;">Duplicate Ducket</div><div style="border-bottom:2px solid #000; margin:10px 0;"></div><div style="font-weight:700;">DATE: ${dateStr}</div><div style="font-weight:700;">REC#: ${sale.id.slice(-8).toUpperCase()}</div><div style="font-weight:700;">SERV: ${sale.tableNumber}</div><div style="font-weight:700;">STAFF: ${sale.staffName}</div><div style="border-bottom:2px solid #000; margin:10px 0;"></div>${itemsHtml}<div style="font-size:22px; font-weight:900; border-top:2px solid #000; margin-top:12px; padding-top:8px; display:flex; justify-content:space-between;"><span>TOTAL:</span><span>₦${sale.total.toLocaleString()}</span></div><div style="margin-top:8px; font-size:16px; font-weight:700;">PAYMENT: ${sale.method.toUpperCase()}</div><div style="text-align:center; font-weight:900; margin-top:15px;">*** DUPLICATE ***</div></body></html>`;
     printWindow.document.write(html);
