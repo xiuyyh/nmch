@@ -41,13 +41,14 @@ export default function FrontDeskShiftPage() {
   const { data: userRecord } = useDoc(userRef);
   const isAdmin = userRecord?.role === 'admin';
 
-  // 1. Fetch All Active Shifts (Globally)
+  // 1. Fetch All Active Shifts (Globally) - Ordered by start time to prioritize most recent
   const allActiveShiftsQuery = useMemo(() => {
     if (!firestore) return null;
     return query(
       collection(firestore, "frontDeskShifts"),
       where("status", "==", "active"),
-      limit(5)
+      orderBy("startTime", "desc"),
+      limit(10)
     );
   }, [firestore]);
   const { data: allActiveShifts, loading: activeLoading } = useCollection(allActiveShiftsQuery);
@@ -94,12 +95,12 @@ export default function FrontDeskShiftPage() {
     if (!firestore || !user) return;
     
     if (otherActiveShift && !isAdmin) {
-      toast({ variant: "destructive", title: "Counter Occupied", description: `${otherActiveShift.staffName} is currently on duty. Handover required.` });
+      toast({ variant: "destructive", title: "Counter Occupied", description: `${otherActiveShift.staffName} is currently signed in. Handover required.` });
       return;
     }
 
     if (cooldownStatus.onCooldown && !isAdmin) {
-      toast({ variant: "destructive", title: "Personal Cooldown Active", description: `You must wait ${cooldownStatus.remainingHours}h ${cooldownStatus.remainingMins}m more.` });
+      toast({ variant: "destructive", title: "Personal Cooldown Active", description: `Please wait ${cooldownStatus.remainingHours}h ${cooldownStatus.remainingMins}m more.` });
       return;
     }
 
@@ -125,7 +126,17 @@ export default function FrontDeskShiftPage() {
     };
 
     addDoc(collection(firestore, "frontDeskShifts"), shiftData)
-      .then(() => toast({ title: "Shift Started", description: "Handover stats recorded." }))
+      .then(() => {
+        addDoc(collection(firestore, "adminActions"), {
+          adminName: user.displayName || user.email,
+          adminId: user.uid,
+          action: "START_FRONT_DESK_SHIFT",
+          entity: "RECEPTION",
+          details: `Staff ${user.displayName || user.email} started shift. Opening occupancy: ${occupiedCount} rooms.`,
+          timestamp: serverTimestamp()
+        }).catch(() => {});
+        toast({ title: "Shift Started", description: "Handover stats recorded." });
+      })
       .finally(() => setIsStarting(false));
   };
 
@@ -133,6 +144,14 @@ export default function FrontDeskShiftPage() {
     if (!firestore || !myActiveShift) return;
     const shiftRef = doc(firestore, "frontDeskShifts", myActiveShift.id);
     updateDoc(shiftRef, { status: "closed", endTime: serverTimestamp() }).then(() => {
+      addDoc(collection(firestore, "adminActions"), {
+        adminName: user?.displayName || user?.email,
+        adminId: user?.uid,
+        action: "END_FRONT_DESK_SHIFT",
+        entity: "RECEPTION",
+        details: `Staff ${user?.displayName || user?.email} ended receptionist shift.`,
+        timestamp: serverTimestamp()
+      }).catch(() => {});
       toast({ title: "Shift Closed", description: "Your personal 8-hour cooldown has initiated." });
     });
   };
@@ -173,7 +192,7 @@ export default function FrontDeskShiftPage() {
                       <div className="space-y-1">
                         <p className="text-sm font-bold text-destructive uppercase tracking-widest">Personal Security Lock</p>
                         <p className="text-xs text-muted-foreground">
-                          To ensure accurate session data, you must wait <strong>{cooldownStatus.remainingHours}h {cooldownStatus.remainingMins}m</strong> before starting another session. (Last shift ended {formatDistanceToNow(cooldownStatus.endTime)} ago).
+                          To ensure accurate session data, you must wait <strong>{cooldownStatus.remainingHours}h {cooldownStatus.remainingMins}m</strong> before starting another session.
                         </p>
                       </div>
                     </div>

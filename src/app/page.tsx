@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useMemo } from "react";
@@ -26,12 +27,13 @@ import { cn } from "@/lib/utils";
 export default function BarOverviewDashboard() {
   const firestore = useFirestore();
 
-  // 1. Fetch the globally active shift (who is currently on duty)
+  // 1. Fetch the most recent globally active shift
   const activeShiftQuery = useMemo(() => {
     if (!firestore) return null;
     return query(
       collection(firestore, "shifts"),
       where("status", "==", "active"),
+      orderBy("startTime", "desc"),
       limit(1)
     );
   }, [firestore]);
@@ -63,7 +65,7 @@ export default function BarOverviewDashboard() {
 
   const { data: foodOrders, loading: foodLoading } = useCollection(shiftFoodOrdersQuery);
 
-  // 4. Fetch Active Table Tabs (regardless of shift, as tables persist handovers)
+  // 4. Fetch Active Table Tabs
   const activeSessionsQuery = useMemo(() => {
     if (!firestore) return null;
     return query(collection(firestore, "tableSessions"));
@@ -110,25 +112,18 @@ export default function BarOverviewDashboard() {
     ];
   }, [shiftSales, activeSessions, foodOrders, activeShift]);
 
-  // 6. Process Chart Data (Hourly buckets for the current shift)
+  // 6. Process Chart Data
   const chartData = useMemo(() => {
     if (!shiftSales) return [];
-    
     const buckets: Record<string, number> = {};
     const validSales = shiftSales.filter(s => s.status !== "Canceled");
-    
     validSales.forEach(sale => {
       if (sale.timestamp?.toDate) {
         const hour = format(sale.timestamp.toDate(), "ha"); 
         buckets[hour] = (buckets[hour] || 0) + (sale.total || 0);
       }
     });
-
-    // Sort buckets by hour to ensure chronological order in the shift
-    return Object.entries(buckets).map(([time, sales]) => ({
-      time,
-      sales
-    })).reverse();
+    return Object.entries(buckets).map(([time, sales]) => ({ time, sales })).reverse();
   }, [shiftSales]);
 
   const chartConfig = {
@@ -157,23 +152,22 @@ export default function BarOverviewDashboard() {
         <div className="flex flex-col gap-8">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-headline font-bold mb-2 uppercase tracking-tight text-white flex items-center gap-3">
-                <Utensils className="w-8 h-8 text-primary" /> Bar Overview
+              <h1 className="text-2xl sm:text-3xl font-headline font-bold uppercase tracking-tight text-white flex items-center gap-3">
+                <Utensils className="w-6 h-6 sm:w-8 sm:h-8 text-primary" /> Bar Overview
               </h1>
-              <p className="text-muted-foreground">Session-based performance tracking (WAT). Focus on the active worker's throughput.</p>
+              <p className="text-sm text-muted-foreground">Session-based performance tracking (WAT).</p>
             </div>
             {!activeShift && (
               <div className="bg-amber-500/10 border border-amber-500/20 px-4 py-2 rounded-xl flex items-center gap-3 animate-pulse">
                 <AlertCircle className="w-5 h-5 text-amber-500" />
-                <span className="text-xs font-bold text-amber-500 uppercase tracking-widest">No Active Shift - Data Reset to Zero</span>
+                <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest">Handover Required</span>
               </div>
             )}
           </div>
 
-          {/* Stats Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {stats.map((stat) => (
-              <Card key={stat.label} className="glass-card overflow-hidden transition-all hover:border-primary/20">
+              <Card key={stat.label} className="glass-card hover:border-primary/20 transition-all">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{stat.label}</CardTitle>
                   <div className={cn("p-2 rounded-lg bg-white/5", stat.color)}>
@@ -189,10 +183,9 @@ export default function BarOverviewDashboard() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-            {/* Main Chart */}
             <Card className="lg:col-span-2 glass-card">
               <CardHeader className="border-b border-white/5 pb-4">
-                <CardTitle className="text-xl font-headline flex items-center gap-2">
+                <CardTitle className="text-lg sm:text-xl font-headline flex items-center gap-2">
                   <Clock className="w-5 h-5 text-primary" /> Shift Sales Velocity
                 </CardTitle>
               </CardHeader>
@@ -209,27 +202,21 @@ export default function BarOverviewDashboard() {
                         tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10, fontWeight: 'bold' }}
                       />
                       <ChartTooltip content={<ChartTooltipContent />} />
-                      <Bar 
-                        dataKey="sales" 
-                        fill="var(--color-sales)" 
-                        radius={[6, 6, 0, 0]} 
-                        barSize={40}
-                      />
+                      <Bar dataKey="sales" fill="var(--color-sales)" radius={[6, 6, 0, 0]} barSize={40} />
                     </BarChart>
                   </ChartContainer>
                 ) : (
                   <div className="h-full flex flex-col items-center justify-center text-muted-foreground opacity-30 gap-4">
                     <TrendingUp className="w-12 h-12" />
-                    <p className="italic text-sm font-bold uppercase tracking-widest">Waiting for first sale of this shift...</p>
+                    <p className="italic text-sm font-bold uppercase tracking-widest text-center">Waiting for first sale of this shift...</p>
                   </div>
                 )}
               </CardContent>
             </Card>
 
-            {/* Food Activity */}
             <Card className="glass-card">
               <CardHeader className="border-b border-white/5">
-                <CardTitle className="text-xl font-headline flex items-center gap-2">
+                <CardTitle className="text-lg sm:text-xl font-headline flex items-center gap-2">
                   <ChefHat className="w-5 h-5 text-primary" /> Shift Kitchen Orders
                 </CardTitle>
               </CardHeader>
@@ -246,12 +233,10 @@ export default function BarOverviewDashboard() {
                           )}>
                             {order.status}
                           </span>
-                          <span className="text-[10px] text-muted-foreground uppercase font-bold">
-                            {order.items?.length || 0} items
-                          </span>
+                          <span className="text-[10px] text-muted-foreground uppercase font-bold">{order.items?.length || 0} items</span>
                         </div>
                       </div>
-                      <div className="text-right">
+                      <div className="text-right shrink-0">
                         <span className="text-[10px] text-muted-foreground uppercase font-bold">
                           {order.timestamp?.toDate ? format(order.timestamp.toDate(), "HH:mm") : "..."}
                         </span>

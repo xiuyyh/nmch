@@ -39,13 +39,14 @@ export default function PorterShiftPage() {
   const { data: userRecord } = useDoc(userRef);
   const isAdmin = userRecord?.role === 'admin';
 
-  // 1. Fetch All Active Porter Shifts (Globally)
+  // 1. Fetch All Active Porter Shifts (Globally) - Ordered by start time to prioritize most recent
   const allActiveShiftsQuery = useMemo(() => {
     if (!firestore) return null;
     return query(
       collection(firestore, "porterShifts"),
       where("status", "==", "active"),
-      limit(5)
+      orderBy("startTime", "desc"),
+      limit(10)
     );
   }, [firestore]);
   const { data: allActiveShifts, loading: activeLoading } = useCollection(allActiveShiftsQuery);
@@ -92,12 +93,12 @@ export default function PorterShiftPage() {
     if (!firestore || !user) return;
     
     if (otherActiveShift && !isAdmin) {
-      toast({ variant: "destructive", title: "Duty Occupied", description: `${otherActiveShift.staffName} is currently on duty. You cannot have two porters active simultaneously.` });
+      toast({ variant: "destructive", title: "Duty Occupied", description: `${otherActiveShift.staffName} is currently on duty. Handover required.` });
       return;
     }
 
     if (cooldownStatus.onCooldown && !isAdmin) {
-      toast({ variant: "destructive", title: "Personal Cooldown Active", description: `Please wait ${cooldownStatus.remainingHours}h ${cooldownStatus.remainingMins}m.` });
+      toast({ variant: "destructive", title: "Personal Cooldown Active", description: `Please wait ${cooldownStatus.remainingHours}h ${cooldownStatus.remainingMins}m more.` });
       return;
     }
 
@@ -111,7 +112,17 @@ export default function PorterShiftPage() {
     };
 
     addDoc(collection(firestore, "porterShifts"), shiftData)
-      .then(() => toast({ title: "Shift Started", description: "Porter session initialized." }))
+      .then(() => {
+        addDoc(collection(firestore, "adminActions"), {
+          adminName: user.displayName || user.email,
+          adminId: user.uid,
+          action: "START_PORTER_SHIFT",
+          entity: "PORTER",
+          details: `Porter ${user.displayName || user.email} signed in for duty.`,
+          timestamp: serverTimestamp()
+        }).catch(() => {});
+        toast({ title: "Shift Started", description: "Porter session initialized." });
+      })
       .finally(() => setIsStarting(false));
   };
 
@@ -119,6 +130,14 @@ export default function PorterShiftPage() {
     if (!firestore || !myActiveShift) return;
     const shiftRef = doc(firestore, "porterShifts", myActiveShift.id);
     updateDoc(shiftRef, { status: "closed", endTime: serverTimestamp() }).then(() => {
+      addDoc(collection(firestore, "adminActions"), {
+        adminName: user?.displayName || user?.email,
+        adminId: user?.uid,
+        action: "END_PORTER_SHIFT",
+        entity: "PORTER",
+        details: `Porter ${user?.displayName || user?.email} ended duty session.`,
+        timestamp: serverTimestamp()
+      }).catch(() => {});
       toast({ title: "Shift Closed", description: "Your personal 8-hour cooldown has initiated." });
     });
   };

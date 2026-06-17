@@ -63,7 +63,8 @@ export default function ShiftManagementPage() {
     return query(
       collection(firestore, "shifts"),
       where("status", "==", "active"),
-      limit(5)
+      orderBy("startTime", "desc"),
+      limit(10)
     );
   }, [firestore]);
   const { data: allActiveShifts, loading: activeLoading } = useCollection(allActiveShiftsQuery);
@@ -76,7 +77,6 @@ export default function ShiftManagementPage() {
     return allActiveShifts?.find(s => s.staffId !== user?.uid);
   }, [allActiveShifts, user]);
 
-  // Fetch last closed shift for THIS USER for cooldown
   const lastUserShiftQuery = useMemo(() => {
     if (!firestore || !user) return null;
     return query(
@@ -164,6 +164,14 @@ export default function ShiftManagementPage() {
 
     addDoc(collection(firestore, "shifts"), shiftData)
       .then(() => {
+        addDoc(collection(firestore, "adminActions"), {
+          adminName: user.displayName || user.email,
+          adminId: user.uid,
+          action: "START_SHIFT",
+          entity: "BAR",
+          details: `Staff ${user.displayName || user.email} started shift. Opening stock recorded for ${openingStock.length} items.`,
+          timestamp: serverTimestamp()
+        }).catch(() => {});
         toast({ title: "Shift Started", description: "Opening stock recorded via verified timestamp." });
       })
       .catch(error => {
@@ -184,7 +192,15 @@ export default function ShiftManagementPage() {
       status: "closed",
       endTime: serverTimestamp()
     }).then(() => {
-      toast({ title: "Shift Ended", description: "Session closed successfully. Your personal 8-hour cooldown has initiated." });
+      addDoc(collection(firestore, "adminActions"), {
+        adminName: user?.displayName || user?.email,
+        adminId: user?.uid,
+        action: "END_SHIFT",
+        entity: "BAR",
+        details: `Staff ${user?.displayName || user?.email} ended shift session.`,
+        timestamp: serverTimestamp()
+      }).catch(() => {});
+      toast({ title: "Shift Ended", description: "Session closed successfully." });
     }).catch(error => {
       toast({ variant: "destructive", title: "Update Failed", description: "Could not finalize shift status." });
     });
@@ -239,7 +255,7 @@ export default function ShiftManagementPage() {
                       <div className="space-y-1">
                         <p className="text-sm font-bold text-destructive uppercase tracking-widest">Personal Security Lock</p>
                         <p className="text-xs text-muted-foreground">
-                          To maintain audit integrity, you must wait another <strong>{cooldownStatus.remainingHours}h {cooldownStatus.remainingMins}m</strong> before starting your next session. (Last session ended {formatDistanceToNow(cooldownStatus.endTime)} ago).
+                          To maintain audit integrity, you must wait another <strong>{cooldownStatus.remainingHours}h {cooldownStatus.remainingMins}m</strong> before starting your next session.
                         </p>
                       </div>
                     </div>
