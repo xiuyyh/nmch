@@ -26,7 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn, formatNigeriaTime } from "@/lib/utils";
 import Link from "next/link";
 
-const COOLDOWN_MINUTES = 8 * 60; // 8 Hours
+const COOLDOWN_MINUTES = 15; // Reduced from 8 hours to 15 minutes
 
 export default function FrontDeskShiftPage() {
   const firestore = useFirestore();
@@ -100,7 +100,7 @@ export default function FrontDeskShiftPage() {
     }
 
     if (cooldownStatus.onCooldown && !isAdmin) {
-      toast({ variant: "destructive", title: "Personal Cooldown Active", description: `Please wait ${cooldownStatus.remainingHours}h ${cooldownStatus.remainingMins}m more.` });
+      toast({ variant: "destructive", title: "Personal Cooldown Active", description: `Please wait ${cooldownStatus.remainingMins}m more.` });
       return;
     }
 
@@ -152,7 +152,7 @@ export default function FrontDeskShiftPage() {
         details: `Staff ${user?.displayName || user?.email} ended receptionist shift.`,
         timestamp: serverTimestamp()
       }).catch(() => {});
-      toast({ title: "Shift Closed", description: "Your personal 8-hour cooldown has initiated." });
+      toast({ title: "Shift Closed", description: "Your personal 15-minute cooldown has initiated." });
     });
   };
 
@@ -192,7 +192,7 @@ export default function FrontDeskShiftPage() {
                       <div className="space-y-1">
                         <p className="text-sm font-bold text-destructive uppercase tracking-widest">Personal Security Lock</p>
                         <p className="text-xs text-muted-foreground">
-                          To ensure accurate session data, you must wait <strong>{cooldownStatus.remainingHours}h {cooldownStatus.remainingMins}m</strong> before starting another session.
+                          To ensure accurate session data, you must wait <strong>{cooldownStatus.remainingMins}m</strong> before starting another session.
                         </p>
                       </div>
                     </div>
@@ -217,7 +217,7 @@ export default function FrontDeskShiftPage() {
                         ) : (otherActiveShift && !isAdmin) ? (
                           "Waiting for Handover..."
                         ) : (cooldownStatus.onCooldown && !isAdmin) ? (
-                          `Locked (${cooldownStatus.remainingHours}h ${cooldownStatus.remainingMins}m)`
+                          `Locked (${cooldownStatus.remainingMins}m)`
                         ) : (
                           "Verify Handover & Start"
                         )}

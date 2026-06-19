@@ -36,7 +36,7 @@ import { cn, formatNigeriaTime } from "@/lib/utils";
 import Link from "next/link";
 
 const HISTORY_PER_PAGE = 5;
-const COOLDOWN_MINUTES = 8 * 60; // 8 Hours
+const COOLDOWN_MINUTES = 15; // Reduced from 8 hours to 15 minutes
 
 export default function ShiftManagementPage() {
   const firestore = useFirestore();
@@ -138,7 +138,7 @@ export default function ShiftManagementPage() {
       toast({
         variant: "destructive",
         title: "Personal Cooldown Active",
-        description: `You must wait ${cooldownStatus.remainingHours}h ${cooldownStatus.remainingMins}m more before starting another shift.`
+        description: `You must wait ${cooldownStatus.remainingMins}m more before starting another shift.`
       });
       return;
     }
@@ -200,7 +200,7 @@ export default function ShiftManagementPage() {
         details: `Staff ${user?.displayName || user?.email} ended shift session.`,
         timestamp: serverTimestamp()
       }).catch(() => {});
-      toast({ title: "Shift Ended", description: "Session closed successfully." });
+      toast({ title: "Shift Ended", description: "Session closed successfully. 15-minute cooldown initiated." });
     }).catch(error => {
       toast({ variant: "destructive", title: "Update Failed", description: "Could not finalize shift status." });
     });
@@ -255,7 +255,7 @@ export default function ShiftManagementPage() {
                       <div className="space-y-1">
                         <p className="text-sm font-bold text-destructive uppercase tracking-widest">Personal Security Lock</p>
                         <p className="text-xs text-muted-foreground">
-                          To maintain audit integrity, you must wait another <strong>{cooldownStatus.remainingHours}h {cooldownStatus.remainingMins}m</strong> before starting your next session.
+                          To maintain audit integrity, you must wait another <strong>{cooldownStatus.remainingMins}m</strong> before starting your next session.
                         </p>
                       </div>
                     </div>
@@ -289,7 +289,7 @@ export default function ShiftManagementPage() {
                         ) : (otherActiveShift && !isAdmin) ? (
                           "Waiting for Handover..."
                         ) : (cooldownStatus.onCooldown && !isAdmin) ? (
-                          `Locked (${cooldownStatus.remainingHours}h ${cooldownStatus.remainingMins}m)`
+                          `Locked (${cooldownStatus.remainingMins}m)`
                         ) : (
                           <><Play className="w-6 h-6 mr-2" /> Start Shift & Log Stock</>
                         )}
