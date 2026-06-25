@@ -25,7 +25,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn, formatNigeriaTime } from "@/lib/utils";
 import Link from "next/link";
 
-const COOLDOWN_MINUTES = 15; 
+const COOLDOWN_MINUTES = 2; 
 
 export default function PorterShiftPage() {
   const firestore = useFirestore();
@@ -90,6 +90,8 @@ export default function PorterShiftPage() {
   const handleStartShift = async () => {
     if (!firestore || !user || isStarting) return;
     
+    setIsStarting(true);
+
     if (myActiveShift) {
       window.location.reload();
       return;
@@ -97,15 +99,15 @@ export default function PorterShiftPage() {
 
     if (otherActiveShift && !isAdmin) {
       toast({ variant: "destructive", title: "Duty Occupied", description: `${otherActiveShift.staffName} is currently signed in. Handover required.` });
+      setIsStarting(false);
       return;
     }
 
     if (cooldownStatus.onCooldown && !isAdmin) {
       toast({ variant: "destructive", title: "Personal Cooldown Active", description: `Please wait ${cooldownStatus.remainingMins}m more.` });
+      setIsStarting(false);
       return;
     }
-
-    setIsStarting(true);
 
     const shiftData = {
       staffId: user.uid,
@@ -125,8 +127,13 @@ export default function PorterShiftPage() {
           timestamp: serverTimestamp()
         }).catch(() => {});
         toast({ title: "Shift Started", description: "Porter session initialized." });
+        
+        // Immediate reload to refresh duty status
+        window.location.reload();
       })
-      .finally(() => setIsStarting(false));
+      .catch(() => {
+        setIsStarting(false);
+      });
   };
 
   const handleEndShift = () => {
@@ -141,7 +148,10 @@ export default function PorterShiftPage() {
         details: `Porter ${user?.displayName || user?.email} ended duty session.`,
         timestamp: serverTimestamp()
       }).catch(() => {});
-      toast({ title: "Shift Closed", description: "Your personal 15-minute cooldown has initiated." });
+      toast({ title: "Shift Closed", description: "Your personal 2-minute cooldown has initiated." });
+      
+      // Force reload to transition back to sign-in screen
+      window.location.reload();
     });
   };
 

@@ -37,7 +37,7 @@ import { cn, formatNigeriaTime } from "@/lib/utils";
 import Link from "next/link";
 
 const HISTORY_PER_PAGE = 5;
-const COOLDOWN_MINUTES = 15; 
+const COOLDOWN_MINUTES = 2; 
 
 export default function ShiftManagementPage() {
   const firestore = useFirestore();
@@ -126,6 +126,8 @@ export default function ShiftManagementPage() {
   const handleStartShift = () => {
     if (!firestore || !user || !inventory || isStarting) return;
     
+    setIsStarting(true);
+
     // Safety: If there is already an active shift for this user, don't create another
     if (myActiveShift) {
       window.location.reload();
@@ -138,6 +140,7 @@ export default function ShiftManagementPage() {
         title: "Session Conflict",
         description: `${otherActiveShift.staffName} is currently signed into a shift. They must sign out before you can begin.`
       });
+      setIsStarting(false);
       return;
     }
 
@@ -147,10 +150,9 @@ export default function ShiftManagementPage() {
         title: "Personal Cooldown Active",
         description: `You must wait ${cooldownStatus.remainingMins}m more before starting another shift.`
       });
+      setIsStarting(false);
       return;
     }
-
-    setIsStarting(true);
 
     const openingStock = inventory
       .filter(item => item.category !== "FOOD")
@@ -180,6 +182,9 @@ export default function ShiftManagementPage() {
           timestamp: serverTimestamp()
         }).catch(() => {});
         toast({ title: "Shift Started", description: "Opening stock recorded via verified timestamp." });
+        
+        // Immediate reload to prevent any race conditions and force UI update
+        window.location.reload();
       })
       .catch(error => {
         errorEmitter.emit("permission-error", new FirestorePermissionError({
@@ -187,8 +192,8 @@ export default function ShiftManagementPage() {
           operation: "create",
           requestResourceData: shiftData
         }));
-      })
-      .finally(() => setIsStarting(false));
+        setIsStarting(false);
+      });
   };
 
   const handleEndShift = () => {
@@ -207,7 +212,10 @@ export default function ShiftManagementPage() {
         details: `Staff ${user?.displayName || user?.email} ended shift session.`,
         timestamp: serverTimestamp()
       }).catch(() => {});
-      toast({ title: "Shift Ended", description: "Session closed successfully. 15-minute cooldown initiated." });
+      toast({ title: "Shift Ended", description: "Session closed successfully. 2-minute cooldown initiated." });
+      
+      // Reload to clear active state and show handover screen for next staff
+      window.location.reload();
     }).catch(error => {
       toast({ variant: "destructive", title: "Update Failed", description: "Could not finalize shift status." });
     });

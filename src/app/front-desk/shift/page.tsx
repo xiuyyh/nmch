@@ -27,7 +27,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn, formatNigeriaTime } from "@/lib/utils";
 import Link from "next/link";
 
-const COOLDOWN_MINUTES = 15; 
+const COOLDOWN_MINUTES = 2; 
 
 export default function FrontDeskShiftPage() {
   const firestore = useFirestore();
@@ -92,6 +92,8 @@ export default function FrontDeskShiftPage() {
   const handleStartShift = async () => {
     if (!firestore || !user || isStarting) return;
     
+    setIsStarting(true);
+
     if (myActiveShift) {
       window.location.reload();
       return;
@@ -99,15 +101,15 @@ export default function FrontDeskShiftPage() {
 
     if (otherActiveShift && !isAdmin) {
       toast({ variant: "destructive", title: "Counter Occupied", description: `${otherActiveShift.staffName} is currently signed in. Handover required.` });
+      setIsStarting(false);
       return;
     }
 
     if (cooldownStatus.onCooldown && !isAdmin) {
       toast({ variant: "destructive", title: "Personal Cooldown Active", description: `Please wait ${cooldownStatus.remainingMins}m more.` });
+      setIsStarting(false);
       return;
     }
-
-    setIsStarting(true);
 
     const bookingsSnap = await getDocs(query(collection(firestore, "roomBookings"), where("status", "==", "active")));
     const occupiedCount = bookingsSnap.size;
@@ -138,8 +140,13 @@ export default function FrontDeskShiftPage() {
           timestamp: serverTimestamp()
         }).catch(() => {});
         toast({ title: "Shift Started", description: "Handover stats recorded." });
+        
+        // Immediate reload to transition to active view
+        window.location.reload();
       })
-      .finally(() => setIsStarting(false));
+      .catch(() => {
+        setIsStarting(false);
+      });
   };
 
   const handleEndShift = () => {
@@ -154,7 +161,10 @@ export default function FrontDeskShiftPage() {
         details: `Staff ${user?.displayName || user?.email} ended receptionist shift.`,
         timestamp: serverTimestamp()
       }).catch(() => {});
-      toast({ title: "Shift Closed", description: "Your personal 15-minute cooldown has initiated." });
+      toast({ title: "Shift Closed", description: "Your personal 2-minute cooldown has initiated." });
+      
+      // Force reload to handover screen
+      window.location.reload();
     });
   };
 
