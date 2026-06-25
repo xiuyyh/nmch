@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo } from "react";
@@ -15,8 +16,18 @@ import {
   Banknote, 
   ArrowRight,
   Loader2,
-  FileText
+  FileText,
+  FileBarChart,
+  History
 } from "lucide-react";
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from "@/components/ui/table";
 import { useCollection, useFirestore } from "@/firebase";
 import { collection, query, orderBy, where } from "firebase/firestore";
 import { formatNigeriaTime, cn } from "@/lib/utils";
@@ -51,7 +62,7 @@ export default function SalesFilterPage() {
   const { data: sales, loading } = useCollection(salesQuery);
 
   const report = useMemo(() => {
-    if (!sales || !searchItem) return { totalQty: 0, totalValue: 0, items: [] };
+    if (!sales) return { totalQty: 0, totalValue: 0, items: [] };
 
     let qty = 0;
     let value = 0;
@@ -61,7 +72,10 @@ export default function SalesFilterPage() {
       if (sale.status === "Canceled") return;
       
       sale.items?.forEach((item: any) => {
-        if (item.name?.toLowerCase().includes(searchItem.toLowerCase())) {
+        // Only include in calculation if searchItem matches OR if searchItem is empty
+        const isMatch = !searchItem || item.name?.toLowerCase().includes(searchItem.toLowerCase());
+        
+        if (isMatch) {
           qty += item.quantity;
           value += (item.price * item.quantity);
 
@@ -98,7 +112,7 @@ export default function SalesFilterPage() {
     const html = `
       <html>
         <head>
-          <title>Period Report - ${searchItem}</title>
+          <title>Period Report - ${searchItem || 'All Items'}</title>
           <style>
             @page { size: 80mm auto; margin: 0; }
             body { font-family: 'Arial', sans-serif; width: 80mm; padding: 5mm; color: #000; font-size: 13px; line-height: 1.4; margin: 0 auto; }
@@ -114,9 +128,9 @@ export default function SalesFilterPage() {
         <body>
           <div class="header">
             <h1>NIGHTINGALE HOTEL</h1>
-            <p>ITEM SALES AUDIT REPORT</p>
+            <p>SALES PERIOD AUDIT</p>
             <p>PERIOD: ${startDate ? format(startDate, "dd/MM/yyyy") : "N/A"} TO ${endDate ? format(endDate, "dd/MM/yyyy") : "N/A"}</p>
-            <p>FILTER: "${searchItem.toUpperCase()}"</p>
+            <p>FILTER: "${searchItem ? searchItem.toUpperCase() : 'GLOBAL AUDIT'}"</p>
           </div>
           
           <table>
@@ -144,7 +158,7 @@ export default function SalesFilterPage() {
           </div>
 
           <div style="text-align: center; margin-top: 30px; font-size: 9px; font-weight: bold;">
-            *** SUMMARIZED AUDIT LOG ***<br>
+            *** AUDIT SUMMARY LOG ***<br>
             PRINTED: ${formatNigeriaTime(new Date(), true)}
           </div>
         </body>
@@ -159,23 +173,23 @@ export default function SalesFilterPage() {
 
   return (
     <AppShell>
-      <div className="flex flex-col gap-8 max-w-5xl mx-auto">
+      <div className="flex flex-col gap-8 max-w-6xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-headline font-bold uppercase tracking-tight text-white flex items-center gap-3">
               <Filter className="w-8 h-8 text-primary" /> Sales Filter
             </h1>
-            <p className="text-muted-foreground mt-1">Audit specific item performance over custom periods.</p>
+            <p className="text-muted-foreground mt-1">Audit specific item performance or global sales over custom periods.</p>
           </div>
           {report.items.length > 0 && (
             <Button onClick={printReport} className="bg-primary text-primary-foreground font-bold shadow-xl h-12 rounded-xl px-8 gap-2">
-              <Printer className="w-5 h-5" /> Print Summarized Ducket
+              <Printer className="w-5 h-5" /> Print Period Audit
             </Button>
           )}
         </div>
 
         <Card className="glass-card overflow-hidden">
-          <CardHeader className="bg-white/5 border-b border-white/5 py-6">
+          <CardHeader className="bg-white/5 border-b border-white/5 py-6 px-4 sm:px-8">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="space-y-2">
                 <Label className="text-[10px] uppercase font-bold tracking-widest text-primary/70">Start Date</Label>
@@ -189,7 +203,7 @@ export default function SalesFilterPage() {
                       )}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {startDate ? format(startDate, "PPP") : <span>Pick a date</span>}
+                      {startDate ? format(startDate, "PPP") : <span>Pick start date</span>}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0 glass-card" align="start">
@@ -215,7 +229,7 @@ export default function SalesFilterPage() {
                       )}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {endDate ? format(endDate, "PPP") : <span>Pick a date</span>}
+                      {endDate ? format(endDate, "PPP") : <span>Pick end date</span>}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0 glass-card" align="start">
@@ -230,11 +244,11 @@ export default function SalesFilterPage() {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-[10px] uppercase font-bold tracking-widest text-primary/70">Search Item Name</Label>
+                <Label className="text-[10px] uppercase font-bold tracking-widest text-primary/70">Search Item (Optional)</Label>
                 <div className="relative">
                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                    <Input 
-                    placeholder="e.g. Nutri Yo" 
+                    placeholder="Search name or leave empty for all" 
                     value={searchItem} 
                     onChange={(e) => setSearchItem(e.target.value)}
                     className="bg-white/5 border-white/10 pl-10 h-12 rounded-xl font-bold" 
@@ -247,9 +261,9 @@ export default function SalesFilterPage() {
           <CardContent className="p-0">
             {!dateRange ? (
               <div className="py-24 text-center flex flex-col items-center justify-center opacity-40">
-                <FileText className="w-16 h-16 mb-4" />
+                <History className="w-16 h-16 mb-4" />
                 <h3 className="text-xl font-headline font-bold uppercase">Ready to Filter</h3>
-                <p className="text-sm italic mt-2">Select a date range and enter an item name above.</p>
+                <p className="text-sm italic mt-2">Select a date range to begin scanning sales records.</p>
               </div>
             ) : loading ? (
               <div className="py-24 text-center flex flex-col items-center justify-center gap-4">
@@ -260,13 +274,13 @@ export default function SalesFilterPage() {
               <div className="py-24 text-center flex flex-col items-center justify-center opacity-40">
                 <Package className="w-16 h-16 mb-4" />
                 <h3 className="text-xl font-headline font-bold uppercase">No Matches Found</h3>
-                <p className="text-sm italic mt-2">No items matching "${searchItem}" were sold in this period.</p>
+                <p className="text-sm italic mt-2">No items matching your criteria were sold in this period.</p>
               </div>
             ) : (
               <div className="animate-in fade-in duration-500">
                 <div className="grid grid-cols-1 md:grid-cols-2 border-b border-white/5 bg-white/[0.02]">
                   <div className="p-8 border-r border-white/5 space-y-2">
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.3em]">Total Quantity Sold</span>
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.3em]">Units Processed</span>
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-primary/10 rounded-lg text-primary">
                         <Package className="w-6 h-6" />
@@ -275,7 +289,7 @@ export default function SalesFilterPage() {
                     </div>
                   </div>
                   <div className="p-8 space-y-2">
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.3em]">Total Generated Revenue</span>
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.3em]">Period Revenue</span>
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-500">
                         <Banknote className="w-6 h-6" />
@@ -285,30 +299,35 @@ export default function SalesFilterPage() {
                   </div>
                 </div>
 
-                <div className="p-6">
-                  <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-[0.2em] mb-4">Itemized Summary</h3>
-                  <div className="space-y-2">
-                    {report.items.sort((a, b) => b.qty - a.qty).map((item, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/[0.08] transition-colors">
-                        <div className="flex items-center gap-4">
-                           <div className="w-10 h-10 rounded-xl bg-black/40 flex items-center justify-center font-headline font-bold text-primary">
-                             {idx + 1}
-                           </div>
-                           <span className="font-bold text-lg">{item.name}</span>
-                        </div>
-                        <div className="flex items-center gap-8">
-                          <div className="flex flex-col items-end">
-                            <span className="text-[10px] font-bold text-muted-foreground uppercase">Qty</span>
-                            <span className="text-2xl font-headline font-bold text-white">x{item.qty}</span>
-                          </div>
-                          <ArrowRight className="w-4 h-4 text-muted-foreground/30" />
-                          <div className="flex flex-col items-end">
-                            <span className="text-[10px] font-bold text-muted-foreground uppercase">Revenue</span>
-                            <span className="text-2xl font-headline font-bold text-primary">₦{item.value.toLocaleString()}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                <div className="p-4 sm:p-8">
+                  <div className="flex items-center gap-2 mb-6">
+                    <FileBarChart className="w-5 h-5 text-primary" />
+                    <h3 className="text-xs font-bold text-white uppercase tracking-[0.2em]">Itemized Period Summary</h3>
+                  </div>
+                  
+                  <div className="rounded-2xl border border-white/5 overflow-hidden">
+                    <Table>
+                      <TableHeader className="bg-white/5">
+                        <TableRow className="border-white/5 hover:bg-transparent">
+                          <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground h-10">Item Description</TableHead>
+                          <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-center h-10">Volume</TableHead>
+                          <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-right h-10 pr-6">Total Generated (₦)</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {report.items.sort((a, b) => b.qty - a.qty).map((item, idx) => (
+                          <TableRow key={idx} className="border-white/5 hover:bg-white/[0.03] transition-colors h-14">
+                            <TableCell className="font-bold text-white uppercase text-xs">{item.name}</TableCell>
+                            <TableCell className="text-center">
+                              <Badge variant="outline" className="bg-white/5 border-white/10 font-headline font-bold">x{item.qty}</Badge>
+                            </TableCell>
+                            <TableCell className="text-right pr-6 font-headline font-bold text-primary text-base">
+                              ₦{item.value.toLocaleString()}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
                   </div>
                 </div>
               </div>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -24,7 +25,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn, formatNigeriaTime } from "@/lib/utils";
 import Link from "next/link";
 
-const COOLDOWN_MINUTES = 15; // Reduced from 8 hours to 15 minutes
+const COOLDOWN_MINUTES = 15; 
 
 export default function PorterShiftPage() {
   const firestore = useFirestore();
@@ -39,7 +40,6 @@ export default function PorterShiftPage() {
   const { data: userRecord } = useDoc(userRef);
   const isAdmin = userRecord?.role === 'admin';
 
-  // 1. Fetch All Active Porter Shifts (Globally) - Ordered by start time to prioritize most recent
   const allActiveShiftsQuery = useMemo(() => {
     if (!firestore) return null;
     return query(
@@ -54,7 +54,6 @@ export default function PorterShiftPage() {
   const myActiveShift = useMemo(() => allActiveShifts?.find(s => s.staffId === user?.uid), [allActiveShifts, user]);
   const otherActiveShift = useMemo(() => allActiveShifts?.find(s => s.staffId !== user?.uid), [allActiveShifts, user]);
 
-  // 2. Fetch Last Closed Shift for THIS USER ONLY for Cooldown
   const lastUserShiftQuery = useMemo(() => {
     if (!firestore || !user) return null;
     return query(
@@ -82,7 +81,6 @@ export default function PorterShiftPage() {
     };
   }, [lastClosedShift, isAdmin]);
 
-  // 3. Fetch Global Shift History
   const historyQuery = useMemo(() => {
     if (!firestore) return null;
     return query(collection(firestore, "porterShifts"), orderBy("startTime", "desc"), limit(10));
@@ -90,8 +88,13 @@ export default function PorterShiftPage() {
   const { data: history } = useCollection(historyQuery);
 
   const handleStartShift = async () => {
-    if (!firestore || !user) return;
+    if (!firestore || !user || isStarting) return;
     
+    if (myActiveShift) {
+      window.location.reload();
+      return;
+    }
+
     if (otherActiveShift && !isAdmin) {
       toast({ variant: "destructive", title: "Duty Occupied", description: `${otherActiveShift.staffName} is currently signed in. Handover required.` });
       return;

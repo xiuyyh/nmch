@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useMemo, useState, useEffect } from "react";
@@ -36,7 +37,7 @@ import { cn, formatNigeriaTime } from "@/lib/utils";
 import Link from "next/link";
 
 const HISTORY_PER_PAGE = 5;
-const COOLDOWN_MINUTES = 15; // Reduced from 8 hours to 15 minutes
+const COOLDOWN_MINUTES = 15; 
 
 export default function ShiftManagementPage() {
   const firestore = useFirestore();
@@ -123,8 +124,14 @@ export default function ShiftManagementPage() {
   const totalPages = Math.max(1, Math.ceil((shiftHistory?.length || 0) / HISTORY_PER_PAGE));
 
   const handleStartShift = () => {
-    if (!firestore || !user || !inventory) return;
+    if (!firestore || !user || !inventory || isStarting) return;
     
+    // Safety: If there is already an active shift for this user, don't create another
+    if (myActiveShift) {
+      window.location.reload();
+      return;
+    }
+
     if (otherActiveShift && !isAdmin) {
       toast({
         variant: "destructive",
