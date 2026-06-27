@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -23,7 +22,9 @@ import {
   FileCheck,
   ChevronDown,
   RotateCcw,
-  Eye
+  Eye,
+  Trash2,
+  Loader2
 } from "lucide-react";
 import { 
   Collapsible,
@@ -38,8 +39,19 @@ import {
   TableHeader, 
   TableRow 
 } from "@/components/ui/table";
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { useCollection, useFirestore, useUser } from "@/firebase";
-import { collection, query, orderBy, limit, doc, updateDoc, serverTimestamp, addDoc } from "firebase/firestore";
+import { collection, query, orderBy, limit, doc, updateDoc, serverTimestamp, addDoc, deleteDoc } from "firebase/firestore";
 import { formatNigeriaTime, cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
@@ -70,6 +82,14 @@ export default function AdminActionsPage() {
       a.entity?.toLowerCase().includes(search.toLowerCase())
     );
   }, [actions, search]);
+
+  const handleDeleteLog = (id: string) => {
+    if (!firestore) return;
+    deleteDoc(doc(firestore, "adminActions", id))
+      .then(() => {
+        toast({ title: "Log Deleted", description: "Audit entry has been removed from history." });
+      });
+  };
 
   const handleRestoreShift = (actionId: string, detailsStr: string) => {
     if (!firestore || !user) return;
@@ -255,7 +275,7 @@ export default function AdminActionsPage() {
               ) : (
                 <div className="divide-y divide-white/5">
                   {filteredActions.map((log) => (
-                    <div key={log.id} className="p-6 flex flex-col sm:flex-row gap-6 hover:bg-white/[0.01] transition-colors">
+                    <div key={log.id} className="p-6 flex flex-col sm:flex-row gap-6 hover:bg-white/[0.01] transition-colors group">
                       <div className="flex items-start gap-4 shrink-0 sm:w-56">
                         <div className="flex flex-col gap-2">
                            <div className="flex items-center gap-2 text-white font-bold">
@@ -270,11 +290,32 @@ export default function AdminActionsPage() {
                         </div>
                       </div>
 
-                      <div className="flex-1 space-y-3">
-                        <div className="flex items-center gap-3">
-                          {getActionIcon(log.action)}
-                          <span className="font-bold text-white uppercase text-sm tracking-tight">{log.action}</span>
-                          {getEntityBadge(log.entity)}
+                      <div className="flex-1 space-y-3 relative">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            {getActionIcon(log.action)}
+                            <span className="font-bold text-white uppercase text-sm tracking-tight">{log.action}</span>
+                            {getEntityBadge(log.entity)}
+                          </div>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent className="glass-card border-white/10">
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Audit Log?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This action is permanent. This entry will be removed from the timeline.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel className="bg-white/5 border-white/10">Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDeleteLog(log.id)} className="bg-destructive text-white">Delete Permanently</AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         </div>
                         <div className="max-w-3xl">
                           {renderDetails(log)}
@@ -289,24 +330,5 @@ export default function AdminActionsPage() {
         </div>
       </AppShell>
     </RoleGuard>
-  );
-}
-
-function Loader2(props: any) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-    </svg>
   );
 }

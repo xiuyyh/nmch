@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -17,6 +16,17 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { 
   Banknote, 
   Search, 
   Calendar as CalendarIcon, 
@@ -29,15 +39,18 @@ import {
   Filter,
   Loader2,
   FileText,
-  Home
+  Home,
+  Trash2
 } from "lucide-react";
 import { useCollection, useFirestore } from "@/firebase";
-import { collection, query, orderBy, limit, where } from "firebase/firestore";
+import { collection, query, orderBy, limit, where, doc, deleteDoc } from "firebase/firestore";
 import { formatNigeriaTime, cn } from "@/lib/utils";
 import { startOfMonth, endOfMonth, format } from "date-fns";
+import { useToast } from "@/hooks/use-toast";
 
 export default function AdminExpenseTrackerPage() {
   const firestore = useFirestore();
+  const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState<string>("All");
 
@@ -69,6 +82,14 @@ export default function AdminExpenseTrackerPage() {
     const light = filteredExpenses.filter(e => e.type === "Electricity").reduce((sum, e) => sum + (e.amount || 0), 0);
     return { total, light };
   }, [filteredExpenses]);
+
+  const handleDeleteExpense = (id: string) => {
+    if (!firestore) return;
+    deleteDoc(doc(firestore, "expenses", id))
+      .then(() => {
+        toast({ title: "Entry Removed", description: "Expense record deleted from ledger." });
+      });
+  };
 
   return (
     <RoleGuard allowedRoles={["admin"]}>
@@ -154,6 +175,7 @@ export default function AdminExpenseTrackerPage() {
                         <TableHead className="text-[10px] font-bold uppercase tracking-widest">Details</TableHead>
                         <TableHead className="text-[10px] font-bold uppercase tracking-widest">Staff</TableHead>
                         <TableHead className="text-[10px] font-bold uppercase tracking-widest text-right">Amount (₦)</TableHead>
+                        <TableHead className="text-[10px] font-bold uppercase tracking-widest text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -187,6 +209,29 @@ export default function AdminExpenseTrackerPage() {
                           </TableCell>
                           <TableCell className="text-right font-headline font-bold text-lg text-white">
                             {e.amount?.toLocaleString()}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive transition-colors">
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent className="glass-card border-white/10">
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete Expense Entry?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    This will remove the ₦{e.amount?.toLocaleString()} expenditure record for {e.apartmentName || 'Hotel'} from the ledger.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel className="bg-white/5 border-white/10">Cancel</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleDeleteExpense(e.id)} className="bg-destructive text-white font-bold">
+                                    Delete Record
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
                           </TableCell>
                         </TableRow>
                       ))}
