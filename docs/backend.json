@@ -1,4 +1,3 @@
-
 {
   "entities": {
     "UserRecord": {
@@ -336,6 +335,20 @@
         "timestamp": { "type": "string", "format": "date-time" }
       },
       "required": ["adminName", "action", "timestamp"]
+    },
+    "Expense": {
+      "title": "Expense Record",
+      "description": "Business expenditure log",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["Electricity", "Maintenance", "Supplies", "General"] },
+        "amount": { "type": "number" },
+        "details": { "type": "string" },
+        "staffName": { "type": "string" },
+        "staffId": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["type", "amount", "staffName", "timestamp"]
     }
   },
   "auth": {
@@ -361,6 +374,7 @@
     "/restockRequests/{requestId}": { "schema": "RestockRequest", "description": "Internal supply requests" },
     "/kitchenOrders/{orderId}": { "schema": "KitchenOrder", "description": "Active food orders" },
     "/shifts/{shiftId}": { "schema": "Shift", "description": "Staff work sessions" },
-    "/adminActions/{actionId}": { "schema": "AdminAction", "description": "System audit trail" }
+    "/adminActions/{actionId}": { "schema": "AdminAction", "description": "System audit trail" },
+    "/expenses/{expenseId}": { "schema": "Expense", "description": "Financial expenditure logs" }
   }
 }

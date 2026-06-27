@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
@@ -40,7 +41,9 @@ import {
   WashingMachine,
   Sparkles,
   ListTodo,
-  MessageSquare
+  MessageSquare,
+  Banknote,
+  Zap
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -113,6 +116,7 @@ const departments = [
     role: "porter",
     items: [
       { name: "Porter Log", href: "/porter", icon: Activity },
+      { name: "Electricity Recharge", href: "/porter/expenses", icon: Zap },
       { name: "Shift Management", href: "/porter/shift", icon: Clock },
     ],
   },
@@ -159,6 +163,7 @@ const departments = [
     role: "admin",
     items: [
       { name: "User Management", href: "/admin/users", icon: UsersIcon },
+      { name: "Expense Tracker", href: "/admin/expenses", icon: Banknote },
       { name: "Material Config", href: "/admin/materials", icon: Settings2 },
       { name: "Telegram Config", href: "/admin/telegram", icon: MessageSquare },
       { name: "Admin Actions", href: "/admin/actions", icon: FileSearch },
