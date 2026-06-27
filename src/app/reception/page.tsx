@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useMemo } from "react";
@@ -73,7 +72,7 @@ export default function ReceptionOverviewPage() {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
               <h1 className="text-3xl font-headline font-bold uppercase tracking-tight text-white flex items-center gap-3">
-                <LayoutDashboard className="w-8 h-8 text-primary" /> Reception Dashboard
+                Reception Dashboard
               </h1>
               <p className="text-muted-foreground mt-1">Live status of guest rooms and financial balances.</p>
             </div>
@@ -179,27 +178,5 @@ export default function ReceptionOverviewPage() {
         </div>
       </AppShell>
     </RoleGuard>
-  );
-}
-
-function LayoutDashboard(props: any) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect width="7" height="9" x="3" y="3" rx="1" />
-      <rect width="7" height="5" x="14" y="3" rx="1" />
-      <rect width="7" height="9" x="14" y="12" rx="1" />
-      <rect width="7" height="5" x="3" y="16" rx="1" />
-    </svg>
   );
 }
