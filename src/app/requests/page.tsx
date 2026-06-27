@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useMemo, useState, useEffect } from "react";
@@ -30,6 +29,7 @@ import { useToast } from "@/hooks/use-toast";
 import { errorEmitter } from "@/firebase/error-emitter";
 import { FirestorePermissionError } from "@/firebase/errors";
 import { cn } from "@/lib/utils";
+import { sendTelegramNotification } from "@/lib/notifications";
 
 export default function StoreRequestsPage() {
   const firestore = useFirestore();
@@ -78,21 +78,30 @@ export default function StoreRequestsPage() {
     const request = requests?.find(r => r.id === requestId);
     if (!request) return;
 
+    const managerName = user.displayName || user.email;
     const requestAdjustments = adjustments[requestId];
     const requestRef = doc(firestore, "restockRequests", requestId);
     
     const updateData = {
       status: action,
-      processedBy: user.displayName || user.email,
+      processedBy: managerName,
       processedAt: serverTimestamp(),
       items: action === "Approved" ? requestAdjustments : request.items
     };
 
     updateDoc(requestRef, updateData)
       .then(() => {
+        // Telegram Notification
+        const itemSummary = (action === "Approved" ? requestAdjustments : request.items)
+          .map((i: any) => `- ${i.name}: ${action === "Approved" ? (i.isDeclined ? "DECLINED" : i.approvedQuantity) : "REJECTED"}`)
+          .join('\n');
+        
+        const telegramMsg = `${action === "Approved" ? "✅" : "❌"} *RESTOCK REQUEST ${action.toUpperCase()}*\n\n*Target:* Bar Point\n*Requested By:* ${request.requestedBy}\n*Processed By:* ${managerName}\n\n*Items Details:*\n${itemSummary}`;
+        sendTelegramNotification(firestore, telegramMsg);
+
         // Log Admin Action
         addDoc(collection(firestore, "adminActions"), {
-          adminName: user.displayName || user.email,
+          adminName: managerName,
           adminId: user.uid,
           action: action === "Approved" ? "APPROVE_RESTOCK" : "REJECT_RESTOCK",
           entity: "REQUEST",

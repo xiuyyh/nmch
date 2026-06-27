@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
@@ -24,6 +23,7 @@ import { useFirestore, useUser } from "@/firebase";
 import { doc, updateDoc, serverTimestamp, getDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { sendTelegramNotification } from "@/lib/notifications";
 
 export default function SettleBalancePage() {
   const router = useRouter();
@@ -79,6 +79,7 @@ export default function SettleBalancePage() {
     setIsSubmitting(true);
 
     try {
+      const staffName = user?.displayName || user?.email;
       const perRoomPayment = paymentAmount / bookings.length;
 
       const promises = bookings.map(b => {
@@ -91,6 +92,12 @@ export default function SettleBalancePage() {
       });
 
       await Promise.all(promises);
+
+      // Telegram Notification
+      const roomsDisplay = bookings.map(r => `${r.apartmentName}-${r.roomNumber}`).join(', ');
+      const telegramMsg = `💰 *GUEST BALANCE SETTLED*\n\n*Guest:* ${guestInfo.guestName}\n*Units:* ${roomsDisplay}\n*Payment:* ₦${paymentAmount.toLocaleString()}\n*Staff:* ${staffName}`;
+      sendTelegramNotification(firestore, telegramMsg);
+
       toast({ title: "Payment Recorded", description: `₦${paymentAmount.toLocaleString()} has been added to guest records.` });
       router.push("/front-desk/room-manager");
     } catch (error) {

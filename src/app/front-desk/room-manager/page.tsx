@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
@@ -52,6 +51,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { errorEmitter } from "@/firebase/error-emitter";
 import { FirestorePermissionError } from "@/firebase/errors";
+import { sendTelegramNotification } from "@/lib/notifications";
 
 interface SelectedEntity {
   apartmentId: string;
@@ -203,6 +203,10 @@ export default function RoomManagerPage() {
       actualCheckOutDate: serverTimestamp(),
       lastModified: serverTimestamp() 
     }).then(() => {
+      // Telegram Notification
+      const telegramMsg = `🏃 *GUEST CHECK-OUT*\n\n*Guest:* ${booking.guestName}\n*Room:* ${booking.apartmentName} - ${booking.roomNumber}\n*Staff:* ${user?.displayName || user?.email}\n\n_Unit has been marked for cleaning._`;
+      sendTelegramNotification(firestore, telegramMsg);
+
       toast({ title: "Checked Out", description: "Room released." });
     }).catch(err => {
       errorEmitter.emit("permission-error", new FirestorePermissionError({
@@ -395,7 +399,7 @@ export default function RoomManagerPage() {
                                 <div className="flex items-center gap-1.5 sm:gap-2">
                                   {!booking.isPaid && <Badge variant="destructive" className="h-4 sm:h-5 text-[7px] sm:text-[8px] uppercase px-1">Debt</Badge>}
                                   <DropdownMenu>
-                                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                    <DropdownMenuTrigger asChild>
                                       <Button variant="ghost" size="icon" className="h-6 w-6"><MoreVertical className="w-3 h-3" /></Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end" className="glass-card border-white/10">

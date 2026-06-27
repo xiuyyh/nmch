@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
@@ -31,6 +30,7 @@ import { doc, updateDoc, serverTimestamp, getDoc } from "firebase/firestore";
 import { addDays, format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { sendTelegramNotification } from "@/lib/notifications";
 
 export default function ExtendStayPage() {
   const router = useRouter();
@@ -85,11 +85,16 @@ export default function ExtendStayPage() {
 
   const handleCheckout = (bookingId: string) => {
     if (!firestore) return;
+    const booking = bookings.find(b => b.id === bookingId);
     updateDoc(doc(firestore, "roomBookings", bookingId), { 
       status: "checked_out", 
       actualCheckOutDate: serverTimestamp(),
       lastModified: serverTimestamp() 
     }).then(() => {
+      // Telegram Notification
+      const telegramMsg = `🏃 *GUEST CHECK-OUT (Partial)*\n\n*Guest:* ${booking.guestName}\n*Room:* ${booking.apartmentName} - ${booking.roomNumber}\n*Staff:* ${user?.displayName || user?.email}`;
+      sendTelegramNotification(firestore, telegramMsg);
+
       toast({ title: "Checked Out", description: "Room released successfully." });
       setBookings(prev => prev.filter(b => b.id !== bookingId));
       if (bookings.length <= 1) router.push("/front-desk/room-manager");
@@ -112,8 +117,8 @@ export default function ExtendStayPage() {
     setIsSubmitting(true);
 
     try {
+      const staffName = user?.displayName || user?.email;
       // We apply extension only to selected IDs
-      // But payment is distributed across the WHOLE group for financial consistency
       const perRoomExtraCost = extraCost / selectedIds.size;
       const perRoomNewPayment = declaringPaid / bookings.length;
 
@@ -130,7 +135,6 @@ export default function ExtendStayPage() {
           updateData.totalStayCost = (b.totalStayCost || 0) + perRoomExtraCost;
         }
 
-        // Re-check overall payment status for this record
         const totalNewCost = isSelected ? (b.totalStayCost || 0) + perRoomExtraCost : (b.totalStayCost || 0);
         const totalNewPaid = (b.checkInAmountPaid || 0) + (b.retainingAmountPaid || 0) + perRoomNewPayment;
         updateData.isPaid = paymentStatus === 'paid' || totalNewPaid >= totalNewCost;
@@ -139,6 +143,12 @@ export default function ExtendStayPage() {
       });
 
       await Promise.all(promises);
+
+      // Telegram Notification
+      const extendedRooms = bookings.filter(b => selectedIds.has(b.id)).map(r => `${r.apartmentName}-${r.roomNumber}`).join(', ');
+      const telegramMsg = `⏳ *STAY EXTENDED*\n\n*Guest:* ${guestInfo.guestName}\n*Units:* ${extendedRooms}\n*Extra Days:* ${extraDays}\n*Addl. Cost:* ₦${extraCost.toLocaleString()}\n*New Payment:* ₦${declaringPaid.toLocaleString()}\n*Staff:* ${staffName}`;
+      sendTelegramNotification(firestore, telegramMsg);
+
       toast({ title: "Extension Finalized", description: `Updated ${selectedIds.size} units for ${extraDays} more days.` });
       router.push("/front-desk/room-manager");
     } catch (error) {

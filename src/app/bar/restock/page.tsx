@@ -32,6 +32,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { errorEmitter } from "@/firebase/error-emitter";
 import { FirestorePermissionError } from "@/firebase/errors";
+import { sendTelegramNotification } from "@/lib/notifications";
 
 export default function BarRestockPage() {
   const firestore = useFirestore();
@@ -89,6 +90,7 @@ export default function BarRestockPage() {
     if (!firestore || !user || requestItems.length === 0) return;
     setIsSubmitting(true);
 
+    const staffName = user.displayName || user.email;
     const requestData = {
       requestDate: serverTimestamp(),
       items: requestItems.map(i => ({
@@ -97,11 +99,16 @@ export default function BarRestockPage() {
         requestedQuantity: i.quantity
       })),
       status: "Pending",
-      requestedBy: user.displayName || user.email
+      requestedBy: staffName
     };
 
     addDoc(collection(firestore, "restockRequests"), requestData)
       .then(() => {
+        // Telegram Notification
+        const itemSummary = requestItems.map(i => `- ${i.name} (${i.quantity})`).join('\n');
+        const telegramMsg = `📦 *NEW RESTOCK REQUEST*\n\n*From:* Bar Point\n*By:* ${staffName}\n\n*Items Requested:*\n${itemSummary}\n\n_Status: Awaiting Store Approval_`;
+        sendTelegramNotification(firestore, telegramMsg);
+
         toast({
           title: "Request Submitted",
           description: "Your restock request has been sent to the store manager.",

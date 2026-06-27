@@ -39,7 +39,8 @@ import {
   Activity,
   WashingMachine,
   Sparkles,
-  ListTodo
+  ListTodo,
+  MessageSquare
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -159,6 +160,7 @@ const departments = [
     items: [
       { name: "User Management", href: "/admin/users", icon: UsersIcon },
       { name: "Material Config", href: "/admin/materials", icon: Settings2 },
+      { name: "Telegram Config", href: "/admin/telegram", icon: MessageSquare },
       { name: "Admin Actions", href: "/admin/actions", icon: FileSearch },
     ],
   },

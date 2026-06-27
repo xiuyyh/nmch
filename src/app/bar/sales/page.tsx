@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
@@ -46,6 +45,7 @@ import { errorEmitter } from "@/firebase/error-emitter";
 import { FirestorePermissionError } from "@/firebase/errors";
 import { cn, formatNigeriaTime } from "@/lib/utils";
 import Link from "next/link";
+import { sendTelegramNotification } from "@/lib/notifications";
 
 const ITEMS_PER_PAGE = 12;
 const TABLES = Array.from({ length: 20 }, (_, i) => `Table ${i + 1}`);
@@ -236,14 +236,17 @@ export default function SalesPage() {
       return;
     }
 
+    const staffName = user?.displayName || user?.email || "Bar Staff";
+    const tableName = selectedTable || "Counter";
+
     const saleData = {
       items: cart,
       total,
       method: "Unsettled",
-      tableNumber: selectedTable || "Counter",
+      tableNumber: tableName,
       timestamp: serverTimestamp(),
       status: "Unsettled",
-      staffName: user?.displayName || user?.email || "Bar Staff",
+      staffName: staffName,
       shiftId: activeShift?.id || "admin-override",
       isReconciled: true 
     };
@@ -254,6 +257,11 @@ export default function SalesPage() {
           printDucket({ ...saleData, id: docRef.id });
         }
 
+        // Send Telegram Notification
+        const itemSummary = cart.map(i => `- ${i.name} x${i.quantity}`).join('\n');
+        const telegramMsg = `🧾 *NEW BILL GENERATED*\n\n*Point:* ${tableName}\n*Staff:* ${staffName}\n*Total:* ₦${total.toLocaleString()}\n\n*Items:*\n${itemSummary}\n\n_Status: Pending Settlement_`;
+        sendTelegramNotification(firestore, telegramMsg);
+
         const foodItemsToFire = cart
           .filter(item => item.category === "FOOD" && item.quantity > (item.lastSentQuantity || 0))
           .map(item => ({
@@ -263,10 +271,10 @@ export default function SalesPage() {
 
         if (foodItemsToFire.length > 0) {
           addDoc(collection(firestore, "kitchenOrders"), {
-            tableNumber: selectedTable || "Counter",
+            tableNumber: tableName,
             items: foodItemsToFire,
             timestamp: serverTimestamp(),
-            staffName: user?.displayName || user?.email || "Bar Staff",
+            staffName: staffName,
             status: "Pending"
           }).catch(() => {});
         }

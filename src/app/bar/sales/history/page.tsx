@@ -65,6 +65,7 @@ import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
 import { errorEmitter } from "@/firebase/error-emitter";
 import { FirestorePermissionError } from "@/firebase/errors";
+import { sendTelegramNotification } from "@/lib/notifications";
 
 const SHIFTS_PER_PAGE = 10;
 
@@ -146,6 +147,10 @@ export default function SalesAuditPage() {
     const saleRef = doc(firestore, "sales", sale.id);
     const updateData = { status: "Completed", method: method, settledAt: serverTimestamp() };
     updateDoc(saleRef, updateData).then(() => {
+      // Telegram Notification
+      const telegramMsg = `✅ *BILL SETTLED*\n\n*Receipt:* #${sale.id.slice(-8).toUpperCase()}\n*Point:* ${sale.tableNumber}\n*Total:* ₦${sale.total.toLocaleString()}\n*Method:* ${method}\n*Staff:* ${user?.displayName || user?.email}`;
+      sendTelegramNotification(firestore, telegramMsg);
+
       toast({ title: "Sale Settled", description: `Transaction recorded via ${method}.` });
     }).catch((error) => {
       errorEmitter.emit("permission-error", new FirestorePermissionError({ path: saleRef.path, operation: "update", requestResourceData: updateData }));
@@ -161,6 +166,11 @@ export default function SalesAuditPage() {
         const stockRef = doc(firestore, "inventory", item.itemId);
         updateDoc(stockRef, { stock: increment(item.quantity), lastUpdated: serverTimestamp() }).catch(() => {});
       }
+      
+      // Telegram Notification
+      const telegramMsg = `🚫 *BILL VOIDED*\n\n*Receipt:* #${sale.id.slice(-8).toUpperCase()}\n*Point:* ${sale.tableNumber}\n*Total:* ₦${sale.total.toLocaleString()}\n*Voided By:* ${user?.displayName || user?.email}\n\n_Inventory has been restored._`;
+      sendTelegramNotification(firestore, telegramMsg);
+
       toast({ title: "Sale Canceled", description: `Inventory restored.` });
     });
   };

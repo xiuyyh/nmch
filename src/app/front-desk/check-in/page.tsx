@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
@@ -27,6 +26,7 @@ import { collection, query, where, addDoc, serverTimestamp, limit } from "fireba
 import { addDays } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { sendTelegramNotification } from "@/lib/notifications";
 
 interface SelectedRoom {
   apartmentId: string;
@@ -85,6 +85,7 @@ export default function CheckInPage() {
     setIsSubmitting(true);
 
     try {
+      const staffName = user.displayName || user.email;
       const promises = selectedRooms.map(room => {
         const bookingData = {
           apartmentId: room.apartmentId,
@@ -99,13 +100,18 @@ export default function CheckInPage() {
           totalStayCost: guestData.totalCost / selectedRooms.length,
           status: "active",
           isPaid: (guestData.amountPaid / selectedRooms.length) >= (guestData.totalCost / selectedRooms.length),
-          staffName: user.displayName || user.email,
+          staffName: staffName,
           lastModified: serverTimestamp()
         };
         return addDoc(collection(firestore, "roomBookings"), bookingData);
       });
 
       await Promise.all(promises);
+
+      // Telegram Notification
+      const roomsDisplay = selectedRooms.map(r => `${r.apartmentName} - ${r.roomNumber}`).join(', ');
+      const telegramMsg = `🏨 *GUEST CHECK-IN*\n\n*Guest:* ${guestData.name}\n*Phone:* ${guestData.phone || 'N/A'}\n*Rooms:* ${roomsDisplay}\n*Duration:* ${guestData.days} Days\n*Total Bill:* ₦${guestData.totalCost.toLocaleString()}\n*Paid:* ₦${guestData.amountPaid.toLocaleString()}\n*Staff:* ${staffName}`;
+      sendTelegramNotification(firestore, telegramMsg);
       
       toast({ title: "Registration Complete", description: `Guest ${guestData.name} registered successfully.` });
       router.push("/front-desk/room-manager");
