@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "UserRecord": {
@@ -29,6 +30,21 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["name", "type", "roomNumbers"]
+    },
+    "MaintenanceReport": {
+      "title": "Maintenance Report",
+      "description": "A facility issue reported by staff",
+      "type": "object",
+      "properties": {
+        "apartmentName": { "type": "string" },
+        "roomNumber": { "type": "string" },
+        "description": { "type": "string" },
+        "reportedBy": { "type": "string" },
+        "status": { "type": "string", "enum": ["Pending", "Resolved"] },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "lastNotifiedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["apartmentName", "description", "reportedBy", "status", "timestamp"]
     },
     "HousekeepingLog": {
       "title": "Housekeeping Activity",
@@ -76,16 +92,6 @@
       },
       "required": ["requestedBy", "source", "items", "status", "timestamp"]
     },
-    "RequestableMaterial": {
-      "title": "Configured Material",
-      "description": "Materials that can be requested by staff",
-      "type": "object",
-      "properties": {
-        "name": { "type": "string" },
-        "source": { "type": "string", "enum": ["Laundry", "Store"] }
-      },
-      "required": ["name", "source"]
-    },
     "StockItem": {
       "title": "Bar Stock Item",
       "description": "An item in the bar's inventory",
@@ -123,192 +129,6 @@
       },
       "required": ["apartmentId", "guestName", "checkInDate", "checkOutDate", "status"]
     },
-    "FrontDeskShift": {
-      "title": "Front Desk Shift",
-      "description": "Record of a receptionist's shift",
-      "type": "object",
-      "properties": {
-        "staffId": { "type": "string" },
-        "staffName": { "type": "string" },
-        "startTime": { "type": "string", "format": "date-time" },
-        "endTime": { "type": "string", "format": "date-time" },
-        "status": { "type": "string", "enum": ["active", "closed"] },
-        "openingOccupiedRooms": { "type": "number" },
-        "openingUnpaidDebt": { "type": "number" }
-      },
-      "required": ["staffId", "staffName", "startTime", "status"]
-    },
-    "PorterShift": {
-      "title": "Porter Shift",
-      "description": "Record of a porter's shift",
-      "type": "object",
-      "properties": {
-        "staffId": { "type": "string" },
-        "staffName": { "type": "string" },
-        "startTime": { "type": "string", "format": "date-time" },
-        "endTime": { "type": "string", "format": "date-time" },
-        "status": { "type": "string", "enum": ["active", "closed"] }
-      },
-      "required": ["staffId", "staffName", "startTime", "status"]
-    },
-    "PorterAction": {
-      "title": "Porter Activity Log",
-      "description": "Log of a porter's duties and services",
-      "type": "object",
-      "properties": {
-        "type": { "type": "string", "enum": ["guest_check", "complimentary_meal", "room_delivery"] },
-        "apartmentId": { "type": "string" },
-        "apartmentName": { "type": "string" },
-        "roomNumber": { "type": "string" },
-        "guestName": { "type": "string" },
-        "details": { "type": "string" },
-        "timestamp": { "type": "string", "format": "date-time" },
-        "staffName": { "type": "string" },
-        "shiftId": { "type": "string" }
-      },
-      "required": ["type", "apartmentId", "roomNumber", "timestamp", "staffName", "shiftId"]
-    },
-    "WarehouseItem": {
-      "title": "Warehouse Stock Item",
-      "description": "An item in the main store/warehouse",
-      "type": "object",
-      "properties": {
-        "name": { "type": "string" },
-        "category": { "type": "string" },
-        "stock": { "type": "number" },
-        "unit": { "type": "string" },
-        "min": { "type": "number" },
-        "lastUpdated": { "type": "string", "format": "date-time" }
-      },
-      "required": ["name", "stock", "min"]
-    },
-    "StockReceival": {
-      "title": "Stock Receival",
-      "description": "A record of items received into the warehouse",
-      "type": "object",
-      "properties": {
-        "supplierName": { "type": "string" },
-        "receivedDate": { "type": "string", "format": "date-time" },
-        "receivedBy": { "type": "string" },
-        "items": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "itemId": { "type": "string" },
-              "name": { "type": "string" },
-              "quantity": { "type": "number" }
-            }
-          }
-        }
-      },
-      "required": ["receivedDate", "items", "receivedBy"]
-    },
-    "InventoryCategory": {
-      "title": "Inventory Category",
-      "description": "A category for grouping inventory items",
-      "type": "object",
-      "properties": {
-        "name": { "type": "string" }
-      },
-      "required": ["name"]
-    },
-    "Sale": {
-      "title": "Sale Record",
-      "description": "A recorded transaction",
-      "type": "object",
-      "properties": {
-        "items": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "itemId": { "type": "string" },
-              "name": { "type": "string" },
-              "quantity": { "type": "number" },
-              "price": { "type": "number" }
-            }
-          }
-        },
-        "total": { "type": "number" },
-        "method": { "type": "string", "enum": ["Card", "Cash", "Transfer", "Unsettled"] },
-        "tableNumber": { "type": "string" },
-        "timestamp": { "type": "string", "format": "date-time" },
-        "status": { "type": "string", "enum": ["Completed", "Canceled", "Unsettled"] },
-        "staffName": { "type": "string" },
-        "shiftId": { "type": "string" },
-        "isReconciled": { "type": "boolean" }
-      },
-      "required": ["items", "total", "method", "timestamp"]
-    },
-    "TableSession": {
-      "title": "Active Table Session",
-      "description": "An ongoing order for a specific table",
-      "type": "object",
-      "properties": {
-        "tableNumber": { "type": "string" },
-        "items": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "itemId": { "type": "string" },
-              "name": { "type": "string" },
-              "quantity": { "type": "number" },
-              "price": { "type": "number" }
-            }
-          }
-        },
-        "lastUpdated": { "type": "string", "format": "date-time" }
-      },
-      "required": ["tableNumber", "items"]
-    },
-    "RestockRequest": {
-      "title": "Restock Request",
-      "description": "A request for more stock",
-      "type": "object",
-      "properties": {
-        "requestDate": { "type": "string", "format": "date-time" },
-        "items": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "itemId": { "type": "string" },
-              "name": { "type": "string" },
-              "requestedQuantity": { "type": "number" },
-              "approvedQuantity": { "type": "number" },
-              "isDeclined": { "type": "boolean" }
-            }
-          }
-        },
-        "status": { "type": "string", "enum": ["Pending", "Approved", "Rejected"] },
-        "requestedBy": { "type": "string" }
-      },
-      "required": ["requestDate", "items", "status", "requestedBy"]
-    },
-    "KitchenOrder": {
-      "title": "Kitchen Order",
-      "description": "An order sent to the kitchen",
-      "type": "object",
-      "properties": {
-        "tableNumber": { "type": "string" },
-        "items": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "name": { "type": "string" },
-              "quantity": { "type": "number" }
-            }
-          }
-        },
-        "timestamp": { "type": "string", "format": "date-time" },
-        "staffName": { "type": "string" },
-        "status": { "type": "string", "enum": ["Pending", "Delivered"] }
-      },
-      "required": ["tableNumber", "items", "timestamp"]
-    },
     "Shift": {
       "title": "Shift Record",
       "description": "Record of a staff member's shift",
@@ -321,20 +141,6 @@
         "status": { "type": "string", "enum": ["active", "closed"] }
       },
       "required": ["staffId", "staffName", "startTime", "status"]
-    },
-    "AdminAction": {
-      "title": "Admin Action Log",
-      "description": "History of sensitive actions",
-      "type": "object",
-      "properties": {
-        "adminName": { "type": "string" },
-        "adminId": { "type": "string" },
-        "action": { "type": "string" },
-        "entity": { "type": "string" },
-        "details": { "type": "string" },
-        "timestamp": { "type": "string", "format": "date-time" }
-      },
-      "required": ["adminName", "action", "timestamp"]
     },
     "Expense": {
       "title": "Expense Record",
@@ -368,24 +174,19 @@
   "firestore": {
     "/users/{uid}": { "schema": "UserRecord", "description": "User metadata" },
     "/apartments/{apartmentId}": { "schema": "Apartment", "description": "Apartment units" },
+    "/maintenanceReports/{reportId}": { "schema": "MaintenanceReport", "description": "Facility issues" },
     "/housekeepingLogs/{logId}": { "schema": "HousekeepingLog", "description": "Cleaning records" },
     "/laundryLogs/{logId}": { "schema": "LaundryLog", "description": "Wash records" },
     "/materialRequests/{requestId}": { "schema": "MaterialRequest", "description": "Staff supply requests" },
-    "/requestableMaterials/{materialId}": { "schema": "RequestableMaterial", "description": "Configured request items" },
     "/inventory/{itemId}": { "schema": "StockItem", "description": "Bar inventory" },
     "/roomBookings/{bookingId}": { "schema": "RoomBooking", "description": "Guest stay history" },
-    "/frontDeskShifts/{shiftId}": { "schema": "FrontDeskShift", "description": "Receptionist sessions" },
-    "/porterShifts/{shiftId}": { "schema": "PorterShift", "description": "Porter work sessions" },
-    "/porterActions/{actionId}": { "schema": "PorterAction", "description": "Porter activities" },
-    "/warehouseInventory/{itemId}": { "schema": "WarehouseItem", "description": "Main warehouse" },
-    "/stockReceivals/{receivalId}": { "schema": "StockReceival", "description": "Intake history" },
-    "/inventoryCategories/{categoryId}": { "schema": "InventoryCategory", "description": "Inventory groupings" },
     "/sales/{saleId}": { "schema": "Sale", "description": "Sales history" },
     "/tableSessions/{tableNumber}": { "schema": "TableSession", "description": "Active table sessions" },
     "/restockRequests/{requestId}": { "schema": "RestockRequest", "description": "Internal supply requests" },
     "/kitchenOrders/{orderId}": { "schema": "KitchenOrder", "description": "Active food orders" },
     "/shifts/{shiftId}": { "schema": "Shift", "description": "Staff work sessions" },
     "/adminActions/{actionId}": { "schema": "AdminAction", "description": "System audit trail" },
-    "/expenses/{expenseId}": { "schema": "Expense", "description": "Financial expenditure logs" }
+    "/expenses/{expenseId}": { "schema": "Expense", "description": "Financial expenditure logs" },
+    "/settings/{settingId}": { "schema": "any", "description": "System configuration" }
   }
 }

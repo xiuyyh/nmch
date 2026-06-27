@@ -43,7 +43,8 @@ import {
   ListTodo,
   MessageSquare,
   Banknote,
-  Zap
+  Zap,
+  Wrench
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -87,6 +88,14 @@ const departments = [
       { name: "Porter Overview", href: "/porter/overview", icon: Activity, roles: ["admin", "porter"] },
       { name: "Facility Overview", href: "/facility/overview", icon: Sparkles, roles: ["admin", "housekeeper", "laundry"] },
     ],
+  },
+  {
+    title: "Facility",
+    icon: Wrench,
+    role: "shared_all",
+    items: [
+      { name: "Maintenance", href: "/maintenance", icon: Wrench, roles: ["admin", "bar", "kitchen", "store", "front_desk", "housekeeper", "porter", "laundry"] },
+    ]
   },
   {
     title: "Bar Operations",
@@ -196,6 +205,9 @@ function AppSidebar() {
     return departments.filter(dept => {
       if (dept.role === "shared") {
         return dept.items.some(i => i.roles?.includes(userRecord.role));
+      }
+      if (dept.role === "shared_all") {
+        return true;
       }
       return dept.role === userRecord.role;
     });
@@ -366,6 +378,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return departments.filter(dept => {
       if (dept.role === "shared") {
         return dept.items.some(i => i.roles?.includes(userRecord.role));
+      }
+      if (dept.role === "shared_all") {
+        return true;
       }
       return dept.role === userRecord.role;
     });

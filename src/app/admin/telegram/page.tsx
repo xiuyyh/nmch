@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -8,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Send, Settings2, ShieldCheck, MessageSquare, Save, Loader2, AlertCircle } from "lucide-react";
+import { Send, Settings2, ShieldCheck, MessageSquare, Save, Loader2, AlertCircle, Clock } from "lucide-react";
 import { useFirestore, useDoc } from "@/firebase";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
@@ -29,7 +30,8 @@ export default function TelegramConfigPage() {
   const [formData, setFormData] = useState({
     botToken: "",
     chatId: "",
-    enabled: false
+    enabled: false,
+    maintenanceFreq: 5
   });
 
   useEffect(() => {
@@ -37,7 +39,8 @@ export default function TelegramConfigPage() {
       setFormData({
         botToken: config.botToken || "",
         chatId: config.chatId || "",
-        enabled: config.enabled || false
+        enabled: config.enabled || false,
+        maintenanceFreq: config.maintenanceFreq || 5
       });
     }
   }, [config]);
@@ -123,28 +126,51 @@ export default function TelegramConfigPage() {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Bot API Token</Label>
-                  <Input 
-                    type="password"
-                    placeholder="Enter your Bot Token from @BotFather" 
-                    value={formData.botToken}
-                    onChange={(e) => setFormData({...formData, botToken: e.target.value})}
-                    className="bg-white/5 border-white/10 h-12"
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Bot API Token</Label>
+                    <Input 
+                      type="password"
+                      placeholder="BotFather Token" 
+                      value={formData.botToken}
+                      onChange={(e) => setFormData({...formData, botToken: e.target.value})}
+                      className="bg-white/5 border-white/10 h-12"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Chat ID</Label>
+                    <Input 
+                      placeholder="-100123456789" 
+                      value={formData.chatId}
+                      onChange={(e) => setFormData({...formData, chatId: e.target.value})}
+                      className="bg-white/5 border-white/10 h-12"
+                    />
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Chat ID / Channel Link</Label>
-                  <Input 
-                    placeholder="e.g. -100123456789" 
-                    value={formData.chatId}
-                    onChange={(e) => setFormData({...formData, chatId: e.target.value})}
-                    className="bg-white/5 border-white/10 h-12"
-                  />
+                <div className="pt-4 border-t border-white/5 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-primary" />
+                    <Label className="text-sm font-bold">Maintenance Notification Interval</Label>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <Input 
+                      type="number"
+                      min="1"
+                      max="48"
+                      value={formData.maintenanceFreq}
+                      onChange={(e) => setFormData({...formData, maintenanceFreq: Number(e.target.value)})}
+                      className="bg-white/5 border-white/10 h-12 w-24 text-center font-bold"
+                    />
+                    <span className="text-sm text-muted-foreground font-medium">Hours</span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest leading-relaxed">
+                    Unresolved maintenance issues will trigger a Telegram alert at this interval.
+                  </p>
                 </div>
 
-                <div className="p-4 bg-amber-500/5 border border-amber-500/20 rounded-xl flex items-start gap-3">
+                <div className="p-4 bg-amber-500/5 border border-amber-500/10 rounded-xl flex items-start gap-3">
                   <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
                   <p className="text-[10px] text-muted-foreground leading-relaxed">
                     Ensure your bot has been added to the channel as an Administrator with "Send Messages" permission.
