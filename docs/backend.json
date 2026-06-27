@@ -341,8 +341,19 @@
       "description": "Business expenditure log",
       "type": "object",
       "properties": {
-        "type": { "type": "string", "enum": ["Electricity", "Maintenance", "Supplies", "General"] },
+        "type": { "type": "string" },
         "amount": { "type": "number" },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "cost": { "type": "number" }
+            }
+          }
+        },
+        "apartmentName": { "type": "string" },
         "details": { "type": "string" },
         "staffName": { "type": "string" },
         "staffId": { "type": "string" },
