@@ -28,7 +28,8 @@ import {
   Settings2,
   Filter,
   Loader2,
-  FileText
+  FileText,
+  Home
 } from "lucide-react";
 import { useCollection, useFirestore } from "@/firebase";
 import { collection, query, orderBy, limit, where } from "firebase/firestore";
@@ -55,7 +56,8 @@ export default function AdminExpenseTrackerPage() {
     if (!expenses) return [];
     return expenses.filter(e => {
       const matchSearch = e.staffName?.toLowerCase().includes(search.toLowerCase()) || 
-                          e.details?.toLowerCase().includes(search.toLowerCase());
+                          e.details?.toLowerCase().includes(search.toLowerCase()) ||
+                          e.apartmentName?.toLowerCase().includes(search.toLowerCase());
       const matchType = filterType === "All" || e.type === filterType;
       return matchSearch && matchType;
     });
@@ -106,7 +108,7 @@ export default function AdminExpenseTrackerPage() {
              <div className="relative flex-1">
                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                <Input 
-                placeholder="Search staff or details..." 
+                placeholder="Search staff, apartment, or details..." 
                 className="pl-10 h-11 bg-white/5 border-white/10 rounded-xl"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -142,46 +144,55 @@ export default function AdminExpenseTrackerPage() {
               ) : filteredExpenses.length === 0 ? (
                 <div className="py-20 text-center opacity-40 italic">No expenses recorded matching criteria.</div>
               ) : (
-                <Table>
-                  <TableHeader className="bg-white/[0.02]">
-                    <TableRow className="border-white/5 hover:bg-transparent">
-                      <TableHead className="text-[10px] font-bold uppercase tracking-widest">Timestamp</TableHead>
-                      <TableHead className="text-[10px] font-bold uppercase tracking-widest">Category</TableHead>
-                      <TableHead className="text-[10px] font-bold uppercase tracking-widest">Details</TableHead>
-                      <TableHead className="text-[10px] font-bold uppercase tracking-widest">Staff</TableHead>
-                      <TableHead className="text-[10px] font-bold uppercase tracking-widest text-right">Amount (₦)</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredExpenses.map((e) => (
-                      <TableRow key={e.id} className="border-white/5 hover:bg-white/[0.02] transition-colors">
-                        <TableCell className="text-xs text-muted-foreground">
-                          {e.timestamp?.toDate ? format(e.timestamp.toDate(), "dd MMM, HH:mm") : "..."}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className={cn(
-                            "text-[8px] uppercase px-1.5 h-5 border-none",
-                            e.type === 'Electricity' ? "bg-amber-500/20 text-amber-400" : "bg-primary/20 text-primary"
-                          )}>
-                            {e.type}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-xs font-bold text-white max-w-[200px] truncate">
-                          {e.details}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2 text-xs">
-                            <User className="w-3 h-3 text-muted-foreground" />
-                            <span className="font-medium text-white/80">{e.staffName}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right font-headline font-bold text-lg text-white">
-                          {e.amount?.toLocaleString()}
-                        </TableCell>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader className="bg-white/[0.02]">
+                      <TableRow className="border-white/5 hover:bg-transparent">
+                        <TableHead className="text-[10px] font-bold uppercase tracking-widest">Timestamp</TableHead>
+                        <TableHead className="text-[10px] font-bold uppercase tracking-widest">Category</TableHead>
+                        <TableHead className="text-[10px] font-bold uppercase tracking-widest">Unit/Target</TableHead>
+                        <TableHead className="text-[10px] font-bold uppercase tracking-widest">Details</TableHead>
+                        <TableHead className="text-[10px] font-bold uppercase tracking-widest">Staff</TableHead>
+                        <TableHead className="text-[10px] font-bold uppercase tracking-widest text-right">Amount (₦)</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredExpenses.map((e) => (
+                        <TableRow key={e.id} className="border-white/5 hover:bg-white/[0.02] transition-colors">
+                          <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                            {e.timestamp?.toDate ? format(e.timestamp.toDate(), "dd MMM, HH:mm") : "..."}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className={cn(
+                              "text-[8px] uppercase px-1.5 h-5 border-none",
+                              e.type === 'Electricity' ? "bg-amber-500/20 text-amber-400" : "bg-primary/20 text-primary"
+                            )}>
+                              {e.type}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1.5 text-xs text-white/90 font-medium">
+                              <Home className="w-3 h-3 text-primary/60" />
+                              {e.apartmentName || "N/A"}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-xs font-bold text-white max-w-[200px] truncate">
+                            {e.details}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2 text-xs">
+                              <User className="w-3 h-3 text-muted-foreground" />
+                              <span className="font-medium text-white/80">{e.staffName}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right font-headline font-bold text-lg text-white">
+                            {e.amount?.toLocaleString()}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
             </CardContent>
           </Card>

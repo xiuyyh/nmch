@@ -17,17 +17,19 @@ import {
   User, 
   AlertCircle,
   Loader2,
-  Banknote
+  Banknote,
+  Home
 } from "lucide-react";
 import { useCollection, useFirestore, useUser } from "@/firebase";
 import { collection, query, where, addDoc, serverTimestamp, orderBy, limit } from "firebase/firestore";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { sendTelegramNotification } from "@/lib/notifications";
+import { Badge } from "@/components/ui/badge";
 
 export default function PorterExpenseLogPage() {
   const firestore = useFirestore();
-  const { user } = userUser();
+  const { user } = useUser();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -51,13 +53,15 @@ export default function PorterExpenseLogPage() {
     setIsSubmitting(true);
     const formData = new FormData(e.currentTarget);
     const amount = Number(formData.get("amount"));
+    const apartmentName = formData.get("apartmentName") as string;
     const details = formData.get("details") as string;
     const staffName = user.displayName || user.email;
 
     const expenseData = {
       type: "Electricity",
       amount,
-      details: details || "Electricity Recharge (Light Bill)",
+      apartmentName: apartmentName || "General",
+      details: details || `Electricity Recharge for ${apartmentName || 'Hotel'}`,
       staffName,
       staffId: user.uid,
       timestamp: serverTimestamp()
@@ -67,7 +71,7 @@ export default function PorterExpenseLogPage() {
       await addDoc(collection(firestore, "expenses"), expenseData);
       
       // Telegram Notification
-      const telegramMsg = `⚡ *ELECTRICITY RECHARGE*\n\n*Amount:* ₦${amount.toLocaleString()}\n*Details:* ${expenseData.details}\n*Staff:* ${staffName}`;
+      const telegramMsg = `⚡ *ELECTRICITY RECHARGE*\n\n*Target:* ${expenseData.apartmentName}\n*Amount:* ₦${amount.toLocaleString()}\n*Staff:* ${staffName}\n*Details:* ${expenseData.details}`;
       sendTelegramNotification(firestore, telegramMsg);
 
       toast({ title: "Expense Recorded", description: "Light bill recharge has been logged." });
@@ -82,24 +86,39 @@ export default function PorterExpenseLogPage() {
   return (
     <RoleGuard allowedRoles={["porter", "admin"]}>
       <AppShell>
-        <div className="max-w-5xl mx-auto space-y-10">
-          <div>
-            <h1 className="text-3xl font-headline font-bold uppercase tracking-tight text-white flex items-center gap-3">
-              <Zap className="w-8 h-8 text-primary" /> Electricity Recharge
-            </h1>
-            <p className="text-muted-foreground mt-1">Log electricity token purchases and light bill payments here.</p>
+        <div className="max-w-6xl mx-auto space-y-10">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+              <h1 className="text-3xl font-headline font-bold uppercase tracking-tight text-white flex items-center gap-3">
+                <Zap className="w-8 h-8 text-primary" /> Electricity Recharge
+              </h1>
+              <p className="text-muted-foreground mt-1">Log electricity token purchases and light bill payments here.</p>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 sm:gap-10">
             <div className="lg:col-span-1">
               <Card className="glass-card">
-                <CardHeader>
+                <CardHeader className="bg-white/5 border-b border-white/5">
                   <CardTitle className="text-lg flex items-center gap-2">
                     <Banknote className="w-5 h-5 text-primary" /> Log Payment
                   </CardTitle>
                 </CardHeader>
                 <form onSubmit={handleSubmit}>
-                  <CardContent className="space-y-5">
+                  <CardContent className="space-y-5 pt-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="apartmentName" className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Target Apartment / Unit</Label>
+                      <div className="relative">
+                        <Home className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input 
+                          id="apartmentName" 
+                          name="apartmentName" 
+                          required 
+                          placeholder="e.g. Flat 1, Reception, Gate" 
+                          className="bg-white/5 h-12 pl-10"
+                        />
+                      </div>
+                    </div>
                     <div className="space-y-2">
                       <Label htmlFor="amount" className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Recharge Amount (₦)</Label>
                       <Input 
@@ -112,29 +131,29 @@ export default function PorterExpenseLogPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="details" className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Token/Receipt Details (Optional)</Label>
+                      <Label htmlFor="details" className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Additional Details (Optional)</Label>
                       <Textarea 
                         id="details" 
                         name="details" 
-                        placeholder="e.g. 50 units for main building..." 
-                        className="bg-white/5 min-h-[100px]"
+                        placeholder="e.g. 50 units, Receipt #..." 
+                        className="bg-white/5 min-h-[100px] text-xs"
                       />
                     </div>
                   </CardContent>
-                  <CardFooter>
+                  <CardFooter className="pt-2 pb-8">
                     <Button 
                       type="submit" 
                       disabled={isSubmitting} 
-                      className="w-full h-12 bg-primary text-primary-foreground font-bold shadow-xl"
+                      className="w-full h-14 bg-primary text-primary-foreground font-bold shadow-xl rounded-xl uppercase tracking-widest"
                     >
-                      {isSubmitting ? <Loader2 className="animate-spin" /> : <><Save className="w-4 h-4 mr-2" /> Submit Entry</>}
+                      {isSubmitting ? <Loader2 className="animate-spin" /> : <><Save className="w-4 h-4 mr-2" /> Submit Recharge</>}
                     </Button>
                   </CardFooter>
                 </form>
               </Card>
             </div>
 
-            <div className="lg:col-span-2">
+            <div className="lg:col-span-2 space-y-6">
               <Card className="glass-card flex flex-col h-full">
                 <CardHeader className="border-b border-white/5 bg-white/[0.02]">
                   <CardTitle className="text-sm font-bold uppercase tracking-widest flex items-center gap-2 text-muted-foreground">
@@ -149,23 +168,29 @@ export default function PorterExpenseLogPage() {
                   ) : (
                     <div className="divide-y divide-white/5">
                       {logs?.map((log) => (
-                        <div key={log.id} className="p-5 flex items-center justify-between hover:bg-white/[0.01] transition-colors">
-                          <div className="flex items-center gap-4">
-                             <div className="w-12 h-12 rounded-xl bg-primary/10 flex flex-col items-center justify-center text-primary">
-                               <Zap className="w-4 h-4" />
+                        <div key={log.id} className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-white/[0.01] transition-colors">
+                          <div className="flex items-start gap-4">
+                             <div className="w-12 h-12 rounded-xl bg-primary/10 flex flex-col items-center justify-center text-primary shrink-0">
+                               <Zap className="w-5 h-5" />
                              </div>
-                             <div className="flex flex-col">
-                               <span className="text-lg font-bold text-white">₦{log.amount?.toLocaleString()}</span>
-                               <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest truncate max-w-[200px]">
+                             <div className="flex flex-col min-w-0">
+                               <div className="flex items-center gap-2">
+                                 <span className="text-lg font-bold text-white font-headline">₦{log.amount?.toLocaleString()}</span>
+                                 <Badge variant="outline" className="text-[8px] uppercase h-5 bg-white/5 border-white/10">{log.apartmentName}</Badge>
+                               </div>
+                               <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest truncate max-w-[200px] sm:max-w-none mt-1">
                                  {log.details}
                                </p>
                              </div>
                           </div>
-                          <div className="text-right">
-                             <span className="text-[10px] font-bold text-muted-foreground flex items-center gap-1 uppercase">
-                               <Clock className="w-3 h-3" /> {log.timestamp?.toDate ? format(log.timestamp.toDate(), "dd MMM, HH:mm") : "..."}
-                             </span>
-                             <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 text-[8px] mt-1">LOGGED</Badge>
+                          <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-1 shrink-0 border-t sm:border-t-0 border-white/5 pt-3 sm:pt-0">
+                             <div className="flex items-center gap-2 text-muted-foreground">
+                               <Clock className="w-3 h-3" />
+                               <span className="text-[9px] font-bold uppercase tracking-widest">
+                                 {log.timestamp?.toDate ? format(log.timestamp.toDate(), "dd MMM, HH:mm") : "..."}
+                               </span>
+                             </div>
+                             <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 text-[8px]">VERIFIED</Badge>
                           </div>
                         </div>
                       ))}
@@ -179,9 +204,4 @@ export default function PorterExpenseLogPage() {
       </AppShell>
     </RoleGuard>
   );
-}
-
-function userUser() {
-  const { user, loading } = useUser();
-  return { user, loading };
 }
