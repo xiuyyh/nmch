@@ -4,6 +4,7 @@ import React, { useMemo } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { RoleGuard } from "@/components/auth/RoleGuard";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { 
   Zap, 
   TrendingUp, 
