@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
@@ -29,7 +30,8 @@ import {
   ChevronLeft,
   Banknote,
   LayoutGrid,
-  Loader2
+  Loader2,
+  CalendarDays
 } from "lucide-react";
 import { 
   DropdownMenu,
@@ -196,6 +198,13 @@ export default function RoomManagerPage() {
     }
   };
 
+  const handleReserveClick = (apt: any, roomNum: string) => {
+    const rooms = [{ apartmentId: apt.id, apartmentName: apt.name, roomNumber: roomNum }];
+    const params = new URLSearchParams();
+    params.set("rooms", JSON.stringify(rooms));
+    router.push(`/front-desk/reserve?${params.toString()}`);
+  };
+
   const handleCheckout = (booking: any) => {
     if (!firestore) return;
     updateDoc(doc(firestore, "roomBookings", booking.id), { 
@@ -330,9 +339,14 @@ export default function RoomManagerPage() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="glass-card border-white/10 w-48">
                               {!isFullAptOccupied ? (
-                                <DropdownMenuItem className="font-bold text-primary gap-2" onClick={() => handleEntityClick(apt, 'FULL', false)}>
-                                  <Plus className="w-4 h-4" /> Book Entire Flat
-                                </DropdownMenuItem>
+                                <>
+                                  <DropdownMenuItem className="font-bold text-primary gap-2" onClick={() => handleEntityClick(apt, 'FULL', false)}>
+                                    <Plus className="w-4 h-4" /> Book Entire Flat
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem className="font-bold text-amber-500 gap-2" onClick={() => handleReserveClick(apt, 'FULL')}>
+                                    <CalendarDays className="w-4 h-4" /> Reserve Entire Flat
+                                  </DropdownMenuItem>
+                                </>
                               ) : (
                                 <>
                                   <DropdownMenuItem className="font-bold gap-2" asChild>
@@ -395,7 +409,7 @@ export default function RoomManagerPage() {
                                 <BedDouble className={cn("w-3.5 h-3.5 sm:w-4 sm:h-4", isOccupied || isSelected ? "opacity-100" : "opacity-30")} />
                                 <span className="text-[10px] sm:text-xs font-bold">{room}</span>
                               </div>
-                              {isOccupied && (
+                              {isOccupied ? (
                                 <div className="flex items-center gap-1.5 sm:gap-2">
                                   {!booking.isPaid && <Badge variant="destructive" className="h-4 sm:h-5 text-[7px] sm:text-[8px] uppercase px-1">Debt</Badge>}
                                   <DropdownMenu>
@@ -410,6 +424,17 @@ export default function RoomManagerPage() {
                                     </DropdownMenuContent>
                                   </DropdownMenu>
                                 </div>
+                              ) : (
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"><MoreVertical className="w-3 h-3" /></Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="glass-card border-white/10">
+                                    <DropdownMenuItem className="gap-2 font-bold" onClick={() => handleReserveClick(apt, room)}>
+                                      <CalendarDays className="w-4 h-4 text-amber-500" /> Reserve Room
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
                               )}
                               {isSelected && !isOccupied && <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />}
                             </div>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
@@ -44,7 +45,8 @@ import {
   Banknote,
   Zap,
   Wrench,
-  LineChart
+  LineChart,
+  CalendarDays
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -115,6 +117,7 @@ const departments = [
     role: "front_desk",
     items: [
       { name: "Room Manager", href: "/front-desk/room-manager", icon: BedDouble },
+      { name: "Reservations", href: "/front-desk/reservations", icon: CalendarDays },
       { name: "Apartment Setup", href: "/front-desk/setup", icon: Settings2, adminOnly: true },
       { name: "Shift Management", href: "/front-desk/shift", icon: Clock },
     ],

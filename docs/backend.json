@@ -46,6 +46,26 @@
       },
       "required": ["apartmentName", "description", "reportedBy", "status", "timestamp"]
     },
+    "Reservation": {
+      "title": "Room Reservation",
+      "description": "A future booking for a guest",
+      "type": "object",
+      "properties": {
+        "apartmentId": { "type": "string" },
+        "apartmentName": { "type": "string" },
+        "roomNumber": { "type": "string" },
+        "guestName": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "arrivalDate": { "type": "string", "format": "date-time" },
+        "departureDate": { "type": "string", "format": "date-time" },
+        "depositPaid": { "type": "number" },
+        "totalEstimatedCost": { "type": "number" },
+        "status": { "type": "string", "enum": ["upcoming", "checked_in", "cancelled"] },
+        "staffName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["guestName", "arrivalDate", "departureDate", "status"]
+    },
     "HousekeepingLog": {
       "title": "Housekeeping Activity",
       "description": "Daily cleaning performance log",
@@ -175,6 +195,7 @@
     "/users/{uid}": { "schema": "UserRecord", "description": "User metadata" },
     "/apartments/{apartmentId}": { "schema": "Apartment", "description": "Apartment units" },
     "/maintenanceReports/{reportId}": { "schema": "MaintenanceReport", "description": "Facility issues" },
+    "/reservations/{reservationId}": { "schema": "Reservation", "description": "Future room bookings" },
     "/housekeepingLogs/{logId}": { "schema": "HousekeepingLog", "description": "Cleaning records" },
     "/laundryLogs/{logId}": { "schema": "LaundryLog", "description": "Wash records" },
     "/materialRequests/{requestId}": { "schema": "MaterialRequest", "description": "Staff supply requests" },
