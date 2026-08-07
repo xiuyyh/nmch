@@ -44,7 +44,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { useCollection, useFirestore, useUser } from "@/firebase";
+import { useCollection, useFirestore, useUser, useDoc } from "@/firebase";
 import { collection, query, where, serverTimestamp, doc, updateDoc, orderBy, limit } from "firebase/firestore";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -85,6 +85,13 @@ export default function RoomManagerPage() {
       setActiveTab(searchParams.get("activeTab")!);
     }
   }, [searchParams]);
+
+  const userRef = useMemo(() => {
+    if (!firestore || !user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
+  const { data: userRecord } = useDoc(userRef);
+  const isAdmin = userRecord?.role === 'admin';
 
   const shiftQuery = useMemo(() => {
     if (!firestore || !user) return null;
@@ -251,7 +258,8 @@ export default function RoomManagerPage() {
     return <AppShell><div className="flex h-[60vh] items-center justify-center animate-pulse text-muted-foreground font-bold uppercase tracking-widest">Syncing Hospitality Grid...</div></AppShell>;
   }
 
-  if (!activeShift) {
+  // Allow Admins to bypass the shift lock
+  if (!activeShift && !isAdmin) {
     return (
       <AppShell>
         <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-6 p-4">
@@ -277,6 +285,11 @@ export default function RoomManagerPage() {
                 <Home className="w-6 h-6 sm:w-8 sm:h-8 text-primary" /> Room Manager
               </h1>
               <p className="text-sm text-muted-foreground mt-1">Real-time apartment occupancy and guest billing.</p>
+              {isAdmin && !activeShift && (
+                <Badge variant="outline" className="mt-2 bg-primary/10 text-primary border-primary/20 text-[8px] uppercase tracking-widest font-bold">
+                  Admin Oversight Mode (No active shift)
+                </Badge>
+              )}
             </div>
 
             <div className="flex flex-wrap items-center gap-4 bg-white/5 border border-white/10 p-3 sm:px-4 rounded-2xl w-full sm:w-auto justify-between sm:justify-start">

@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
@@ -377,6 +378,7 @@ export default function SalesPage() {
 
   if (shiftLoading) return <AppShell><div className="flex h-[60vh] items-center justify-center animate-pulse text-muted-foreground">Checking Shift Status...</div></AppShell>;
 
+  // Allow Admins to bypass the shift lock
   if (!activeShift && !isAdmin) {
     return (
       <AppShell>

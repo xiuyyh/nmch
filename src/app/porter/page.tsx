@@ -33,8 +33,8 @@ import {
   DoorOpen,
   Package
 } from "lucide-react";
-import { useCollection, useFirestore, useUser } from "@/firebase";
-import { collection, query, where, addDoc, serverTimestamp, orderBy, limit } from "firebase/firestore";
+import { useCollection, useFirestore, useUser, useDoc } from "@/firebase";
+import { collection, query, where, addDoc, serverTimestamp, orderBy, limit, doc } from "firebase/firestore";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -48,6 +48,13 @@ export default function PorterHubPage() {
   
   const [activeAction, setActiveAction] = useState<ActionType>("guest_check");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const userRef = useMemo(() => {
+    if (!firestore || !user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
+  const { data: userRecord } = useDoc(userRef);
+  const isAdmin = userRecord?.role === 'admin';
 
   const shiftQuery = useMemo(() => {
     if (!firestore || !user) return null;
@@ -75,7 +82,7 @@ export default function PorterHubPage() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!firestore || !user || !activeShift || isSubmitting) return;
+    if (!firestore || !user || (!activeShift && !isAdmin) || isSubmitting) return;
 
     setIsSubmitting(true);
     const formData = new FormData(e.currentTarget);
@@ -84,7 +91,7 @@ export default function PorterHubPage() {
       type: activeAction,
       timestamp: serverTimestamp(),
       staffName: user.displayName || user.email,
-      shiftId: activeShift.id
+      shiftId: activeShift?.id || "admin-override"
     };
 
     if (activeAction === "complimentary_meal") {
@@ -133,7 +140,8 @@ export default function PorterHubPage() {
 
   if (shiftLoading) return <AppShell><div className="flex h-[60vh] items-center justify-center animate-pulse">Connecting...</div></AppShell>;
 
-  if (!activeShift) {
+  // Allow Admins to bypass the shift lock
+  if (!activeShift && !isAdmin) {
     return (
       <AppShell>
         <div className="flex flex-col items-center justify-center h-[60vh] text-center gap-6 p-4">
@@ -163,12 +171,17 @@ export default function PorterHubPage() {
                 <Backpack className="w-6 h-6 sm:w-8 sm:h-8 text-primary" /> Duty Hub
               </h1>
               <p className="text-xs sm:text-sm text-muted-foreground mt-1">Log room checks, breakfast service, and guest deliveries.</p>
+              {isAdmin && !activeShift && (
+                <Badge variant="outline" className="mt-2 bg-primary/10 text-primary border-primary/20 text-[8px] uppercase tracking-widest font-bold">
+                  Admin Oversight Mode
+                </Badge>
+              )}
             </div>
             <div className="bg-primary/10 border border-primary/20 px-4 sm:px-6 py-2 sm:py-3 rounded-2xl flex items-center gap-3 w-full sm:w-auto">
               <User className="w-5 h-5 text-primary shrink-0" />
               <div className="min-w-0">
                 <span className="text-[8px] sm:text-[10px] font-bold text-muted-foreground uppercase tracking-widest block leading-none">Duty Personnel</span>
-                <span className="text-xs sm:text-sm font-bold text-white truncate block">{activeShift.staffName}</span>
+                <span className="text-xs sm:text-sm font-bold text-white truncate block">{user?.displayName || user?.email}</span>
               </div>
             </div>
           </div>
