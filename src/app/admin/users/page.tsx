@@ -59,6 +59,8 @@ const ROLES: { value: UserRole; label: string }[] = [
   { value: "store", label: "Store Manager" },
   { value: "front_desk", label: "Front Desk" },
   { value: "housekeeper", label: "Housekeeper" },
+  { value: "porter", label: "Porter" },
+  { value: "laundry", label: "Laundry Staff" },
 ];
 
 export default function UserManagementPage() {
