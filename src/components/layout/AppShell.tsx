@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
@@ -44,7 +43,8 @@ import {
   MessageSquare,
   Banknote,
   Zap,
-  Wrench
+  Wrench,
+  LineChart
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -126,6 +126,7 @@ const departments = [
     items: [
       { name: "Porter Log", href: "/porter", icon: Activity },
       { name: "Electricity Recharge", href: "/porter/expenses", icon: Zap },
+      { name: "Electricity Statistics", href: "/porter/electricity-stats", icon: LineChart },
       { name: "Shift Management", href: "/porter/shift", icon: Clock },
     ],
   },
