@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo } from "react";
@@ -18,16 +17,28 @@ import {
   AlertCircle,
   Loader2,
   Banknote,
-  Home
+  Home,
+  Trash2
 } from "lucide-react";
-import { useCollection, useFirestore, useUser } from "@/firebase";
-import { collection, query, where, addDoc, serverTimestamp, limit } from "firebase/firestore";
+import { useCollection, useFirestore, useUser, useDoc } from "@/firebase";
+import { collection, query, where, addDoc, serverTimestamp, limit, doc, deleteDoc } from "firebase/firestore";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { sendTelegramNotification } from "@/lib/notifications";
 import { Badge } from "@/components/ui/badge";
 import { errorEmitter } from "@/firebase/error-emitter";
 import { FirestorePermissionError } from "@/firebase/errors";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export default function PorterExpenseLogPage() {
   const firestore = useFirestore();
@@ -35,7 +46,13 @@ export default function PorterExpenseLogPage() {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Simplified query: No orderBy or personal filter to avoid index errors and enable global view
+  const userRef = useMemo(() => {
+    if (!firestore || !user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
+  const { data: userRecord } = useDoc(userRef);
+  const isAdmin = userRecord?.role === 'admin';
+
   const historyQuery = useMemo(() => {
     if (!firestore) return null;
     return query(
@@ -47,7 +64,6 @@ export default function PorterExpenseLogPage() {
 
   const { data: rawLogs, loading, error: queryError } = useCollection(historyQuery);
 
-  // Sort logs on the client side to avoid Firestore Index requirement
   const logs = useMemo(() => {
     if (!rawLogs) return [];
     return [...rawLogs].sort((a, b) => {
@@ -97,6 +113,13 @@ export default function PorterExpenseLogPage() {
       .finally(() => {
         setIsSubmitting(false);
       });
+  };
+
+  const handleDelete = (id: string) => {
+    if (!firestore || !isAdmin) return;
+    deleteDoc(doc(firestore, "expenses", id)).then(() => {
+      toast({ title: "Deleted", description: "Entry removed from ledger." });
+    });
   };
 
   return (
@@ -196,7 +219,7 @@ export default function PorterExpenseLogPage() {
                   ) : (
                     <div className="divide-y divide-white/5">
                       {logs.map((log) => (
-                        <div key={log.id} className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-white/[0.01] transition-colors">
+                        <div key={log.id} className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-white/[0.01] transition-colors group">
                           <div className="flex items-start gap-4">
                              <div className="w-12 h-12 rounded-xl bg-primary/10 flex flex-col items-center justify-center text-primary shrink-0">
                                <Zap className="w-5 h-5" />
@@ -211,15 +234,38 @@ export default function PorterExpenseLogPage() {
                                </p>
                              </div>
                           </div>
-                          <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-1 shrink-0 border-t sm:border-t-0 border-white/5 pt-3 sm:pt-0">
+                          <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-2 shrink-0 border-t sm:border-t-0 border-white/5 pt-3 sm:pt-0">
                              <div className="flex items-center gap-2 text-muted-foreground">
                                <Clock className="w-3 h-3" />
                                <span className="text-[9px] font-bold uppercase tracking-widest">
                                  {log.timestamp?.toDate ? format(log.timestamp.toDate(), "dd MMM, HH:mm") : "..."}
                                </span>
                              </div>
-                             <div className="flex items-center gap-1 text-[8px] font-bold text-primary/60 uppercase">
-                               <User className="w-2.5 h-2.5" /> {log.staffName}
+                             <div className="flex items-center gap-3">
+                               <div className="flex items-center gap-1 text-[8px] font-bold text-primary/60 uppercase">
+                                 <User className="w-2.5 h-2.5" /> {log.staffName}
+                               </div>
+                               {isAdmin && (
+                                 <AlertDialog>
+                                   <AlertDialogTrigger asChild>
+                                     <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+                                       <Trash2 className="w-3.5 h-3.5" />
+                                     </Button>
+                                   </AlertDialogTrigger>
+                                   <AlertDialogContent className="glass-card border-white/10">
+                                     <AlertDialogHeader>
+                                       <AlertDialogTitle>Delete Recharge Entry?</AlertDialogTitle>
+                                       <AlertDialogDescription>
+                                         This action is permanent and will remove the ₦{log.amount?.toLocaleString()} record for {log.apartmentName} from the global ledger.
+                                       </AlertDialogDescription>
+                                     </AlertDialogHeader>
+                                     <AlertDialogFooter>
+                                       <AlertDialogCancel className="bg-white/5 border-white/10">Cancel</AlertDialogCancel>
+                                       <AlertDialogAction onClick={() => handleDelete(log.id)} className="bg-destructive text-white font-bold">Delete Permanently</AlertDialogAction>
+                                     </AlertDialogFooter>
+                                   </AlertDialogContent>
+                                 </AlertDialog>
+                               )}
                              </div>
                           </div>
                         </div>

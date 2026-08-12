@@ -19,7 +19,8 @@ import {
   Calendar,
   User,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Trash2
 } from "lucide-react";
 import { 
   Bar, 
@@ -33,22 +34,42 @@ import {
   Pie,
   PieChart as RechartsPieChart
 } from "recharts";
-import { useCollection, useFirestore } from "@/firebase";
-import { collection, query, where, limit } from "firebase/firestore";
+import { useCollection, useFirestore, useUser, useDoc } from "@/firebase";
+import { collection, query, where, limit, doc, deleteDoc } from "firebase/firestore";
 import { format, isSameMonth, addMonths, subMonths } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
 
 const COLORS = ['#eab308', '#f59e0b', '#d97706', '#b45309', '#92400e', '#78350f'];
 const LEDGER_PER_PAGE = 5;
 
 export default function ElectricityStatsPage() {
   const firestore = useFirestore();
+  const { user } = useUser();
+  const { toast } = useToast();
   const [viewDate, setViewDate] = useState(new Date());
   const [ledgerPage, setLedgerPage] = useState(1);
   const [rankPage, setRankPage] = useState(1);
 
-  // Simplified query: No orderBy to avoid Index requirement. Sorting is done on client.
+  const userRef = useMemo(() => {
+    if (!firestore || !user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
+  const { data: userRecord } = useDoc(userRef);
+  const isAdmin = userRecord?.role === 'admin';
+
   const electricityQuery = useMemo(() => {
     if (!firestore) return null;
     return query(
@@ -63,7 +84,6 @@ export default function ElectricityStatsPage() {
   const stats = useMemo(() => {
     if (!rawExpenses || rawExpenses.length === 0) return null;
 
-    // Monthly Total for SELECTED Month
     const monthlyExpenses = rawExpenses.filter(e => 
       e.timestamp?.toDate && isSameMonth(e.timestamp.toDate(), viewDate)
     ).sort((a, b) => {
@@ -73,11 +93,8 @@ export default function ElectricityStatsPage() {
     });
 
     const monthlyTotal = monthlyExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-
-    // Lifetime Total
     const grandTotal = rawExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
 
-    // Apartment Distribution for SELECTED Month
     const apartmentTotals: Record<string, number> = {};
     monthlyExpenses.forEach(e => {
       const apt = e.apartmentName || "General/Other";
@@ -88,7 +105,6 @@ export default function ElectricityStatsPage() {
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value);
 
-    // Monthly Trend (Global)
     const monthlyTrend: Record<string, number> = {};
     const sortedExpenses = [...rawExpenses].sort((a, b) => {
       const tA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : 0;
@@ -140,6 +156,13 @@ export default function ElectricityStatsPage() {
 
   const nextMonth = () => setViewDate(prev => addMonths(prev, 1));
   const prevMonth = () => setViewDate(prev => subMonths(prev, 1));
+
+  const handleDelete = (id: string) => {
+    if (!firestore || !isAdmin) return;
+    deleteDoc(doc(firestore, "expenses", id)).then(() => {
+      toast({ title: "Deleted", description: "Recharge record removed." });
+    });
+  };
 
   if (loading) {
     return (
@@ -389,7 +412,7 @@ export default function ElectricityStatsPage() {
                       {paginatedLedger.length === 0 ? (
                         <div className="p-20 text-center text-muted-foreground italic text-xs uppercase font-bold opacity-30">No transactions this month</div>
                       ) : paginatedLedger.map((expense) => (
-                        <div key={expense.id} className="p-4 hover:bg-white/[0.01] transition-all">
+                        <div key={expense.id} className="p-4 hover:bg-white/[0.01] transition-all group">
                           <div className="flex justify-between items-start mb-2">
                              <div className="flex flex-col gap-1">
                                <div className="flex items-center gap-2">
@@ -400,7 +423,30 @@ export default function ElectricityStatsPage() {
                                  <Clock className="w-3 h-3" /> {expense.timestamp?.toDate ? format(expense.timestamp.toDate(), "dd MMM | HH:mm") : "..."}
                                </div>
                              </div>
-                             <span className="text-lg font-headline font-bold text-white">₦{expense.amount?.toLocaleString()}</span>
+                             <div className="flex flex-col items-end gap-2">
+                               <span className="text-lg font-headline font-bold text-white">₦{expense.amount?.toLocaleString()}</span>
+                               {isAdmin && (
+                                 <AlertDialog>
+                                   <AlertDialogTrigger asChild>
+                                     <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+                                       <Trash2 className="w-4 h-4" />
+                                     </Button>
+                                   </AlertDialogTrigger>
+                                   <AlertDialogContent className="glass-card border-white/10">
+                                     <AlertDialogHeader>
+                                       <AlertDialogTitle>Remove Transaction Entry?</AlertDialogTitle>
+                                       <AlertDialogDescription>
+                                         This will permanently delete the ₦{expense.amount?.toLocaleString()} record for {expense.apartmentName}. Statistics will be recalculated immediately.
+                                       </AlertDialogDescription>
+                                     </AlertDialogHeader>
+                                     <AlertDialogFooter>
+                                       <AlertDialogCancel className="bg-white/5 border-white/10">Cancel</AlertDialogCancel>
+                                       <AlertDialogAction onClick={() => handleDelete(expense.id)} className="bg-destructive text-white font-bold">Delete Record</AlertDialogAction>
+                                     </AlertDialogFooter>
+                                   </AlertDialogContent>
+                                 </AlertDialog>
+                               )}
+                             </div>
                           </div>
                           <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5">
                             <div className="flex items-center gap-1.5 text-[9px] font-bold text-muted-foreground/80 uppercase">
