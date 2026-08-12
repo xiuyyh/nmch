@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useMemo, useState, useEffect } from "react";
@@ -47,6 +46,7 @@ export default function ElectricityStatsPage() {
   const firestore = useFirestore();
   const [viewDate, setViewDate] = useState(new Date());
   const [ledgerPage, setLedgerPage] = useState(1);
+  const [rankPage, setRankPage] = useState(1);
 
   // Simplified query: No orderBy to avoid Index requirement. Sorting is done on client.
   const electricityQuery = useMemo(() => {
@@ -119,6 +119,7 @@ export default function ElectricityStatsPage() {
 
   useEffect(() => {
     setLedgerPage(1);
+    setRankPage(1);
   }, [viewDate]);
 
   const paginatedLedger = useMemo(() => {
@@ -128,6 +129,14 @@ export default function ElectricityStatsPage() {
   }, [stats?.monthlyExpenses, ledgerPage]);
 
   const ledgerTotalPages = Math.max(1, Math.ceil((stats?.monthlyExpenses?.length || 0) / LEDGER_PER_PAGE));
+
+  const paginatedRanking = useMemo(() => {
+    if (!stats?.apartmentData) return [];
+    const start = (rankPage - 1) * LEDGER_PER_PAGE;
+    return stats.apartmentData.slice(start, start + LEDGER_PER_PAGE);
+  }, [stats?.apartmentData, rankPage]);
+
+  const rankTotalPages = Math.max(1, Math.ceil((stats?.apartmentData?.length || 0) / LEDGER_PER_PAGE));
 
   const nextMonth = () => setViewDate(prev => addMonths(prev, 1));
   const prevMonth = () => setViewDate(prev => subMonths(prev, 1));
@@ -306,21 +315,21 @@ export default function ElectricityStatsPage() {
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <Card className="glass-card overflow-hidden">
+                <Card className="glass-card overflow-hidden flex flex-col">
                   <CardHeader className="border-b border-white/5 bg-white/[0.02]">
                     <CardTitle className="text-base uppercase flex items-center gap-2">
                       <Building2 className="w-4 h-4 text-primary" /> Apartment Ranking ({format(viewDate, "MMM")})
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="p-0">
+                  <CardContent className="p-0 flex-1">
                     <div className="divide-y divide-white/5">
-                      {stats.apartmentData.length === 0 ? (
+                      {paginatedRanking.length === 0 ? (
                         <div className="p-20 text-center text-muted-foreground italic text-xs uppercase font-bold opacity-30">No usage recorded</div>
-                      ) : stats.apartmentData.map((apt, idx) => (
+                      ) : paginatedRanking.map((apt, idx) => (
                         <div key={apt.name} className="p-5 flex items-center justify-between hover:bg-white/[0.01] transition-colors group">
                           <div className="flex items-center gap-4">
                             <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-[10px] font-bold text-muted-foreground">
-                              #{idx + 1}
+                              #{(rankPage - 1) * LEDGER_PER_PAGE + idx + 1}
                             </div>
                             <div className="flex flex-col">
                               <span className="font-bold text-white uppercase text-sm group-hover:text-primary transition-colors">{apt.name}</span>
@@ -342,6 +351,31 @@ export default function ElectricityStatsPage() {
                       ))}
                     </div>
                   </CardContent>
+                  {rankTotalPages > 1 && (
+                    <CardFooter className="p-4 border-t border-white/5 bg-black/20 flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase">Page {rankPage} of {rankTotalPages}</span>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="icon" 
+                          className="h-8 w-8 rounded-lg border-white/10" 
+                          onClick={() => setRankPage(p => Math.max(1, p - 1))}
+                          disabled={rankPage === 1}
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="icon" 
+                          className="h-8 w-8 rounded-lg border-white/10" 
+                          onClick={() => setRankPage(p => Math.min(rankTotalPages, p + 1))}
+                          disabled={rankPage === rankTotalPages}
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </CardFooter>
+                  )}
                 </Card>
 
                 <Card className="glass-card overflow-hidden flex flex-col">
