@@ -26,6 +26,8 @@ import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { sendTelegramNotification } from "@/lib/notifications";
 import { Badge } from "@/components/ui/badge";
+import { errorEmitter } from "@/firebase/error-emitter";
+import { FirestorePermissionError } from "@/firebase/errors";
 
 export default function PorterExpenseLogPage() {
   const firestore = useFirestore();
@@ -44,9 +46,9 @@ export default function PorterExpenseLogPage() {
     );
   }, [firestore, user]);
 
-  const { data: logs, loading } = useCollection(historyQuery);
+  const { data: logs, loading, error: queryError } = useCollection(historyQuery);
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!firestore || !user || isSubmitting) return;
 
@@ -67,20 +69,28 @@ export default function PorterExpenseLogPage() {
       timestamp: serverTimestamp()
     };
 
-    try {
-      await addDoc(collection(firestore, "expenses"), expenseData);
-      
-      // Telegram Notification
-      const telegramMsg = `⚡ *ELECTRICITY RECHARGE*\n\n*Target:* ${expenseData.apartmentName}\n*Amount:* ₦${amount.toLocaleString()}\n*Staff:* ${staffName}\n*Details:* ${expenseData.details}`;
-      sendTelegramNotification(firestore, telegramMsg);
-
-      toast({ title: "Expense Recorded", description: "Light bill recharge has been logged." });
-      (e.target as HTMLFormElement).reset();
-    } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: "Failed to log expense." });
-    } finally {
-      setIsSubmitting(false);
-    }
+    // Non-blocking write pattern
+    addDoc(collection(firestore, "expenses"), expenseData)
+      .then(() => {
+        // Success feedback
+        toast({ title: "Expense Recorded", description: "Light bill recharge has been logged to the cloud." });
+        (e.target as HTMLFormElement).reset();
+        
+        // Telegram Notification
+        const telegramMsg = `⚡ *ELECTRICITY RECHARGE*\n\n*Target:* ${expenseData.apartmentName}\n*Amount:* ₦${amount.toLocaleString()}\n*Staff:* ${staffName}\n*Details:* ${expenseData.details}`;
+        sendTelegramNotification(firestore, telegramMsg);
+      })
+      .catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+          path: "expenses",
+          operation: "create",
+          requestResourceData: expenseData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      })
+      .finally(() => {
+        setIsSubmitting(false);
+      });
   };
 
   return (
@@ -95,6 +105,13 @@ export default function PorterExpenseLogPage() {
               <p className="text-muted-foreground mt-1">Log electricity token purchases and light bill payments here.</p>
             </div>
           </div>
+
+          {queryError && (
+            <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-xl flex items-center gap-3 text-destructive animate-pulse">
+              <AlertCircle className="w-5 h-5 shrink-0" />
+              <p className="text-xs font-bold uppercase tracking-widest">Cloud Sync Error: Verify database permissions or connection.</p>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 sm:gap-10">
             <div className="lg:col-span-1">

@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -18,7 +19,8 @@ import {
   ChevronRight,
   Calendar,
   User,
-  Clock
+  Clock,
+  AlertCircle
 } from "lucide-react";
 import { 
   Bar, 
@@ -34,7 +36,7 @@ import {
 } from "recharts";
 import { useCollection, useFirestore } from "@/firebase";
 import { collection, query, where, orderBy } from "firebase/firestore";
-import { format, isSameMonth, addMonths, subMonths, startOfMonth, endOfMonth } from "date-fns";
+import { format, isSameMonth, addMonths, subMonths } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -53,7 +55,7 @@ export default function ElectricityStatsPage() {
     );
   }, [firestore]);
 
-  const { data: expenses, loading } = useCollection(electricityQuery);
+  const { data: expenses, loading, error: queryError } = useCollection(electricityQuery);
 
   const stats = useMemo(() => {
     if (!expenses || expenses.length === 0) return null;
@@ -145,6 +147,19 @@ export default function ElectricityStatsPage() {
               </Button>
             </div>
           </div>
+
+          {queryError && (
+            <div className="p-6 bg-destructive/10 border border-destructive/20 rounded-2xl flex flex-col gap-4 text-destructive">
+              <div className="flex items-center gap-3">
+                <AlertCircle className="w-6 h-6" />
+                <h3 className="font-bold uppercase tracking-widest">Database Connection Problem</h3>
+              </div>
+              <p className="text-sm leading-relaxed">
+                The application encountered an error while fetching global electricity records. This may be due to missing indexes or permission restrictions. 
+                <br/><strong>Error:</strong> {queryError.message}
+              </p>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Card className="glass-card border-l-4 border-l-primary">
