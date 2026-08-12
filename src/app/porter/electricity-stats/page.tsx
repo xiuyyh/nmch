@@ -35,7 +35,7 @@ import {
   PieChart as RechartsPieChart
 } from "recharts";
 import { useCollection, useFirestore } from "@/firebase";
-import { collection, query, where, orderBy } from "firebase/firestore";
+import { collection, query, where, limit } from "firebase/firestore";
 import { format, isSameMonth, addMonths, subMonths } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -46,29 +46,34 @@ export default function ElectricityStatsPage() {
   const firestore = useFirestore();
   const [viewDate, setViewDate] = useState(new Date());
 
+  // Simplified query: No orderBy to avoid Index requirement. Sorting is done on client.
   const electricityQuery = useMemo(() => {
     if (!firestore) return null;
     return query(
       collection(firestore, "expenses"),
       where("type", "==", "Electricity"),
-      orderBy("timestamp", "desc")
+      limit(200)
     );
   }, [firestore]);
 
-  const { data: expenses, loading, error: queryError } = useCollection(electricityQuery);
+  const { data: rawExpenses, loading, error: queryError } = useCollection(electricityQuery);
 
   const stats = useMemo(() => {
-    if (!expenses || expenses.length === 0) return null;
+    if (!rawExpenses || rawExpenses.length === 0) return null;
 
     // Monthly Total for SELECTED Month
-    const monthlyExpenses = expenses.filter(e => 
+    const monthlyExpenses = rawExpenses.filter(e => 
       e.timestamp?.toDate && isSameMonth(e.timestamp.toDate(), viewDate)
-    );
+    ).sort((a, b) => {
+      const timeA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : 0;
+      const timeB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : 0;
+      return timeB - timeA;
+    });
 
     const monthlyTotal = monthlyExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
 
     // Lifetime Total
-    const grandTotal = expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+    const grandTotal = rawExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
 
     // Apartment Distribution for SELECTED Month
     const apartmentTotals: Record<string, number> = {};
@@ -83,7 +88,11 @@ export default function ElectricityStatsPage() {
 
     // Monthly Trend (Global)
     const monthlyTrend: Record<string, number> = {};
-    const sortedExpenses = [...expenses].sort((a, b) => a.timestamp?.toDate().getTime() - b.timestamp?.toDate().getTime());
+    const sortedExpenses = [...rawExpenses].sort((a, b) => {
+      const tA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : 0;
+      const tB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : 0;
+      return tA - tB;
+    });
     
     sortedExpenses.forEach(e => {
       if (e.timestamp?.toDate) {
@@ -104,7 +113,7 @@ export default function ElectricityStatsPage() {
       monthlyExpenses,
       topApartment: apartmentData[0] || { name: "N/A", value: 0 }
     };
-  }, [expenses, viewDate]);
+  }, [rawExpenses, viewDate]);
 
   const nextMonth = () => setViewDate(prev => addMonths(prev, 1));
   const prevMonth = () => setViewDate(prev => subMonths(prev, 1));
@@ -128,7 +137,7 @@ export default function ElectricityStatsPage() {
         <div className="space-y-10 max-w-6xl mx-auto">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
             <div>
-              <h1 className="text-3xl font-headline font-bold uppercase tracking-tight text-white flex items-center gap-3">
+              <h1 className="text-3xl font-headline font-bold uppercase tracking-tight text-white">
                 Electricity Analytics
               </h1>
               <p className="text-muted-foreground mt-1">Deeper insights into energy consumption costs across the hotel.</p>
@@ -152,11 +161,10 @@ export default function ElectricityStatsPage() {
             <div className="p-6 bg-destructive/10 border border-destructive/20 rounded-2xl flex flex-col gap-4 text-destructive">
               <div className="flex items-center gap-3">
                 <AlertCircle className="w-6 h-6" />
-                <h3 className="font-bold uppercase tracking-widest">Database Connection Problem</h3>
+                <h3 className="font-bold uppercase tracking-widest">Database Connection Notice</h3>
               </div>
               <p className="text-sm leading-relaxed">
-                The application encountered an error while fetching global electricity records. This may be due to missing indexes or permission restrictions. 
-                <br/><strong>Error:</strong> {queryError.message}
+                The application encountered an error while fetching global electricity records. This is likely due to missing database indexes required for complex filtering.
               </p>
             </div>
           )}

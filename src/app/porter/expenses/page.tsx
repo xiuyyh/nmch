@@ -21,7 +21,7 @@ import {
   Home
 } from "lucide-react";
 import { useCollection, useFirestore, useUser } from "@/firebase";
-import { collection, query, where, addDoc, serverTimestamp, orderBy, limit } from "firebase/firestore";
+import { collection, query, where, addDoc, serverTimestamp, limit } from "firebase/firestore";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { sendTelegramNotification } from "@/lib/notifications";
@@ -35,18 +35,27 @@ export default function PorterExpenseLogPage() {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Simplified query: No orderBy or personal filter to avoid index errors and enable global view
   const historyQuery = useMemo(() => {
-    if (!firestore || !user) return null;
+    if (!firestore) return null;
     return query(
       collection(firestore, "expenses"),
-      where("staffId", "==", user.uid),
       where("type", "==", "Electricity"),
-      orderBy("timestamp", "desc"),
-      limit(10)
+      limit(50)
     );
-  }, [firestore, user]);
+  }, [firestore]);
 
-  const { data: logs, loading, error: queryError } = useCollection(historyQuery);
+  const { data: rawLogs, loading, error: queryError } = useCollection(historyQuery);
+
+  // Sort logs on the client side to avoid Firestore Index requirement
+  const logs = useMemo(() => {
+    if (!rawLogs) return [];
+    return [...rawLogs].sort((a, b) => {
+      const timeA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : 0;
+      const timeB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : 0;
+      return timeB - timeA;
+    }).slice(0, 15);
+  }, [rawLogs]);
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -69,14 +78,11 @@ export default function PorterExpenseLogPage() {
       timestamp: serverTimestamp()
     };
 
-    // Non-blocking write pattern
     addDoc(collection(firestore, "expenses"), expenseData)
       .then(() => {
-        // Success feedback
         toast({ title: "Expense Recorded", description: "Light bill recharge has been logged to the cloud." });
         (e.target as HTMLFormElement).reset();
         
-        // Telegram Notification
         const telegramMsg = `⚡ *ELECTRICITY RECHARGE*\n\n*Target:* ${expenseData.apartmentName}\n*Amount:* ₦${amount.toLocaleString()}\n*Staff:* ${staffName}\n*Details:* ${expenseData.details}`;
         sendTelegramNotification(firestore, telegramMsg);
       })
@@ -100,16 +106,21 @@ export default function PorterExpenseLogPage() {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
               <h1 className="text-3xl font-headline font-bold uppercase tracking-tight text-white flex items-center gap-3">
-                <Zap className="w-8 h-8 text-primary" /> Electricity Recharge
+                Electricity Recharge
               </h1>
               <p className="text-muted-foreground mt-1">Log electricity token purchases and light bill payments here.</p>
             </div>
           </div>
 
           {queryError && (
-            <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-xl flex items-center gap-3 text-destructive animate-pulse">
-              <AlertCircle className="w-5 h-5 shrink-0" />
-              <p className="text-xs font-bold uppercase tracking-widest">Cloud Sync Error: Verify database permissions or connection.</p>
+            <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-xl flex flex-col gap-2 text-destructive animate-pulse">
+              <div className="flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 shrink-0" />
+                <p className="text-xs font-bold uppercase tracking-widest">Cloud Sync Warning</p>
+              </div>
+              <p className="text-[10px] opacity-80 leading-relaxed">
+                The system is having trouble syncing with the cloud. This usually happens if the database requires a specialized index or permissions are restricted.
+              </p>
             </div>
           )}
 
@@ -174,17 +185,17 @@ export default function PorterExpenseLogPage() {
               <Card className="glass-card flex flex-col h-full">
                 <CardHeader className="border-b border-white/5 bg-white/[0.02]">
                   <CardTitle className="text-sm font-bold uppercase tracking-widest flex items-center gap-2 text-muted-foreground">
-                    <History className="w-4 h-4" /> Personal Log History
+                    <History className="w-4 h-4 text-primary" /> Global Recharge Log
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
                   {loading ? (
                     <div className="py-20 text-center animate-pulse text-muted-foreground uppercase font-bold text-xs tracking-widest">Accessing Logs...</div>
-                  ) : logs?.length === 0 ? (
-                    <div className="py-20 text-center text-muted-foreground italic px-6">No recharges logged by you yet.</div>
+                  ) : logs.length === 0 ? (
+                    <div className="py-20 text-center text-muted-foreground italic px-6">No recharges logged in this period.</div>
                   ) : (
                     <div className="divide-y divide-white/5">
-                      {logs?.map((log) => (
+                      {logs.map((log) => (
                         <div key={log.id} className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-white/[0.01] transition-colors">
                           <div className="flex items-start gap-4">
                              <div className="w-12 h-12 rounded-xl bg-primary/10 flex flex-col items-center justify-center text-primary shrink-0">
@@ -207,7 +218,9 @@ export default function PorterExpenseLogPage() {
                                  {log.timestamp?.toDate ? format(log.timestamp.toDate(), "dd MMM, HH:mm") : "..."}
                                </span>
                              </div>
-                             <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 text-[8px]">VERIFIED</Badge>
+                             <div className="flex items-center gap-1 text-[8px] font-bold text-primary/60 uppercase">
+                               <User className="w-2.5 h-2.5" /> {log.staffName}
+                             </div>
                           </div>
                         </div>
                       ))}
