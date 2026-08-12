@@ -1,10 +1,10 @@
 
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { RoleGuard } from "@/components/auth/RoleGuard";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { 
   Zap, 
@@ -41,10 +41,12 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 const COLORS = ['#eab308', '#f59e0b', '#d97706', '#b45309', '#92400e', '#78350f'];
+const LEDGER_PER_PAGE = 5;
 
 export default function ElectricityStatsPage() {
   const firestore = useFirestore();
   const [viewDate, setViewDate] = useState(new Date());
+  const [ledgerPage, setLedgerPage] = useState(1);
 
   // Simplified query: No orderBy to avoid Index requirement. Sorting is done on client.
   const electricityQuery = useMemo(() => {
@@ -114,6 +116,18 @@ export default function ElectricityStatsPage() {
       topApartment: apartmentData[0] || { name: "N/A", value: 0 }
     };
   }, [rawExpenses, viewDate]);
+
+  useEffect(() => {
+    setLedgerPage(1);
+  }, [viewDate]);
+
+  const paginatedLedger = useMemo(() => {
+    if (!stats?.monthlyExpenses) return [];
+    const start = (ledgerPage - 1) * LEDGER_PER_PAGE;
+    return stats.monthlyExpenses.slice(start, start + LEDGER_PER_PAGE);
+  }, [stats?.monthlyExpenses, ledgerPage]);
+
+  const ledgerTotalPages = Math.max(1, Math.ceil((stats?.monthlyExpenses?.length || 0) / LEDGER_PER_PAGE));
 
   const nextMonth = () => setViewDate(prev => addMonths(prev, 1));
   const prevMonth = () => setViewDate(prev => subMonths(prev, 1));
@@ -330,17 +344,17 @@ export default function ElectricityStatsPage() {
                   </CardContent>
                 </Card>
 
-                <Card className="glass-card overflow-hidden">
+                <Card className="glass-card overflow-hidden flex flex-col">
                   <CardHeader className="border-b border-white/5 bg-white/[0.02]">
                     <CardTitle className="text-base uppercase flex items-center gap-2">
                       <History className="w-4 h-4 text-primary" /> Detailed Transaction Ledger
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="p-0 overflow-y-auto max-h-[500px] custom-scrollbar">
+                  <CardContent className="p-0 flex-1">
                     <div className="divide-y divide-white/5">
-                      {stats.monthlyExpenses.length === 0 ? (
+                      {paginatedLedger.length === 0 ? (
                         <div className="p-20 text-center text-muted-foreground italic text-xs uppercase font-bold opacity-30">No transactions this month</div>
-                      ) : stats.monthlyExpenses.map((expense) => (
+                      ) : paginatedLedger.map((expense) => (
                         <div key={expense.id} className="p-4 hover:bg-white/[0.01] transition-all">
                           <div className="flex justify-between items-start mb-2">
                              <div className="flex flex-col gap-1">
@@ -364,6 +378,31 @@ export default function ElectricityStatsPage() {
                       ))}
                     </div>
                   </CardContent>
+                  {ledgerTotalPages > 1 && (
+                    <CardFooter className="p-4 border-t border-white/5 bg-black/20 flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase">Page {ledgerPage} of {ledgerTotalPages}</span>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="icon" 
+                          className="h-8 w-8 rounded-lg border-white/10" 
+                          onClick={() => setLedgerPage(p => Math.max(1, p - 1))}
+                          disabled={ledgerPage === 1}
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="icon" 
+                          className="h-8 w-8 rounded-lg border-white/10" 
+                          onClick={() => setLedgerPage(p => Math.min(ledgerTotalPages, p + 1))}
+                          disabled={ledgerPage === ledgerTotalPages}
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </CardFooter>
+                  )}
                 </Card>
               </div>
             </>
