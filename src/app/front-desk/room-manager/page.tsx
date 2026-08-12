@@ -246,6 +246,13 @@ export default function RoomManagerPage() {
     router.push(`/front-desk/check-in?${params.toString()}`);
   };
 
+  const handleBatchReserve = () => {
+    if (selectedForBulk.length === 0) return;
+    const params = new URLSearchParams();
+    params.set("rooms", JSON.stringify(selectedForBulk));
+    router.push(`/front-desk/reserve?${params.toString()}`);
+  };
+
   const paginatedHistory = useMemo(() => {
     if (!historyBookings) return [];
     const start = (historyPage - 1) * HISTORY_PER_PAGE;
@@ -298,9 +305,14 @@ export default function RoomManagerPage() {
                 <Label htmlFor="multi-select" className="text-[10px] uppercase font-bold tracking-widest cursor-pointer">Multi-Select</Label>
               </div>
               {selectionMode && selectedForBulk.length > 0 && (
-                <Button onClick={handleBatchCheckIn} className="bg-primary text-primary-foreground font-bold h-10 px-6 rounded-xl animate-in zoom-in duration-300 w-full sm:w-auto">
-                   Check-In {selectedForBulk.length}
-                </Button>
+                <div className="flex gap-2 w-full sm:w-auto">
+                  <Button onClick={handleBatchCheckIn} className="flex-1 bg-primary text-primary-foreground font-bold h-10 px-6 rounded-xl animate-in zoom-in duration-300">
+                    Check-In {selectedForBulk.length}
+                  </Button>
+                  <Button onClick={handleBatchReserve} variant="outline" className="flex-1 border-amber-500/50 text-amber-500 hover:bg-amber-500/10 font-bold h-10 px-6 rounded-xl animate-in zoom-in duration-300">
+                    Reserve {selectedForBulk.length}
+                  </Button>
+                </div>
               )}
             </div>
           </div>
