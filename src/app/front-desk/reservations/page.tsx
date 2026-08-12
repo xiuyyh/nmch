@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -20,7 +19,8 @@ import {
   Loader2,
   MoreVertical,
   LogOut,
-  ArrowRight
+  ArrowRight,
+  BedDouble
 } from "lucide-react";
 import { 
   DropdownMenu,
