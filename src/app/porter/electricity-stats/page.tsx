@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -128,7 +127,7 @@ export default function ElectricityStatsPage() {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
             <div>
               <h1 className="text-3xl font-headline font-bold uppercase tracking-tight text-white flex items-center gap-3">
-                <Zap className="w-8 h-8 text-primary" /> Electricity Analytics
+                Electricity Analytics
               </h1>
               <p className="text-muted-foreground mt-1">Deeper insights into energy consumption costs across the hotel.</p>
             </div>
