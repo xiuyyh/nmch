@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo } from "react";
@@ -362,23 +361,29 @@ export default function SalesFilterPage() {
             ) : (
               <div className="animate-in fade-in duration-500">
                 <div className="grid grid-cols-1 md:grid-cols-2 border-b border-white/5 bg-white/[0.02]">
-                  <div className="p-8 border-r border-white/5 space-y-2">
+                  <div className="p-6 sm:p-8 border-r border-white/5 space-y-4">
                     <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.3em]">Total Quantity Sold</span>
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-primary/10 rounded-lg text-primary">
-                        <Package className="w-6 h-6" />
+                    <div className="flex items-center gap-4 flex-wrap">
+                      <div className="p-3 bg-primary/10 rounded-xl text-primary shrink-0">
+                        <Package className="w-6 h-6 sm:w-8 sm:h-8" />
                       </div>
-                      <span className="text-5xl font-headline font-bold text-white">{report.totalQty}</span>
-                      <span className="text-sm font-bold text-muted-foreground uppercase mt-4">Units</span>
+                      <div className="flex items-baseline gap-2 min-w-0">
+                        <span className="text-3xl sm:text-4xl lg:text-5xl font-headline font-bold text-white truncate leading-none">{report.totalQty}</span>
+                        <span className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase shrink-0">Units</span>
+                      </div>
                     </div>
                   </div>
-                  <div className="p-8 space-y-2">
+                  <div className="p-6 sm:p-8 space-y-4">
                     <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.3em]">Total Revenue Impact</span>
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-500">
-                        <Banknote className="w-6 h-6" />
+                    <div className="flex items-center gap-4 flex-wrap">
+                      <div className="p-3 bg-emerald-500/10 rounded-xl text-emerald-500 shrink-0">
+                        <Banknote className="w-6 h-6 sm:w-8 sm:h-8" />
                       </div>
-                      <span className="text-5xl font-headline font-bold text-emerald-500">₦{report.totalValue.toLocaleString()}</span>
+                      <div className="flex items-baseline min-w-0">
+                        <span className="text-3xl sm:text-4xl lg:text-5xl font-headline font-bold text-emerald-500 truncate leading-none">
+                          ₦{report.totalValue.toLocaleString()}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
