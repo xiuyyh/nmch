@@ -10,12 +10,10 @@ import {
   Search, 
   Printer, 
   Filter, 
-  Calendar as CalendarIcon, 
   Package, 
   Banknote, 
   ArrowRight,
   Loader2,
-  FileText,
   FileBarChart,
   History,
   CheckCircle2,
@@ -45,16 +43,17 @@ import { useCollection, useFirestore } from "@/firebase";
 import { collection, query, orderBy, where } from "firebase/firestore";
 import { formatNigeriaTime, cn } from "@/lib/utils";
 import { startOfDay, endOfDay, format } from "date-fns";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
 
 export default function SalesFilterPage() {
   const firestore = useFirestore();
-  const [startDate, setStartDate] = useState<Date>();
-  const [endDate, setEndDate] = useState<Date>();
+  const [startDateStr, setStartDateStr] = useState("");
+  const [endDateStr, setEndDateStr] = useState("");
   const [searchItem, setSearchItem] = useState("");
   const [selectedItemName, setSelectedItemName] = useState<string | null>(null);
+
+  const startDate = useMemo(() => startDateStr ? new Date(startDateStr) : undefined, [startDateStr]);
+  const endDate = useMemo(() => endDateStr ? new Date(endDateStr) : undefined, [endDateStr]);
 
   // Fetch Inventory for selection list
   const inventoryQuery = useMemo(() => {
@@ -102,8 +101,6 @@ export default function SalesFilterPage() {
       
       let saleHasMatch = false;
       sale.items?.forEach((item: any) => {
-        // If an item is selected, we only count that exact item. 
-        // If not, we filter by the text search item name.
         const isMatch = selectedItemName 
           ? item.name === selectedItemName 
           : (!searchItem || item.name?.toLowerCase().includes(searchItem.toLowerCase()));
@@ -246,54 +243,22 @@ export default function SalesFilterPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="space-y-2">
                 <Label className="text-[10px] uppercase font-bold tracking-widest text-primary/70">Start Date</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full h-12 justify-start text-left font-normal bg-white/5 border-white/10 rounded-xl",
-                        !startDate && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {startDate ? format(startDate, "PPP") : <span>Pick start date</span>}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0 glass-card" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={startDate}
-                      onSelect={setStartDate}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
+                <Input 
+                  type="date"
+                  value={startDateStr}
+                  onChange={(e) => setStartDateStr(e.target.value)}
+                  className="w-full h-12 bg-white/5 border-white/10 rounded-xl text-white px-4"
+                />
               </div>
 
               <div className="space-y-2">
                 <Label className="text-[10px] uppercase font-bold tracking-widest text-primary/70">End Date</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full h-12 justify-start text-left font-normal bg-white/5 border-white/10 rounded-xl",
-                        !endDate && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {endDate ? format(endDate, "PPP") : <span>Pick end date</span>}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0 glass-card" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={endDate}
-                      onSelect={setEndDate}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
+                <Input 
+                  type="date"
+                  value={endDateStr}
+                  onChange={(e) => setEndDateStr(e.target.value)}
+                  className="w-full h-12 bg-white/5 border-white/10 rounded-xl text-white px-4"
+                />
               </div>
 
               <div className="space-y-2 relative">
