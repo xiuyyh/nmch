@@ -79,7 +79,6 @@ export default function SalesPage() {
   const { data: userRecord } = useDoc(userRef);
   const isAdmin = userRecord?.role === 'admin';
 
-  // 1. Improved Shift Query with Ordering for reliable detection
   const shiftQuery = useMemo(() => {
     if (!firestore || !user) return null;
     return query(
@@ -258,7 +257,6 @@ export default function SalesPage() {
           printDucket({ ...saleData, id: docRef.id });
         }
 
-        // Send Telegram Notification
         const itemSummary = cart.map(i => `- ${i.name} x${i.quantity}`).join('\n');
         const telegramMsg = `🧾 *NEW BILL GENERATED*\n\n*Point:* ${tableName}\n*Staff:* ${staffName}\n*Total:* ₦${total.toLocaleString()}\n\n*Items:*\n${itemSummary}\n\n_Status: Pending Settlement_`;
         sendTelegramNotification(firestore, telegramMsg);
@@ -311,46 +309,61 @@ export default function SalesPage() {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    // Use current local time if server timestamp is not yet populated
     const dateStr = (sale.timestamp && typeof sale.timestamp.toDate === 'function') 
       ? formatNigeriaTime(sale.timestamp.toDate()) 
       : formatNigeriaTime(new Date());
 
     const itemsHtml = sale.items.map((item: any) => `
-      <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-weight: 800; font-size: 16px;">
-        <span>${item.name} x ${item.quantity}</span>
-        <span>₦${(item.price * item.quantity).toLocaleString()}</span>
+      <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 14px;">
+        <span style="flex: 2;">${item.name}</span>
+        <span style="flex: 1; text-align: center;">x${item.quantity}</span>
+        <span style="flex: 1; text-align: right; font-weight: bold;">₦${(item.price * item.quantity).toLocaleString()}</span>
       </div>
     `).join('');
     
     const html = `
       <html>
         <head>
-          <title>Ducket #${sale.id?.slice(-8).toUpperCase() || 'TEMP'}</title>
+          <title>Receipt #${sale.id?.slice(-8).toUpperCase() || 'TEMP'}</title>
           <style>
             @page { size: 80mm auto; margin: 0; }
-            body { font-family: 'Arial', sans-serif; width: 80mm; padding: 10mm; font-size: 14px; color: #000; line-height: 1.4; }
+            body { font-family: 'Helvetica', 'Arial', sans-serif; width: 80mm; padding: 10mm; color: #000; line-height: 1.3; font-size: 13px; }
             .center { text-align: center; }
+            .bold { font-weight: 900; }
+            .header { font-size: 22px; text-transform: uppercase; margin-bottom: 2px; }
             .divider { border-bottom: 2px solid #000; margin: 10px 0; }
-            .header { font-size: 24px; font-weight: 900; margin-bottom: 6px; text-transform: uppercase; }
-            .total { font-size: 22px; font-weight: 900; margin-top: 12px; border-top: 2px solid #000; padding-top: 8px; }
-            .meta { font-size: 13px; font-weight: 700; }
+            .dashed-divider { border-bottom: 1px dashed #444; margin: 8px 0; }
+            .meta-row { display: flex; justify-content: space-between; margin-bottom: 2px; font-size: 12px; }
+            .total-row { display: flex; justify-content: space-between; font-size: 20px; margin-top: 10px; padding-top: 8px; border-top: 2px solid #000; }
+            .item-header { display: flex; justify-content: space-between; font-weight: bold; border-bottom: 1px solid #000; padding-bottom: 4px; margin-bottom: 8px; font-size: 11px; text-transform: uppercase; }
           </style>
         </head>
         <body>
-          <div class="center header">NIGHTINGALE HOTEL</div>
-          <div class="center">Sales Ducket</div>
+          <div class="center bold header">NIGHTINGALE HOTEL</div>
+          <div class="center bold" style="font-size: 14px;">SALES RECEIPT</div>
           <div class="divider"></div>
-          <div class="meta">DATE: ${dateStr}</div>
-          <div class="meta">REC#: ${sale.id?.slice(-8).toUpperCase() || 'OFFLINE'}</div>
-          <div class="meta">STAFF: ${sale.staffName || user?.displayName || user?.email}</div>
+          <div class="meta-row"><span>DATE:</span><span class="bold">${dateStr}</span></div>
+          <div class="meta-row"><span>REC#:</span><span class="bold">${sale.id?.slice(-8).toUpperCase() || 'OFFLINE'}</span></div>
+          <div class="meta-row"><span>STAFF:</span><span class="bold">${(sale.staffName || user?.displayName || user?.email).toUpperCase()}</span></div>
+          <div class="meta-row"><span>POINT:</span><span class="bold">${(sale.tableNumber || 'COUNTER').toUpperCase()}</span></div>
           <div class="divider"></div>
+          
+          <div class="item-header">
+            <span style="flex: 2;">Description</span>
+            <span style="flex: 1; text-align: center;">Qty</span>
+            <span style="flex: 1; text-align: right;">Total</span>
+          </div>
+          
           ${itemsHtml}
-          <div class="total" style="display: flex; justify-content: space-between;">
+          
+          <div class="total-row bold">
             <span>TOTAL:</span>
             <span>₦${sale.total.toLocaleString()}</span>
           </div>
-          <div class="center" style="margin-top: 15px; font-weight: 900;">*** UNSETTLED ***</div>
+          
+          <div class="dashed-divider"></div>
+          <div class="center bold" style="margin-top: 10px; font-size: 11px;">*** UNSETTLED / PENDING ***</div>
+          <div class="center" style="margin-top: 5px; font-size: 10px;">Thank you for your patronage</div>
         </body>
       </html>
     `;
@@ -378,7 +391,6 @@ export default function SalesPage() {
 
   if (shiftLoading) return <AppShell><div className="flex h-[60vh] items-center justify-center animate-pulse text-muted-foreground">Checking Shift Status...</div></AppShell>;
 
-  // Allow Admins to bypass the shift lock
   if (!activeShift && !isAdmin) {
     return (
       <AppShell>
@@ -600,7 +612,6 @@ export default function SalesPage() {
               </Card>
             </div>
             
-            {/* Mobile Cart Trigger */}
             <div className="lg:hidden fixed bottom-6 left-6 right-6 z-40">
               <Button 
                 onClick={() => setActiveTab(activeTab === "menu" ? "quick" : "menu")}

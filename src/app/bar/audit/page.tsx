@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo } from "react";
@@ -140,31 +141,50 @@ export default function GlobalAuditPage() {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    // Use current local time if server timestamp is not yet populated
     const dateStr = (sale.timestamp && typeof sale.timestamp.toDate === 'function') 
       ? formatNigeriaTime(sale.timestamp.toDate()) 
       : formatNigeriaTime(new Date());
 
     const itemsHtml = sale.items.map((item: any) => `
-      <div style="display:flex; justify-content:space-between; margin-bottom:4px; font-weight:800;">
-        <span>${item.name} x ${item.quantity}</span>
-        <span>₦${(item.price * item.quantity).toLocaleString()}</span>
+      <div style="display:flex; justify-content:space-between; margin-bottom:4px; font-size: 14px;">
+        <span style="flex: 2;">${item.name}</span>
+        <span style="flex: 1; text-align: center;">x ${item.quantity}</span>
+        <span style="flex: 1; text-align: right; font-weight: bold;">₦${(item.price * item.quantity).toLocaleString()}</span>
       </div>
     `).join('');
     
-    const html = `<html><head><style>@page { size: 80mm auto; margin: 0; } body { font-family: sans-serif; width: 80mm; padding: 10mm; font-size: 14px; color: #000; }</style></head><body>
-      <div style="text-align:center; font-size:22px; font-weight:900;">NIGHTINGALE HOTEL</div>
-      <div style="text-align:center; font-size:16px;">DUPLICATE RECEIPT</div>
-      <div style="border-bottom:2px solid #000; margin:10px 0;"></div>
-      <div style="font-weight:700;">REC#: ${sale.id.slice(-8).toUpperCase()}</div>
-      <div style="font-weight:700;">STAFF: ${sale.staffName}</div>
-      <div style="font-weight:700;">TIME: ${dateStr}</div>
-      <div style="border-bottom:1px solid #000; margin:10px 0;"></div>
-      ${itemsHtml}
-      <div style="border-top:2px solid #000; margin-top:10px; padding-top:8px; display:flex; justify-content:space-between; font-size:18px; font-weight:900;">
-        <span>TOTAL:</span><span>₦${sale.total.toLocaleString()}</span>
-      </div>
-    </body></html>`;
+    const html = `
+      <html>
+        <head>
+          <style>
+            @page { size: 80mm auto; margin: 0; } 
+            body { font-family: 'Helvetica', 'Arial', sans-serif; width: 80mm; padding: 10mm; font-size: 13px; color: #000; line-height: 1.3; }
+            .center { text-align: center; }
+            .bold { font-weight: 900; }
+            .divider { border-bottom: 2px solid #000; margin: 10px 0; }
+            .meta-row { display: flex; justify-content: space-between; margin-bottom: 2px; font-size: 11px; }
+            .header { font-size: 22px; text-transform: uppercase; margin-bottom: 2px; }
+            .total-row { display: flex; justify-content: space-between; font-size: 20px; margin-top: 10px; padding-top: 8px; border-top: 2px solid #000; }
+          </style>
+        </head>
+        <body>
+          <div class="center bold header">NIGHTINGALE HOTEL</div>
+          <div class="center bold" style="font-size: 14px;">DUPLICATE RECEIPT</div>
+          <div class="divider"></div>
+          <div class="meta-row"><span>DATE:</span><span class="bold">${dateStr}</span></div>
+          <div class="meta-row"><span>REC#:</span><span class="bold">${sale.id.slice(-8).toUpperCase()}</span></div>
+          <div class="meta-row"><span>STAFF:</span><span class="bold">${sale.staffName.toUpperCase()}</span></div>
+          <div class="meta-row"><span>POINT:</span><span class="bold">${(sale.tableNumber || 'BAR').toUpperCase()}</span></div>
+          <div class="divider"></div>
+          ${itemsHtml}
+          <div class="total-row bold">
+            <span>TOTAL:</span>
+            <span>₦${sale.total.toLocaleString()}</span>
+          </div>
+          <div class="divider"></div>
+          <div class="center bold" style="margin-top: 15px; letter-spacing: 1px; font-size: 11px;">*** AUDIT DUPLICATE ***</div>
+        </body>
+      </html>`;
     printWindow.document.write(html);
     printWindow.document.close();
     printWindow.focus();
@@ -225,7 +245,7 @@ export default function GlobalAuditPage() {
                         <AlertDialogHeader>
                           <AlertDialogTitle>Hide Duplicate Shift?</AlertDialogTitle>
                           <AlertDialogDescription>
-                            This will remove {shift.staffName}'s session from audit visibility. You can restore it in Admin Actions.
+                            This will remove {shift.staffName}'s session from audit logs. You can restore it in Admin Actions.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>

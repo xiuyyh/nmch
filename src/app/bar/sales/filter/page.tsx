@@ -72,7 +72,6 @@ export default function SalesFilterPage() {
       if (sale.status === "Canceled") return;
       
       sale.items?.forEach((item: any) => {
-        // Only include in calculation if searchItem matches OR if searchItem is empty
         const isMatch = !searchItem || item.name?.toLowerCase().includes(searchItem.toLowerCase());
         
         if (isMatch) {
@@ -102,43 +101,48 @@ export default function SalesFilterPage() {
     const itemsHtml = report.items
       .sort((a, b) => b.qty - a.qty)
       .map(item => `
-        <tr style="border-bottom: 1px dashed #000;">
-          <td style="padding: 8px 0; font-weight: 800;">${item.name}</td>
-          <td style="padding: 8px 0; text-align: center; font-weight: 800;">x${item.qty}</td>
-          <td style="padding: 8px 0; text-align: right; font-weight: 800;">₦${item.value.toLocaleString()}</td>
+        <tr style="border-bottom: 1px dashed #444;">
+          <td style="padding: 8px 0; font-size: 14px;">${item.name.toUpperCase()}</td>
+          <td style="padding: 8px 0; text-align: center; font-weight: bold; font-size: 14px;">x${item.qty}</td>
+          <td style="padding: 8px 0; text-align: right; font-weight: bold; font-size: 14px;">₦${item.value.toLocaleString()}</td>
         </tr>
       `).join('');
 
     const html = `
       <html>
         <head>
-          <title>Period Report - ${searchItem || 'All Items'}</title>
+          <title>Period Report</title>
           <style>
             @page { size: 80mm auto; margin: 0; }
-            body { font-family: 'Arial', sans-serif; width: 80mm; padding: 5mm; color: #000; font-size: 13px; line-height: 1.4; margin: 0 auto; }
-            .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px; }
-            .header h1 { font-size: 18px; margin: 0; text-transform: uppercase; }
-            .header p { font-size: 11px; margin: 4px 0; font-weight: bold; }
+            body { font-family: 'Helvetica', 'Arial', sans-serif; width: 80mm; padding: 10mm; color: #000; font-size: 13px; line-height: 1.4; margin: 0 auto; }
+            .header { text-align: center; border-bottom: 3px solid #000; padding-bottom: 10px; margin-bottom: 15px; }
+            .header h1 { font-size: 22px; margin: 0; text-transform: uppercase; font-weight: 900; }
+            .header p { font-size: 12px; margin: 4px 0; font-weight: bold; }
             table { width: 100%; border-collapse: collapse; }
-            th { text-align: left; border-bottom: 1px solid #000; padding: 5px 0; font-size: 10px; text-transform: uppercase; }
-            .total-section { margin-top: 20px; border-top: 2px solid #000; padding-top: 10px; }
-            .total-row { display: flex; justify-content: space-between; font-weight: 900; font-size: 16px; margin-bottom: 5px; }
+            th { text-align: left; border-bottom: 2px solid #000; padding: 6px 0; font-size: 11px; text-transform: uppercase; font-weight: 900; }
+            .total-section { margin-top: 20px; border-top: 3px solid #000; padding-top: 10px; }
+            .total-row { display: flex; justify-content: space-between; font-weight: 900; font-size: 18px; margin-bottom: 5px; }
+            .meta-info { font-size: 11px; margin-top: 5px; text-transform: uppercase; font-weight: bold; }
           </style>
         </head>
         <body>
           <div class="header">
             <h1>NIGHTINGALE HOTEL</h1>
             <p>SALES PERIOD AUDIT</p>
-            <p>PERIOD: ${startDate ? format(startDate, "dd/MM/yyyy") : "N/A"} TO ${endDate ? format(endDate, "dd/MM/yyyy") : "N/A"}</p>
-            <p>FILTER: "${searchItem ? searchItem.toUpperCase() : 'GLOBAL AUDIT'}"</p>
           </div>
+          
+          <div class="meta-info">START: ${startDate ? format(startDate, "dd/MM/yyyy") : "N/A"}</div>
+          <div class="meta-info">END: ${endDate ? format(endDate, "dd/MM/yyyy") : "N/A"}</div>
+          <div class="meta-info">FILTER: "${searchItem ? searchItem.toUpperCase() : 'GLOBAL AUDIT'}"</div>
+          
+          <div style="border-bottom: 2px solid #000; margin: 10px 0;"></div>
           
           <table>
             <thead>
               <tr>
-                <th>Item Name</th>
-                <th style="text-align: center;">Qty</th>
-                <th style="text-align: right;">Total</th>
+                <th style="width: 50%;">ITEM</th>
+                <th style="text-align: center; width: 20%;">QTY</th>
+                <th style="text-align: right; width: 30%;">VALUE</th>
               </tr>
             </thead>
             <tbody>
@@ -148,18 +152,18 @@ export default function SalesFilterPage() {
 
           <div class="total-section">
             <div class="total-row">
-              <span>TOTAL ITEMS:</span>
-              <span>${report.totalQty}</span>
+              <span style="font-size: 14px;">TOTAL VOLUME:</span>
+              <span style="font-size: 14px;">${report.totalQty}</span>
             </div>
-            <div class="total-row" style="margin-top: 5px; font-size: 18px;">
+            <div class="total-row" style="margin-top: 8px; font-size: 22px;">
               <span>TOTAL VALUE:</span>
               <span>₦${report.totalValue.toLocaleString()}</span>
             </div>
           </div>
 
-          <div style="text-align: center; margin-top: 30px; font-size: 9px; font-weight: bold;">
+          <div style="text-align: center; margin-top: 40px; font-size: 10px; font-weight: 900; border-top: 1px dashed #000; padding-top: 10px;">
             *** AUDIT SUMMARY LOG ***<br>
-            PRINTED: ${formatNigeriaTime(new Date(), true)}
+            PRINTED: ${formatNigeriaTime(new Date(), true).toUpperCase()}
           </div>
         </body>
       </html>

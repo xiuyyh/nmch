@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo } from "react";
@@ -147,7 +148,6 @@ export default function SalesAuditPage() {
     const saleRef = doc(firestore, "sales", sale.id);
     const updateData = { status: "Completed", method: method, settledAt: serverTimestamp() };
     updateDoc(saleRef, updateData).then(() => {
-      // Telegram Notification
       const telegramMsg = `✅ *BILL SETTLED*\n\n*Receipt:* #${sale.id.slice(-8).toUpperCase()}\n*Point:* ${sale.tableNumber}\n*Total:* ₦${sale.total.toLocaleString()}\n*Method:* ${method}\n*Staff:* ${user?.displayName || user?.email}`;
       sendTelegramNotification(firestore, telegramMsg);
 
@@ -167,7 +167,6 @@ export default function SalesAuditPage() {
         updateDoc(stockRef, { stock: increment(item.quantity), lastUpdated: serverTimestamp() }).catch(() => {});
       }
       
-      // Telegram Notification
       const telegramMsg = `🚫 *BILL VOIDED*\n\n*Receipt:* #${sale.id.slice(-8).toUpperCase()}\n*Point:* ${sale.tableNumber}\n*Total:* ₦${sale.total.toLocaleString()}\n*Voided By:* ${user?.displayName || user?.email}\n\n_Inventory has been restored._`;
       sendTelegramNotification(firestore, telegramMsg);
 
@@ -214,33 +213,52 @@ export default function SalesAuditPage() {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    // Use current local time if server timestamp is not yet populated
     const startedStr = (shift.startTime?.toDate && typeof shift.startTime.toDate === 'function')
       ? formatNigeriaTime(shift.startTime.toDate())
       : formatNigeriaTime(new Date());
 
     const itemsHtml = Object.entries(itemMap)
       .sort((a, b) => b[1] - a[1])
-      .map(([name, qty]) => `<div style="display:flex; justify-content:space-between; margin-bottom:4px; font-weight:700;"><span>${name}</span><span>x${qty}</span></div>`)
+      .map(([name, qty]) => `
+        <div style="display:flex; justify-content:space-between; margin-bottom:4px; font-size: 13px;">
+          <span style="flex: 3;">${name.toUpperCase()}</span>
+          <span style="flex: 1; text-align: right; font-weight: bold;">x${qty}</span>
+        </div>`)
       .join('');
 
     const html = `
       <html>
-        <head><title>Shift Audit</title><style>@page { size: 80mm auto; margin: 0; } body { font-family: sans-serif; width: 80mm; padding: 10mm; font-size: 14px; color: #000; }</style></head>
+        <head>
+          <title>Shift Audit</title>
+          <style>
+            @page { size: 80mm auto; margin: 0; }
+            body { font-family: 'Helvetica', 'Arial', sans-serif; width: 80mm; padding: 10mm; color: #000; line-height: 1.3; font-size: 13px; }
+            .center { text-align: center; }
+            .bold { font-weight: 900; }
+            .header { font-size: 22px; text-transform: uppercase; margin-bottom: 2px; }
+            .divider { border-bottom: 2px solid #000; margin: 10px 0; }
+            .dashed-divider { border-bottom: 1px dashed #444; margin: 8px 0; }
+            .meta-row { display: flex; justify-content: space-between; margin-bottom: 2px; font-size: 12px; }
+            .total-row { display: flex; justify-content: space-between; font-size: 18px; margin-top: 5px; }
+          </style>
+        </head>
         <body>
-          <div style="text-align:center; font-size:22px; font-weight:900;">NIGHTINGALE HOTEL</div>
-          <div style="text-align:center; font-size:16px; margin-bottom:10px;">SHIFT PERFORMANCE AUDIT</div>
-          <div style="border-bottom:2px solid #000; margin:10px 0;"></div>
-          <div style="font-weight:700;">STAFF: ${shift.staffName.toUpperCase()}</div>
-          <div style="font-weight:700;">STARTED: ${startedStr}</div>
-          <div style="border-bottom:1px solid #000; margin:10px 0;"></div>
-          <div style="font-size:12px; font-weight:900; margin-bottom:8px; text-transform:uppercase;">Itemized Deductions:</div>
+          <div style="text-align:center; font-weight:900; font-size:22px; text-transform:uppercase;">NIGHTINGALE HOTEL</div>
+          <div style="text-align:center; font-weight:900; font-size:14px; margin-bottom:10px;">SHIFT PERFORMANCE AUDIT</div>
+          <div class="divider"></div>
+          <div class="meta-row"><span>STAFF:</span><span class="bold">${shift.staffName.toUpperCase()}</span></div>
+          <div class="meta-row"><span>STARTED:</span><span class="bold">${startedStr}</span></div>
+          <div class="divider"></div>
+          <div style="font-size:11px; font-weight:900; margin-bottom:8px; text-transform:uppercase; text-decoration: underline;">ITEMIZED DEDUCTIONS:</div>
           ${itemsHtml}
-          <div style="border-top:2px solid #000; margin-top:15px; padding-top:10px;">
-            <div style="display:flex; justify-content:space-between; font-weight:700;"><span>SETTLED:</span><span>₦${settledRev.toLocaleString()}</span></div>
-            <div style="display:flex; justify-content:space-between; font-weight:700; color:#555;"><span>PENDING:</span><span>₦${pendingRev.toLocaleString()}</span></div>
-            <div style="display:flex; justify-content:space-between; font-size:20px; font-weight:900; margin-top:8px;"><span>TOTAL:</span><span>₦${totalRev.toLocaleString()}</span></div>
+          <div class="divider"></div>
+          <div class="meta-row"><span>SETTLED REV:</span><span class="bold">₦${settledRev.toLocaleString()}</span></div>
+          <div class="meta-row"><span>PENDING REV:</span><span class="bold">₦${pendingRev.toLocaleString()}</span></div>
+          <div class="total-row bold" style="border-top: 2px solid #000; padding-top: 8px; font-size: 22px;">
+            <span>GRAND TOTAL:</span>
+            <span>₦${totalRev.toLocaleString()}</span>
           </div>
+          <div class="divider"></div>
           <div style="text-align:center; font-weight:900; margin-top:20px; font-size:10px;">*** END OF SHIFT SUMMARY ***</div>
         </body>
       </html>
@@ -255,13 +273,53 @@ export default function SalesAuditPage() {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    // Use current local time if server timestamp is not yet populated
     const dateStr = (sale.timestamp && typeof sale.timestamp.toDate === 'function') 
       ? formatNigeriaTime(sale.timestamp.toDate()) 
       : formatNigeriaTime(new Date());
 
-    const itemsHtml = sale.items.map((item: any) => `<div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-weight: 800; font-size: 16px;"><span>${item.name} x ${item.quantity}</span><span>₦${(item.price * item.quantity).toLocaleString()}</span></div>`).join('');
-    const html = `<html><head><title>Ducket</title><style>@page { size: 80mm auto; margin: 0; } body { font-family: sans-serif; width: 80mm; padding: 10mm; font-size: 14px; color: #000; }</style></head><body><div style="text-align:center; font-size:24px; font-weight:900;">NIGHTINGALE HOTEL</div><div style="text-align:center; font-size:18px;">Duplicate Ducket</div><div style="border-bottom:2px solid #000; margin:10px 0;"></div><div style="font-weight:700;">DATE: ${dateStr}</div><div style="font-weight:700;">REC#: ${sale.id.slice(-8).toUpperCase()}</div><div style="font-weight:700;">SERV: ${sale.tableNumber}</div><div style="font-weight:700;">STAFF: ${sale.staffName}</div><div style="border-bottom:2px solid #000; margin:10px 0;"></div>${itemsHtml}<div style="font-size:22px; font-weight:900; border-top:2px solid #000; margin-top:12px; padding-top:8px; display:flex; justify-content:space-between;"><span>TOTAL:</span><span>₦${sale.total.toLocaleString()}</span></div><div style="margin-top:8px; font-size:16px; font-weight:700;">PAYMENT: ${sale.method.toUpperCase()}</div><div style="text-align:center; font-weight:900; margin-top:15px;">*** DUPLICATE ***</div></body></html>`;
+    const itemsHtml = sale.items.map((item: any) => `
+      <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 15px;">
+        <span style="flex: 2;">${item.name}</span>
+        <span style="flex: 1; text-align: center;">x${item.quantity}</span>
+        <span style="flex: 1; text-align: right; font-weight: bold;">₦${(item.price * item.quantity).toLocaleString()}</span>
+      </div>
+    `).join('');
+
+    const html = `
+      <html>
+        <head>
+          <title>Ducket</title>
+          <style>
+            @page { size: 80mm auto; margin: 0; }
+            body { font-family: 'Helvetica', 'Arial', sans-serif; width: 80mm; padding: 10mm; color: #000; line-height: 1.3; font-size: 14px; }
+            .center { text-align: center; }
+            .bold { font-weight: 900; }
+            .header { font-size: 24px; text-transform: uppercase; margin-bottom: 4px; }
+            .divider { border-bottom: 2px solid #000; margin: 12px 0; }
+            .meta-row { display: flex; justify-content: space-between; margin-bottom: 3px; font-size: 12px; }
+            .total-row { display: flex; justify-content: space-between; font-size: 24px; margin-top: 15px; padding-top: 10px; border-top: 2px solid #000; }
+          </style>
+        </head>
+        <body>
+          <div class="center bold header">NIGHTINGALE HOTEL</div>
+          <div class="center bold" style="font-size: 16px;">DUPLICATE RECEIPT</div>
+          <div class="divider"></div>
+          <div class="meta-row"><span>DATE:</span><span class="bold">${dateStr}</span></div>
+          <div class="meta-row"><span>REC#:</span><span class="bold">${sale.id.slice(-8).toUpperCase()}</span></div>
+          <div class="meta-row"><span>POINT:</span><span class="bold">${(sale.tableNumber || 'COUNTER').toUpperCase()}</span></div>
+          <div class="meta-row"><span>STAFF:</span><span class="bold">${sale.staffName.toUpperCase()}</span></div>
+          <div class="divider"></div>
+          ${itemsHtml}
+          <div class="total-row bold">
+            <span>TOTAL:</span>
+            <span>₦${sale.total.toLocaleString()}</span>
+          </div>
+          <div class="divider"></div>
+          <div style="margin-top:8px; font-size:14px; font-weight:900;" class="center uppercase">PAYMENT: ${sale.method.toUpperCase()}</div>
+          <div class="center bold" style="margin-top:20px; letter-spacing: 2px; font-size: 12px;">*** DUPLICATE RECORD ***</div>
+        </body>
+      </html>
+    `;
     printWindow.document.write(html);
     printWindow.document.close();
     printWindow.focus();
