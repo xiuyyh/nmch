@@ -12,7 +12,6 @@ import {
   Filter, 
   Package, 
   Banknote, 
-  ArrowRight,
   Loader2,
   FileBarChart,
   History,
@@ -44,7 +43,6 @@ export default function SalesFilterPage() {
   const startDate = useMemo(() => startDateStr ? new Date(startDateStr) : undefined, [startDateStr]);
   const endDate = useMemo(() => endDateStr ? new Date(endDateStr) : undefined, [endDateStr]);
 
-  // Fetch Inventory for selection list
   const inventoryQuery = useMemo(() => {
     if (!firestore) return null;
     return query(collection(firestore, "inventory"), orderBy("name"));
@@ -60,8 +58,8 @@ export default function SalesFilterPage() {
   }, [startDate, endDate]);
 
   const salesQuery = useMemo(() => {
-    // Only scan if we have dates AND a specific selection OR the "all" keyword
     const isGlobalAudit = searchItem.toLowerCase() === 'all';
+    // GUARD: Only scan if we have dates AND (an item is selected OR the "all" keyword is exactly typed)
     if (!firestore || !dateRange || (!selectedItemName && !isGlobalAudit)) return null;
 
     return query(
@@ -77,7 +75,7 @@ export default function SalesFilterPage() {
   const filteredInventory = useMemo(() => {
     if (!inventory) return [];
     const term = searchItem.toLowerCase();
-    if (!term || term === 'all') return inventory.slice(0, 10);
+    if (!term || term === 'all') return [];
     return inventory.filter(i => i.name.toLowerCase().includes(term)).slice(0, 10);
   }, [inventory, searchItem]);
 
@@ -93,8 +91,6 @@ export default function SalesFilterPage() {
       if (sale.status === "Canceled") return;
       
       sale.items?.forEach((item: any) => {
-        // If it's a global audit, match everything. 
-        // If specific item is selected, match only that item.
         const isMatch = isGlobalAudit || (selectedItemName ? item.name === selectedItemName : false);
         
         if (isMatch) {
@@ -153,13 +149,10 @@ export default function SalesFilterPage() {
             <h1>NIGHTINGALE HOTEL</h1>
             <p>SALES AUDIT REPORT</p>
           </div>
-          
           <div class="meta-info">START: ${startDate ? format(startDate, "dd/MM/yyyy") : "N/A"}</div>
           <div class="meta-info">END: ${endDate ? format(endDate, "dd/MM/yyyy") : "N/A"}</div>
           <div class="meta-info">TARGET: "${selectedItemName || (searchItem.toLowerCase() === 'all' ? 'GLOBAL AUDIT' : 'NONE')}"</div>
-          
           <div style="border-bottom: 2px solid #000; margin: 10px 0;"></div>
-          
           <table>
             <thead>
               <tr>
@@ -168,30 +161,17 @@ export default function SalesFilterPage() {
                 <th style="text-align: right; width: 30%;">VALUE</th>
               </tr>
             </thead>
-            <tbody>
-              ${itemsHtml}
-            </tbody>
+            <tbody>${itemsHtml}</tbody>
           </table>
-
           <div class="total-section">
-            <div class="total-row">
-              <span style="font-size: 14px;">TOTAL VOLUME:</span>
-              <span style="font-size: 14px;">${report.totalQty}</span>
-            </div>
-            <div class="total-row" style="margin-top: 8px; font-size: 22px;">
-              <span>TOTAL VALUE:</span>
-              <span>₦${report.totalValue.toLocaleString()}</span>
-            </div>
+            <div class="total-row"><span style="font-size: 14px;">TOTAL VOLUME:</span><span style="font-size: 14px;">${report.totalQty}</span></div>
+            <div class="total-row" style="margin-top: 8px; font-size: 22px;"><span>TOTAL VALUE:</span><span>₦${report.totalValue.toLocaleString()}</span></div>
           </div>
-
           <div style="text-align: center; margin-top: 40px; font-size: 10px; font-weight: 900; border-top: 1px dashed #000; padding-top: 10px;">
-            *** AUDIT SUMMARY LOG ***<br>
-            PRINTED: ${formatNigeriaTime(new Date(), true).toUpperCase()}
+            *** AUDIT SUMMARY LOG ***<br>PRINTED: ${formatNigeriaTime(new Date(), true).toUpperCase()}
           </div>
         </body>
-      </html>
-    `;
-
+      </html>`;
     printWindow.document.write(html);
     printWindow.document.close();
     printWindow.focus();
@@ -200,7 +180,7 @@ export default function SalesFilterPage() {
 
   return (
     <AppShell>
-      <div className="flex flex-col gap-6 sm:gap-8 max-w-6xl mx-auto px-1 sm:px-0">
+      <div className="flex flex-col gap-6 max-w-6xl mx-auto px-1">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl sm:text-3xl font-headline font-bold uppercase tracking-tight text-white flex items-center gap-3">
@@ -224,7 +204,7 @@ export default function SalesFilterPage() {
                   type="date"
                   value={startDateStr}
                   onChange={(e) => setStartDateStr(e.target.value)}
-                  className="w-full h-11 sm:h-12 bg-white/5 border-white/10 rounded-xl text-white px-4 text-sm"
+                  className="w-full h-11 bg-white/5 border-white/10 rounded-xl text-white px-4 text-sm"
                 />
               </div>
 
@@ -234,17 +214,17 @@ export default function SalesFilterPage() {
                   type="date"
                   value={endDateStr}
                   onChange={(e) => setEndDateStr(e.target.value)}
-                  className="w-full h-11 sm:h-12 bg-white/5 border-white/10 rounded-xl text-white px-4 text-sm"
+                  className="w-full h-11 bg-white/5 border-white/10 rounded-xl text-white px-4 text-sm"
                 />
               </div>
 
               <div className="space-y-1.5 relative">
                 <Label className="text-[10px] uppercase font-bold tracking-widest text-primary/70">Target Item (or "all")</Label>
                 {selectedItemName ? (
-                  <div className="flex items-center justify-between h-11 sm:h-12 px-4 bg-primary/10 border border-primary/30 rounded-xl animate-in zoom-in-95 duration-200">
+                  <div className="flex items-center justify-between h-11 px-4 bg-primary/10 border border-primary/30 rounded-xl animate-in zoom-in-95 duration-200">
                     <div className="flex items-center gap-2 overflow-hidden">
                       <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
-                      <span className="font-bold text-xs sm:text-sm text-white truncate uppercase">{selectedItemName}</span>
+                      <span className="font-bold text-xs text-white truncate uppercase">{selectedItemName}</span>
                     </div>
                     <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/10 shrink-0" onClick={() => setSelectedItemName(null)}>
                       <X className="w-4 h-4" />
@@ -257,10 +237,10 @@ export default function SalesFilterPage() {
                       placeholder="Search or type 'all'..." 
                       value={searchItem} 
                       onChange={(e) => setSearchItem(e.target.value)}
-                      className="bg-white/5 border-white/10 pl-10 h-11 sm:h-12 rounded-xl font-bold text-sm" 
+                      className="bg-white/5 border-white/10 pl-10 h-11 rounded-xl font-bold text-sm" 
                     />
                     {searchItem && searchItem.toLowerCase() !== 'all' && filteredInventory.length > 0 && (
-                      <div className="absolute top-full left-0 right-0 z-50 mt-2 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2">
+                      <div className="absolute top-full left-0 right-0 z-50 mt-2 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl overflow-hidden">
                         {filteredInventory.map(item => (
                           <button
                             key={item.id}
@@ -284,43 +264,43 @@ export default function SalesFilterPage() {
           
           <CardContent className="p-0">
             {(!dateRange || (!selectedItemName && searchItem.toLowerCase() !== 'all')) ? (
-              <div className="py-20 sm:py-24 text-center flex flex-col items-center justify-center opacity-40 px-4">
-                <History className="w-12 h-12 sm:w-16 sm:h-16 mb-4" />
-                <h3 className="text-lg sm:text-xl font-headline font-bold uppercase">Configure Audit</h3>
-                <p className="text-xs sm:text-sm italic mt-2">Pick dates and select an item (or type 'all') to scan.</p>
+              <div className="py-20 text-center flex flex-col items-center justify-center opacity-40 px-4">
+                <History className="w-12 h-12 mb-4" />
+                <h3 className="text-lg font-headline font-bold uppercase">Configure Audit</h3>
+                <p className="text-xs italic mt-2">Pick dates and select an item (or type 'all') to scan.</p>
               </div>
             ) : loading ? (
-              <div className="py-20 sm:py-24 text-center flex flex-col items-center justify-center gap-4">
-                <Loader2 className="w-10 h-10 sm:w-12 sm:h-12 animate-spin text-primary" />
-                <p className="font-headline font-bold uppercase text-xs sm:text-sm text-muted-foreground animate-pulse">Scanning Archive...</p>
+              <div className="py-20 text-center flex flex-col items-center justify-center gap-4">
+                <Loader2 className="w-10 h-10 animate-spin text-primary" />
+                <p className="font-headline font-bold uppercase text-xs text-muted-foreground animate-pulse">Scanning Archive...</p>
               </div>
             ) : report.items.length === 0 ? (
-              <div className="py-20 sm:py-24 text-center flex flex-col items-center justify-center opacity-40 px-4">
-                <Package className="w-12 h-12 sm:w-16 sm:h-16 mb-4" />
-                <h3 className="text-lg sm:text-xl font-headline font-bold uppercase">No Matches Found</h3>
-                <p className="text-xs sm:text-sm italic mt-2">No sales matching your criteria were found in this period.</p>
+              <div className="py-20 text-center flex flex-col items-center justify-center opacity-40 px-4">
+                <Package className="w-12 h-12 mb-4" />
+                <h3 className="text-lg font-headline font-bold uppercase">No Matches Found</h3>
+                <p className="text-xs italic mt-2">No sales matching your criteria were found.</p>
               </div>
             ) : (
               <div className="animate-in fade-in duration-500">
-                <div className="grid grid-cols-1 md:grid-cols-2 border-b border-white/5 bg-white/[0.02]">
-                  <div className="p-6 sm:p-8 border-r border-white/5 space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 border-b border-white/5 bg-white/[0.02]">
+                  <div className="p-6 border-r border-white/5 space-y-4">
                     <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.3em]">Total Quantity Sold</span>
                     <div className="flex items-center gap-4">
-                      <div className="p-3 bg-primary/10 rounded-xl text-primary shrink-0 hidden sm:flex">
+                      <div className="p-3 bg-primary/10 rounded-xl text-primary hidden sm:flex">
                         <Package className="w-8 h-8" />
                       </div>
                       <div className="flex items-baseline gap-2 min-w-0">
                         <span className="text-3xl sm:text-4xl lg:text-5xl font-headline font-bold text-white truncate leading-none">
                           {report.totalQty.toLocaleString()}
                         </span>
-                        <span className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase shrink-0">Units</span>
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase shrink-0">Units</span>
                       </div>
                     </div>
                   </div>
-                  <div className="p-6 sm:p-8 space-y-4">
+                  <div className="p-6 space-y-4">
                     <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.3em]">Total Revenue Impact</span>
                     <div className="flex items-center gap-4">
-                      <div className="p-3 bg-emerald-500/10 rounded-xl text-emerald-500 shrink-0 hidden sm:flex">
+                      <div className="p-3 bg-emerald-500/10 rounded-xl text-emerald-500 hidden sm:flex">
                         <Banknote className="w-8 h-8" />
                       </div>
                       <div className="flex items-baseline min-w-0">
@@ -343,7 +323,7 @@ export default function SalesFilterPage() {
                       <Table>
                         <TableHeader className="bg-white/5">
                           <TableRow className="border-white/5 hover:bg-transparent">
-                            <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground h-10">Product Name</TableHead>
+                            <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground h-10">Product</TableHead>
                             <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-center h-10">Qty</TableHead>
                             <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-right h-10 pr-6">Value (₦)</TableHead>
                           </TableRow>
@@ -351,11 +331,11 @@ export default function SalesFilterPage() {
                         <TableBody>
                           {report.items.sort((a, b) => b.qty - a.qty).map((item, idx) => (
                             <TableRow key={idx} className="border-white/5 hover:bg-white/[0.03] transition-colors h-14">
-                              <TableCell className="font-bold text-white uppercase text-[10px] sm:text-xs max-w-[120px] sm:max-w-none truncate">
+                              <TableCell className="font-bold text-white uppercase text-[10px] sm:text-xs truncate max-w-[100px] sm:max-w-none">
                                 {item.name}
                               </TableCell>
                               <TableCell className="text-center">
-                                <Badge variant="outline" className="bg-white/5 border-white/10 font-headline font-bold text-xs sm:text-sm px-2">
+                                <Badge variant="outline" className="bg-white/5 border-white/10 font-headline font-bold text-xs px-2">
                                   x{item.qty}
                                 </Badge>
                               </TableCell>
