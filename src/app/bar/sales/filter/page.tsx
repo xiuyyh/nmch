@@ -20,7 +20,14 @@ import {
   FileBarChart,
   History,
   CheckCircle2,
-  X
+  X,
+  User,
+  Clock,
+  CreditCard,
+  ArrowLeftRight,
+  ChevronDown,
+  Receipt,
+  ShoppingCart
 } from "lucide-react";
 import { 
   Table, 
@@ -30,6 +37,11 @@ import {
   TableHeader, 
   TableRow 
 } from "@/components/ui/table";
+import { 
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { useCollection, useFirestore } from "@/firebase";
 import { collection, query, orderBy, where } from "firebase/firestore";
 import { formatNigeriaTime, cn } from "@/lib/utils";
@@ -122,6 +134,15 @@ export default function SalesFilterPage() {
       transactions
     };
   }, [sales, searchItem, selectedItemName]);
+
+  const getMethodIcon = (method: string) => {
+    switch (method) {
+      case 'Card': return <CreditCard className="w-3 h-3" />;
+      case 'Cash': return <Banknote className="w-3 h-3" />;
+      case 'Transfer': return <ArrowLeftRight className="w-3 h-3" />;
+      default: return <Clock className="w-3 h-3 text-amber-500" />;
+    }
+  };
 
   const printReport = () => {
     const printWindow = window.open('', '_blank');
@@ -397,30 +418,80 @@ export default function SalesFilterPage() {
                 <div className="p-4 sm:p-8 pt-0">
                   <div className="flex items-center gap-2 mb-6">
                     <History className="w-5 h-5 text-primary" />
-                    <h3 className="text-xs font-bold text-white uppercase tracking-[0.2em]">Transaction Log</h3>
+                    <h3 className="text-xs font-bold text-white uppercase tracking-[0.2em]">Detailed Transaction Log</h3>
                   </div>
                   
-                  <div className="rounded-2xl border border-white/5 overflow-hidden">
-                    <Table>
-                      <TableHeader className="bg-white/5">
-                        <TableRow className="border-white/5 hover:bg-transparent">
-                          <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground h-10">Receipt #</TableHead>
-                          <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground h-10">Time</TableHead>
-                          <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground h-10">Point</TableHead>
-                          <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-right h-10 pr-6">Sale Total (₦)</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {report.transactions.map((sale) => (
-                          <TableRow key={sale.id} className="border-white/5 hover:bg-white/[0.03] transition-colors">
-                            <TableCell className="font-mono text-xs font-bold text-white uppercase">#{sale.id.slice(-8)}</TableCell>
-                            <TableCell className="text-xs text-muted-foreground">{formatNigeriaTime(sale.timestamp.toDate())}</TableCell>
-                            <TableCell className="text-xs font-medium text-primary uppercase">{sale.tableNumber}</TableCell>
-                            <TableCell className="text-right pr-6 font-bold text-white">₦{sale.total?.toLocaleString()}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                  <div className="space-y-4">
+                    {report.transactions.map((sale) => (
+                      <Collapsible key={sale.id} className="glass-card overflow-hidden border border-white/5 rounded-2xl group">
+                        <CollapsibleTrigger asChild>
+                          <div className="p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 cursor-pointer hover:bg-white/[0.02] transition-colors">
+                            <div className="flex items-center gap-4 flex-1">
+                              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0 group-hover:bg-primary/20 transition-colors">
+                                <Receipt className="w-5 h-5" />
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-mono text-sm font-bold text-white uppercase tracking-tight">#{sale.id.slice(-8)}</span>
+                                  <Badge variant="outline" className="h-5 text-[8px] uppercase border-primary/20 text-primary">{sale.tableNumber}</Badge>
+                                </div>
+                                <div className="flex items-center gap-3 mt-1 text-[10px] font-bold text-muted-foreground uppercase">
+                                  <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {formatNigeriaTime(sale.timestamp.toDate()).split(', ')[1]}</span>
+                                  <span className="flex items-center gap-1"><User className="w-3 h-3" /> {sale.staffName}</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-8 w-full md:w-auto">
+                              <div className="flex flex-col items-end">
+                                <span className="text-[8px] font-bold text-muted-foreground uppercase mb-1">Method</span>
+                                <div className="flex items-center gap-1.5 text-xs font-bold text-white">
+                                  {getMethodIcon(sale.method)} {sale.method}
+                                </div>
+                              </div>
+                              <div className="flex flex-col items-end">
+                                <span className="text-[8px] font-bold text-muted-foreground uppercase mb-1">Status</span>
+                                <Badge variant="outline" className={cn(
+                                  "h-5 text-[8px] uppercase px-1.5",
+                                  sale.status === 'Completed' ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                                )}>
+                                  {sale.status}
+                                </Badge>
+                              </div>
+                              <div className="flex flex-col items-end min-w-[100px]">
+                                <span className="text-[8px] font-bold text-primary uppercase mb-1">Grand Total</span>
+                                <span className="text-xl font-headline font-bold text-white">₦{sale.total?.toLocaleString()}</span>
+                              </div>
+                              <ChevronDown className="w-5 h-5 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+                            </div>
+                          </div>
+                        </CollapsibleTrigger>
+                        
+                        <CollapsibleContent className="bg-black/40 border-t border-white/5 animate-in slide-in-from-top-2 duration-300">
+                          <div className="p-6 space-y-4">
+                            <div className="flex items-center gap-2">
+                              <ShoppingCart className="w-4 h-4 text-primary" />
+                              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Full Cart Breakdown</span>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                              {sale.items?.map((item: any, idx: number) => (
+                                <div key={idx} className="flex justify-between items-center p-3 bg-white/5 rounded-xl border border-white/5 group/item">
+                                  <div className="flex flex-col min-w-0">
+                                    <span className="text-[9px] uppercase font-bold text-muted-foreground/60">{item.category}</span>
+                                    <span className="text-xs font-bold text-white truncate">{item.name}</span>
+                                  </div>
+                                  <div className="flex items-center gap-4 shrink-0 pl-4">
+                                    <Badge variant="secondary" className="h-6 bg-white/5 border-white/10 font-bold">x{item.quantity}</Badge>
+                                    <span className="text-sm font-headline font-bold text-primary">₦{(item.price * item.quantity).toLocaleString()}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    ))}
                   </div>
                 </div>
               </div>
