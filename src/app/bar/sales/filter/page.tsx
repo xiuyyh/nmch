@@ -18,7 +18,9 @@ import {
   Loader2,
   FileText,
   FileBarChart,
-  History
+  History,
+  CheckCircle2,
+  X
 } from "lucide-react";
 import { 
   Table, 
@@ -34,12 +36,21 @@ import { formatNigeriaTime, cn } from "@/lib/utils";
 import { startOfDay, endOfDay, format } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { Badge } from "@/components/ui/badge";
 
 export default function SalesFilterPage() {
   const firestore = useFirestore();
   const [startDate, setStartDate] = useState<Date>();
   const [endDate, setEndDate] = useState<Date>();
   const [searchItem, setSearchItem] = useState("");
+  const [selectedItemName, setSelectedItemName] = useState<string | null>(null);
+
+  // Fetch Inventory for selection list
+  const inventoryQuery = useMemo(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, "inventory"), orderBy("name"));
+  }, [firestore]);
+  const { data: inventory } = useCollection(inventoryQuery);
 
   const dateRange = useMemo(() => {
     if (!startDate || !endDate) return null;
@@ -61,20 +72,33 @@ export default function SalesFilterPage() {
 
   const { data: sales, loading } = useCollection(salesQuery);
 
+  const filteredInventory = useMemo(() => {
+    if (!inventory) return [];
+    if (!searchItem) return inventory.slice(0, 10);
+    return inventory.filter(i => i.name.toLowerCase().includes(searchItem.toLowerCase())).slice(0, 10);
+  }, [inventory, searchItem]);
+
   const report = useMemo(() => {
-    if (!sales) return { totalQty: 0, totalValue: 0, items: [] };
+    if (!sales) return { totalQty: 0, totalValue: 0, items: [], transactions: [] };
 
     let qty = 0;
     let value = 0;
     const itemsMap: Record<string, { qty: number; value: number }> = {};
+    const transactions: any[] = [];
 
     sales.forEach(sale => {
       if (sale.status === "Canceled") return;
       
+      let saleHasMatch = false;
       sale.items?.forEach((item: any) => {
-        const isMatch = !searchItem || item.name?.toLowerCase().includes(searchItem.toLowerCase());
+        // If an item is selected, we only count that exact item. 
+        // If not, we filter by the text search item name.
+        const isMatch = selectedItemName 
+          ? item.name === selectedItemName 
+          : (!searchItem || item.name?.toLowerCase().includes(searchItem.toLowerCase()));
         
         if (isMatch) {
+          saleHasMatch = true;
           qty += item.quantity;
           value += (item.price * item.quantity);
 
@@ -85,14 +109,19 @@ export default function SalesFilterPage() {
           itemsMap[item.name].value += (item.price * item.quantity);
         }
       });
+
+      if (saleHasMatch) {
+        transactions.push(sale);
+      }
     });
 
     return {
       totalQty: qty,
       totalValue: value,
-      items: Object.entries(itemsMap).map(([name, data]) => ({ name, ...data }))
+      items: Object.entries(itemsMap).map(([name, data]) => ({ name, ...data })),
+      transactions
     };
-  }, [sales, searchItem]);
+  }, [sales, searchItem, selectedItemName]);
 
   const printReport = () => {
     const printWindow = window.open('', '_blank');
@@ -128,12 +157,12 @@ export default function SalesFilterPage() {
         <body>
           <div class="header">
             <h1>NIGHTINGALE HOTEL</h1>
-            <p>SALES PERIOD AUDIT</p>
+            <p>ITEM PERFORMANCE AUDIT</p>
           </div>
           
           <div class="meta-info">START: ${startDate ? format(startDate, "dd/MM/yyyy") : "N/A"}</div>
           <div class="meta-info">END: ${endDate ? format(endDate, "dd/MM/yyyy") : "N/A"}</div>
-          <div class="meta-info">FILTER: "${searchItem ? searchItem.toUpperCase() : 'GLOBAL AUDIT'}"</div>
+          <div class="meta-info">TARGET: "${selectedItemName || (searchItem ? searchItem.toUpperCase() : 'GLOBAL AUDIT')}"</div>
           
           <div style="border-bottom: 2px solid #000; margin: 10px 0;"></div>
           
@@ -181,13 +210,13 @@ export default function SalesFilterPage() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-headline font-bold uppercase tracking-tight text-white flex items-center gap-3">
-              <Filter className="w-8 h-8 text-primary" /> Sales Filter
+              <Filter className="w-8 h-8 text-primary" /> Item Audit
             </h1>
             <p className="text-muted-foreground mt-1">Audit specific item performance or global sales over custom periods.</p>
           </div>
           {report.items.length > 0 && (
             <Button onClick={printReport} className="bg-primary text-primary-foreground font-bold shadow-xl h-12 rounded-xl px-8 gap-2">
-              <Printer className="w-5 h-5" /> Print Period Audit
+              <Printer className="w-5 h-5" /> Print Audit Report
             </Button>
           )}
         </div>
@@ -247,17 +276,46 @@ export default function SalesFilterPage() {
                 </Popover>
               </div>
 
-              <div className="space-y-2">
-                <Label className="text-[10px] uppercase font-bold tracking-widest text-primary/70">Search Item (Optional)</Label>
-                <div className="relative">
-                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                   <Input 
-                    placeholder="Search name or leave empty for all" 
-                    value={searchItem} 
-                    onChange={(e) => setSearchItem(e.target.value)}
-                    className="bg-white/5 border-white/10 pl-10 h-12 rounded-xl font-bold" 
-                   />
-                </div>
+              <div className="space-y-2 relative">
+                <Label className="text-[10px] uppercase font-bold tracking-widest text-primary/70">Target Item</Label>
+                {selectedItemName ? (
+                  <div className="flex items-center justify-between h-12 px-4 bg-primary/10 border border-primary/30 rounded-xl animate-in zoom-in-95 duration-200">
+                    <div className="flex items-center gap-2 overflow-hidden">
+                      <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
+                      <span className="font-bold text-sm text-white truncate uppercase">{selectedItemName}</span>
+                    </div>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/10" onClick={() => setSelectedItemName(null)}>
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input 
+                      placeholder="Search inventory..." 
+                      value={searchItem} 
+                      onChange={(e) => setSearchItem(e.target.value)}
+                      className="bg-white/5 border-white/10 pl-10 h-12 rounded-xl font-bold" 
+                    />
+                    {searchItem && filteredInventory.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 z-50 mt-2 bg-black border border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2">
+                        {filteredInventory.map(item => (
+                          <button
+                            key={item.id}
+                            className="w-full text-left px-4 py-3 hover:bg-white/5 text-xs font-bold uppercase transition-colors flex items-center justify-between group"
+                            onClick={() => {
+                              setSelectedItemName(item.name);
+                              setSearchItem("");
+                            }}
+                          >
+                            <span className="group-hover:text-primary">{item.name}</span>
+                            <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-40 transition-opacity" />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </CardHeader>
@@ -266,7 +324,7 @@ export default function SalesFilterPage() {
             {!dateRange ? (
               <div className="py-24 text-center flex flex-col items-center justify-center opacity-40">
                 <History className="w-16 h-16 mb-4" />
-                <h3 className="text-xl font-headline font-bold uppercase">Ready to Filter</h3>
+                <h3 className="text-xl font-headline font-bold uppercase">Configure Audit</h3>
                 <p className="text-sm italic mt-2">Select a date range to begin scanning sales records.</p>
               </div>
             ) : loading ? (
@@ -278,22 +336,23 @@ export default function SalesFilterPage() {
               <div className="py-24 text-center flex flex-col items-center justify-center opacity-40">
                 <Package className="w-16 h-16 mb-4" />
                 <h3 className="text-xl font-headline font-bold uppercase">No Matches Found</h3>
-                <p className="text-sm italic mt-2">No items matching your criteria were sold in this period.</p>
+                <p className="text-sm italic mt-2">No sales matching your criteria were found in this period.</p>
               </div>
             ) : (
               <div className="animate-in fade-in duration-500">
                 <div className="grid grid-cols-1 md:grid-cols-2 border-b border-white/5 bg-white/[0.02]">
                   <div className="p-8 border-r border-white/5 space-y-2">
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.3em]">Units Processed</span>
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.3em]">Total Quantity Sold</span>
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-primary/10 rounded-lg text-primary">
                         <Package className="w-6 h-6" />
                       </div>
                       <span className="text-5xl font-headline font-bold text-white">{report.totalQty}</span>
+                      <span className="text-sm font-bold text-muted-foreground uppercase mt-4">Units</span>
                     </div>
                   </div>
                   <div className="p-8 space-y-2">
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.3em]">Period Revenue</span>
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.3em]">Total Revenue Impact</span>
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-500">
                         <Banknote className="w-6 h-6" />
@@ -306,15 +365,15 @@ export default function SalesFilterPage() {
                 <div className="p-4 sm:p-8">
                   <div className="flex items-center gap-2 mb-6">
                     <FileBarChart className="w-5 h-5 text-primary" />
-                    <h3 className="text-xs font-bold text-white uppercase tracking-[0.2em]">Itemized Period Summary</h3>
+                    <h3 className="text-xs font-bold text-white uppercase tracking-[0.2em]">Itemized Summary</h3>
                   </div>
                   
                   <div className="rounded-2xl border border-white/5 overflow-hidden">
                     <Table>
                       <TableHeader className="bg-white/5">
                         <TableRow className="border-white/5 hover:bg-transparent">
-                          <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground h-10">Item Description</TableHead>
-                          <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-center h-10">Volume</TableHead>
+                          <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground h-10">Product Name</TableHead>
+                          <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-center h-10">Total Volume</TableHead>
                           <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-right h-10 pr-6">Total Generated (₦)</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -323,11 +382,41 @@ export default function SalesFilterPage() {
                           <TableRow key={idx} className="border-white/5 hover:bg-white/[0.03] transition-colors h-14">
                             <TableCell className="font-bold text-white uppercase text-xs">{item.name}</TableCell>
                             <TableCell className="text-center">
-                              <Badge variant="outline" className="bg-white/5 border-white/10 font-headline font-bold">x{item.qty}</Badge>
+                              <Badge variant="outline" className="bg-white/5 border-white/10 font-headline font-bold text-sm px-3">x{item.qty}</Badge>
                             </TableCell>
-                            <TableCell className="text-right pr-6 font-headline font-bold text-primary text-base">
+                            <TableCell className="text-right pr-6 font-headline font-bold text-primary text-lg">
                               ₦{item.value.toLocaleString()}
                             </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+
+                <div className="p-4 sm:p-8 pt-0">
+                  <div className="flex items-center gap-2 mb-6">
+                    <History className="w-5 h-5 text-primary" />
+                    <h3 className="text-xs font-bold text-white uppercase tracking-[0.2em]">Transaction Log</h3>
+                  </div>
+                  
+                  <div className="rounded-2xl border border-white/5 overflow-hidden">
+                    <Table>
+                      <TableHeader className="bg-white/5">
+                        <TableRow className="border-white/5 hover:bg-transparent">
+                          <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground h-10">Receipt #</TableHead>
+                          <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground h-10">Time</TableHead>
+                          <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground h-10">Point</TableHead>
+                          <TableHead className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-right h-10 pr-6">Sale Total (₦)</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {report.transactions.map((sale) => (
+                          <TableRow key={sale.id} className="border-white/5 hover:bg-white/[0.03] transition-colors">
+                            <TableCell className="font-mono text-xs font-bold text-white uppercase">#{sale.id.slice(-8)}</TableCell>
+                            <TableCell className="text-xs text-muted-foreground">{formatNigeriaTime(sale.timestamp.toDate())}</TableCell>
+                            <TableCell className="text-xs font-medium text-primary uppercase">{sale.tableNumber}</TableCell>
+                            <TableCell className="text-right pr-6 font-bold text-white">₦{sale.total?.toLocaleString()}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
